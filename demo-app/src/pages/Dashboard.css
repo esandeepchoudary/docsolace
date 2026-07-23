@@ -37,7 +37,15 @@
   color: var(--text-h);
 }
 
-.filters-toggle {
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.filters-toggle,
+.export-button {
   padding: 8px 16px;
   background: var(--primary);
   color: #fff;
@@ -48,8 +56,15 @@
   cursor: pointer;
 }
 
-.filters-toggle:hover {
+.filters-toggle:hover,
+.export-button:hover {
   background: var(--primary-hover);
+}
+
+.export-confirmation {
+  font-size: 13px;
+  color: var(--success-text);
+  font-weight: 600;
 }
 
 .filters-panel {

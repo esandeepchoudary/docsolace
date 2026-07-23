@@ -25,8 +25,9 @@ order, and `CLAUDE.md` for project conventions.
 - **Phase 6** — hardening (stretch): done. Multi-viewport capture,
   config-wide default masks, a visual-diff review report, and a guard
   against overwriting human edits made outside the keep-region.
-- **Phase 7** — assisted tour discovery: scoped in the brief, not built —
-  tours stay hand-authored for now.
+- **Phase 7** — assisted tour discovery: done. `/document propose` +
+  `tour-scout` draft a candidate tour by driving the app; a human still
+  reviews and confirms before it's real.
 
 ## Layout
 
@@ -43,7 +44,7 @@ autodocs.config.yaml       Base URL, viewport, auth profiles, seed fixtures, pix
 docs/                      Generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
-plugin/                    Claude Code plugin: /document skill + doc-scribe subagent
+plugin/                    Claude Code plugin: /document skill + doc-scribe + tour-scout subagents
 .mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
                            (capture.mjs drives Playwright directly, not through MCP)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
@@ -163,8 +164,21 @@ claude plugin init autodocs-dev            # scaffolds ~/.claude/skills/autodocs
 # or symlink them, and restart Claude Code — /document becomes available.
 ```
 
-Tours are hand-authored, not auto-discovered — see the "Tour and doc-generation
+Tours are hand-authored by default — see the "Tour and doc-generation
 conventions" section in `CLAUDE.md`. `.mcp.json` wires up Playwright MCP at
 the project level for *interactively* authoring a new tour with a human at
-the keyboard; the automated pipeline drives Playwright directly and never
-goes through MCP.
+the keyboard; the automated pipeline (capture, drift, generation) drives
+Playwright directly and never goes through MCP.
+
+### Assisted tour discovery (Phase 7)
+
+`/document propose <slug> "<description>"` drafts a candidate tour instead of
+running the normal pipeline: it computes candidate `code_paths` from `git
+diff`, then dispatches the `tour-scout` subagent, which drives the app via
+Playwright MCP and writes `tours/<slug>.yaml` grounded in what it actually
+finds — `status: proposed`, `maturity: draft`, so neither the drift gate nor
+the normal `/document` run treats it as real. Review the steps/selectors,
+fill in anything left as a TODO (seed fixtures, masking — tour-scout won't
+guess those), and flip `status: confirmed` yourself. See
+`tours/dashboard-export.yaml` for a worked example (drafted, reviewed, and
+confirmed the same way an assisted proposal would be).

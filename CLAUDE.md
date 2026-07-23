@@ -72,13 +72,15 @@ told otherwise.
 - When you finish implementing a new user-facing feature or flow (in a
   project with this plugin installed), before wrapping up: ask the user
   whether it's worth a tutorial. Don't silently decide either way.
-- If yes, propose a draft tour — `tours/<slug>.yaml` with `status: proposed`
-  and `maturity: draft` — for the user to review and edit (selectors,
-  masking, intent), rather than writing a finished tour yourself. Never set
-  `status: confirmed` yourself; that's the user's call.
-- This is a lightweight prompt-and-stub routine, not the full auto-discovery
-  engine scoped as Phase 7 in the brief (that would infer candidate steps by
-  driving the app, which isn't built).
+- If yes, run `/document propose <slug> "<description>"` — this dispatches
+  the `tour-scout` subagent, which actually drives the app via Playwright MCP
+  and drafts `tours/<slug>.yaml` grounded in what it really finds (`status:
+  proposed`, `maturity: draft`). Don't hand-write the tour yourself; that
+  exploration is tour-scout's job, same "never invent UI" discipline as
+  doc-scribe.
+- Never set `status: confirmed` yourself — report what was drafted and what
+  tour-scout was unsure about, and let the user review/edit before they flip
+  it. This is Phase 7 ("assisted tour discovery") in the brief.
 
 ## Tour and doc-generation conventions
 
@@ -110,12 +112,11 @@ told otherwise.
 - Tours are hand-authored (`tours/*.yaml`). Nothing crawls the app to invent
   a full tour set on install — Playwright MCP (`.mcp.json`, project-scoped)
   exists for *interactively* authoring a new tour with a human at the
-  keyboard. A tour's `status` (default `confirmed`) is separate from its
-  `maturity`: `status: proposed` means a tour was suggested (by the
-  tutorial-need routine below, or by hand) but not yet reviewed — the drift
-  gate and `/document` both skip it, same as `maturity: draft`, until a human
-  flips it to `confirmed`. See Phase 7 in the brief for the (unbuilt) full
-  auto-discovery design.
+  keyboard, either by hand or via `/document propose` + `tour-scout` (Phase
+  7 — see below). A tour's `status` (default `confirmed`) is separate from
+  its `maturity`: `status: proposed` means a tour was suggested but not yet
+  reviewed — the drift gate and `/document` both skip it, same as `maturity:
+  draft`, until a human flips it to `confirmed`.
 
 ## Reference
 - `autodocs-implementation-brief.md` — full architecture, phases, acceptance
