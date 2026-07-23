@@ -57,4 +57,35 @@ steps:
     const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - action: fly\n');
     expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
   });
+
+  it('throws when the requested tour id contains path-traversal characters', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tours-test-'));
+    tmpDirs.push(dir);
+    expect(() => loadTour(dir, '../../etc/passwd')).toThrow(/invalid/);
+    expect(() => loadTour(dir, '../../etc/passwd')).toThrow(/kebab-case/);
+  });
+
+  it('throws when the YAML body\'s own "id" field is not a safe slug', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: "../../escape"\nsteps:\n  - action: goto\n    path: /demo\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/kebab-case/);
+  });
+
+  it('throws when a goto step targets an absolute URL instead of a site-relative path', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: goto\n    path: "https://evil.example/phish"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/site-relative/);
+  });
+
+  it('throws when a goto step targets a protocol-relative URL', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: goto\n    path: "//evil.example/phish"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/site-relative/);
+  });
 });
