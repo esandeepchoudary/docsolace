@@ -50,8 +50,19 @@ auth:
     successUrlPattern: "**/dashboard"
 
 # Named seed fixtures referenced by tours' preconditions.seed. The demo app
-# has no seeding API — its demo data is static — so these are documentation
-# only for now; a real target app would wire this to a fixture-loading step.
+# has no seeding API — its demo data is static — so this one has no command
+# and capture.mjs treats it as a no-op. A real target app can add a
+# "command" (e.g. a script that resets/seeds its database) that capture.mjs
+# runs before the tour — but only when allowSeedCommands (below) is true.
 seeds:
   demo-baseline:
     description: "Static demo data baked into the demo app; no seeding step required."
+    # command: "npm run db:seed -- --fixture=baseline"
+
+# Off by default on purpose: a seed's "command" is config, and config is
+# exactly as reachable by an unreviewed change as tour YAML is (both are
+# project files a PR could touch) — CLAUDE.md says treat both as untrusted
+# input for anything that shells out. Flip this to true only once you trust
+# every seed command declared above; capture.mjs also accepts
+# --allow-seed-commands as a one-off override without changing this file.
+allowSeedCommands: false

@@ -5,26 +5,71 @@
 // SHA-256 per viewport, computed on the masked screenshot.
 import fs from 'node:fs';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
 import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { sha256Buffer, buildManifest, saveManifestEntry } from './lib/manifest.mjs';
 import { mergeMasks } from './lib/masking.mjs';
+import { resolveSeed } from './lib/seed.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
 const MASK_COLOR = '#FF00FF';
+const SEED_COMMAND_TIMEOUT_MS = 2 * 60 * 1000; // generous, but bounded — a hung seed script shouldn't hang capture
 
 function parseArgs(argv) {
-  const args = {};
+  const args = { allowSeedCommands: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--tour') args.tour = argv[i + 1];
+    if (argv[i] === '--allow-seed-commands') args.allowSeedCommands = true;
   }
   if (!args.tour) {
-    console.error('Usage: capture.mjs --tour <tour-id>');
+    console.error('Usage: capture.mjs --tour <tour-id> [--allow-seed-commands]');
     process.exit(1);
   }
   return args;
+}
+
+// Executes a seed's command (config-authored, see lib/seed.mjs's comment on
+// why that's the trust boundary) in the project's own directory, streaming
+// its output directly rather than buffering it, with a bounded timeout so a
+// hung seed script can't hang capture indefinitely.
+function runSeedCommand(command) {
+  const result = spawnSync(command, { cwd: process.cwd(), shell: true, stdio: 'inherit', timeout: SEED_COMMAND_TIMEOUT_MS });
+  if (result.error) {
+    throw new Error(`Seed command failed to start: ${result.error.message}`);
+  }
+  if (result.signal) {
+    throw new Error(
+      `Seed command was killed by signal ${result.signal} (it may have exceeded the ` +
+        `${SEED_COMMAND_TIMEOUT_MS}ms timeout).`,
+    );
+  }
+  if (result.status !== 0) {
+    throw new Error(`Seed command exited with status ${result.status}.`);
+  }
+}
+
+// Applies a tour's preconditions.seed, if it has one, before anything else
+// runs. Data seeding doesn't need a browser, so this happens before
+// launching one — a failed or disabled seed is cheaper to fail fast on here.
+function applySeed(config, seedId, { allowSeedCommands }) {
+  const resolution = resolveSeed(config, seedId, { allowSeedCommands });
+  switch (resolution.action) {
+    case 'error':
+      throw new Error(resolution.message);
+    case 'noop':
+    case 'skipped-disabled':
+      console.log(resolution.message);
+      return;
+    case 'run':
+      console.log(resolution.message);
+      runSeedCommand(resolution.command);
+      return;
+    default:
+      throw new Error(`Unknown seed resolution action "${resolution.action}"`);
+  }
 }
 
 function primaryViewport(config) {
@@ -165,9 +210,15 @@ async function runTour(browser, config, tour) {
 }
 
 async function main() {
-  const { tour: tourId } = parseArgs(process.argv.slice(2));
+  const { tour: tourId, allowSeedCommands } = parseArgs(process.argv.slice(2));
   const config = loadConfig('autodocs.config.yaml');
   const tour = loadTour('tours', tourId);
+
+  if (tour.preconditions?.seed) {
+    applySeed(config, tour.preconditions.seed, {
+      allowSeedCommands: allowSeedCommands || config.allowSeedCommands === true,
+    });
+  }
 
   const browser = await chromium.launch({ args: config.launchArgs ?? [] });
   try {
