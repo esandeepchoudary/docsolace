@@ -67,6 +67,16 @@ told otherwise.
   name only), and validate/sandbox anything that shells out or reads
   arbitrary paths. Give Phase 4 (plugin packaging, new execution surface)
   and Phase 5 (CI/CD) a security pass before considering them done.
+- **Seed commands are the one place `capture.mjs` shells out to
+  config-authored content**, so they're opt-in only: a tour's
+  `preconditions.seed` just names a seed id; the actual `command` a seed can
+  declare lives in `autodocs.config.yaml`'s `seeds` map (`scripts/lib/seed.mjs`'s
+  `resolveSeed`), and even then only runs when `allowSeedCommands: true` (or
+  `--allow-seed-commands`) — default off, so a freshly cloned project can
+  never execute a command on its first capture just because a seed declares
+  one. When adding anything that shells out, follow this same shape: put the
+  actual command behind an explicit, default-off opt-in, never infer consent
+  from a file merely existing.
 
 ### Tutorial-need check
 - When you finish implementing a new user-facing feature or flow (in a
