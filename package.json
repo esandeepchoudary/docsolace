@@ -7,6 +7,7 @@
     "capture": "node plugin/scripts/capture.mjs",
     "generate-docs": "node plugin/scripts/generate-docs.mjs",
     "drift": "node plugin/scripts/drift.mjs",
+    "validate": "node plugin/scripts/validate.mjs",
     "review-diffs": "node plugin/scripts/review-diffs.mjs",
     "test": "vitest run"
   },
