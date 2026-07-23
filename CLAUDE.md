@@ -93,7 +93,14 @@ told otherwise.
   get described, no matter how plausible it would be for this kind of page.
 - **Surgical updates**: regenerating a tour's page only touches that page;
   content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` is
-  human-owned and must survive every regeneration untouched.
+  human-owned and must survive every regeneration untouched. If a human edits
+  a page *outside* that region, `generate-docs.mjs` detects it (a hash
+  mismatch against the last generation) and refuses to overwrite it silently
+  — don't work around that with `--force` in an automated context; a human
+  needs to look at it.
+- Before a docs PR goes out, run `npm run review-diffs` and look at the
+  report — it's the only place you can see *what* a screenshot update
+  actually changed before it's pushed.
 - Tours are hand-authored (`tours/*.yaml`). Nothing crawls the app to invent
   a full tour set on install — Playwright MCP (`.mcp.json`, project-scoped)
   exists for *interactively* authoring a new tour with a human at the

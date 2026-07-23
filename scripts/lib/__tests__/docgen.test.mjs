@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyKeepRegion, extractKeepRegion, renderTourPage } from '../docgen.mjs';
+import { applyKeepRegion, extractKeepRegion, nonKeepContent, renderTourPage } from '../docgen.mjs';
 
 describe('renderTourPage', () => {
   const page = renderTourPage({
@@ -83,6 +83,30 @@ describe('extractKeepRegion', () => {
   it('extracts trimmed content between the markers', () => {
     const md = '# Page\n\n<!-- autodocs:keep -->\n  Some human note.  \n<!-- /autodocs:keep -->\n';
     expect(extractKeepRegion(md)).toBe('Some human note.');
+  });
+});
+
+describe('nonKeepContent', () => {
+  it('removes the entire keep-region block, markers included', () => {
+    const md = '# Page\n\nBody text.\n\n<!-- autodocs:keep -->\nA human note.\n<!-- /autodocs:keep -->\n';
+    const stripped = nonKeepContent(md);
+    expect(stripped).toContain('# Page');
+    expect(stripped).toContain('Body text.');
+    expect(stripped).not.toContain('A human note.');
+    expect(stripped).not.toContain('autodocs:keep');
+  });
+
+  it('is unaffected by changes to keep-region content alone', () => {
+    const base = '# Page\n\nBody.\n\n<!-- autodocs:keep -->\n%NOTE%\n<!-- /autodocs:keep -->\n';
+    const withNoteA = base.replace('%NOTE%', 'Note A');
+    const withNoteB = base.replace('%NOTE%', 'Note B');
+    expect(nonKeepContent(withNoteA)).toBe(nonKeepContent(withNoteB));
+  });
+
+  it('changes when body content outside the keep-region changes', () => {
+    const md1 = '# Page\n\nBody one.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
+    const md2 = '# Page\n\nBody two.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
+    expect(nonKeepContent(md1)).not.toBe(nonKeepContent(md2));
   });
 });
 
