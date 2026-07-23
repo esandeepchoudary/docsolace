@@ -101,4 +101,40 @@ describe('loadConfig', () => {
     );
     expect(() => loadConfig(filePath)).toThrow(/auth profile "broken"/);
   });
+
+  it('accepts a seed with only a description and no command', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'seeds:\n  demo-baseline:\n    description: "Static demo data."\n',
+    );
+    expect(loadConfig(filePath).seeds['demo-baseline']).toEqual({ description: 'Static demo data.' });
+  });
+
+  it('accepts a seed with a command', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'seeds:\n  fixture:\n    description: "x"\n    command: "npm run seed"\n',
+    );
+    expect(loadConfig(filePath).seeds.fixture.command).toBe('npm run seed');
+  });
+
+  it('throws when seeds is not a map', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'seeds: "not-a-map"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"seeds" must be a map/);
+  });
+
+  it('throws when a seed command is an empty string', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'seeds:\n  fixture:\n    command: ""\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/seed "fixture".*"command"/);
+  });
+
+  it('accepts allowSeedCommands as a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'allowSeedCommands: true\n');
+    expect(loadConfig(filePath).allowSeedCommands).toBe(true);
+  });
+
+  it('throws when allowSeedCommands is not a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'allowSeedCommands: "yes"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"allowSeedCommands" must be a boolean/);
+  });
 });

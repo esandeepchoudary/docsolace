@@ -231,6 +231,31 @@ directly — no scripted login is ever attempted for it. Verified this really
 skips the scripted path, not just that it doesn't error: ran it against a
 profile with none of the username/password fields set at all.
 
+### Reproducible data with seeds
+
+A tour's `preconditions.seed` names a fixture — declared under
+`autodocs.config.yaml`'s `seeds` map — so a data-dependent flow captures
+against the same data every run instead of whatever happens to be there.
+Most apps don't need anything to actually *run*: static/demo data (like this
+repo's own `demo-baseline`) just needs a `description` and capture treats it
+as a no-op. If your app needs an actual reset/seed step, give the fixture a
+`command`:
+
+```yaml
+seeds:
+  demo-baseline:
+    description: "Resets the app's database to a known fixture."
+    command: "npm run db:seed -- --fixture=baseline"
+```
+
+That command **won't run** until you explicitly opt in with
+`allowSeedCommands: true` in the config (or `--allow-seed-commands` on
+`capture`) — off by default, on purpose: a seed's command is config, and
+config is exactly as reachable by an unreviewed change as tour YAML is, so
+running it should never be implied just because it's declared. With the gate
+off, a tour naming a seed that has a command still captures fine — it just
+skips the command and tells you so.
+
 ## Publishing a docs site
 
 The fastest path is **`/autodocs:document init-site`** (see "Use it in your
