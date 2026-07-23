@@ -21,15 +21,24 @@ the first time `/document` has run here. Before anything else:
 
 1. Ask the user for the app's local base URL (e.g. `http://localhost:3000`)
    — don't guess a port.
-2. Write a minimal `autodocs.config.yaml` at the project root: that
-   `baseUrl`, a `viewports` map with one `desktop` entry (`1280x800`), and
-   `outputDir: .autodocs/artifacts`. Point them at this plugin's own
-   `autodocs.config.yaml` (in the AutoDocs repo, or `${CLAUDE_PLUGIN_ROOT}`'s
-   reference copy if bundled) as an annotated example for adding
-   `auth`/`defaultMask`/`pixelDiffThreshold` later — don't invent those
-   values now.
-3. Create an empty `tours/` directory.
-4. Tell the user plainly: there are no tours yet. The fastest way to get one
+2. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/init-project.mjs" --base-url <url>
+   ```
+   This writes a real, valid `autodocs.config.yaml` at the project root
+   (live `baseUrl`/`viewports`/`outputDir`, plus every optional section —
+   both `auth` shapes, `defaultMask`, `pixelDiffThreshold`, `seeds` — as
+   commented-out examples right there in the file, so there's no dead
+   pointer to chase down later). It also creates an empty `tours/` directory
+   with a short `tours/README.md` "what's next" pointer, and — security-
+   critical, don't skip or reimplement this by hand — merges `.autodocs/artifacts/`
+   and `.env` into the project's `.gitignore` (idempotently; safe to re-run)
+   so a live session-cookie file or scripted-login credentials can't get
+   committed by accident, plus a `.env.example` if one doesn't already
+   exist. If it reports the config already exists, this project was already
+   bootstrapped — don't overwrite it, just report that and move on to the
+   arguments below.
+3. Tell the user plainly: there are no tours yet. The fastest way to get one
    is `/document propose <slug> "<description>"` after implementing a
    feature — see Phase 7 in this plugin's design. Once at least one tour is
    `confirmed` and `/document` has generated its page, `/document init-site`
