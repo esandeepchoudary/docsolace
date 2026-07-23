@@ -75,5 +75,21 @@ export function loadConfig(configPath) {
       assertValidAuthProfile(configPath, profileId, profile);
     }
   }
+  if (config.seeds !== undefined) {
+    if (typeof config.seeds !== 'object' || config.seeds === null || Array.isArray(config.seeds)) {
+      throw new Error(`autodocs config at "${configPath}": "seeds" must be a map of seed id to definition`);
+    }
+    for (const [seedId, seed] of Object.entries(config.seeds)) {
+      if (!seed || typeof seed !== 'object' || Array.isArray(seed)) {
+        throw new Error(`autodocs config at "${configPath}": seed "${seedId}" must be an object`);
+      }
+      if (seed.command !== undefined && (typeof seed.command !== 'string' || !seed.command.trim())) {
+        throw new Error(`autodocs config at "${configPath}": seed "${seedId}"'s "command" must be a non-empty string`);
+      }
+    }
+  }
+  if (config.allowSeedCommands !== undefined && typeof config.allowSeedCommands !== 'boolean') {
+    throw new Error(`autodocs config at "${configPath}": "allowSeedCommands" must be a boolean`);
+  }
   return config;
 }
