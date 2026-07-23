@@ -1,7 +1,22 @@
 import { createHash } from 'node:crypto';
+import { readJsonFile, writeFileAtomic } from './fs-atomic.mjs';
 
 export function sha256Buffer(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
+}
+
+// Shared by capture.mjs (write) and generate-docs.mjs/drift.mjs (read) so
+// none of the three can drift on how manifest.json is read, missing-file
+// handling, or corrupt-JSON error messages.
+export function loadManifest(manifestPath) {
+  return readJsonFile(manifestPath, {});
+}
+
+export function saveManifestEntry(manifestPath, manifest) {
+  const existing = loadManifest(manifestPath);
+  existing[manifest.tourId] = manifest;
+  writeFileAtomic(manifestPath, JSON.stringify(existing, null, 2));
+  return existing;
 }
 
 export function buildManifest(tourId, captures, generatedAt = new Date().toISOString()) {

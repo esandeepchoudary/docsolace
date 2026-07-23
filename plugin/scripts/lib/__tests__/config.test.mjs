@@ -48,4 +48,57 @@ describe('loadConfig', () => {
     const filePath = writeTmpYaml(VALID_BASE + 'viewports: {}\n');
     expect(() => loadConfig(filePath)).toThrow(/viewports/);
   });
+
+  it('throws when a viewport is missing numeric width/height', () => {
+    const filePath = writeTmpYaml(VALID_BASE + 'viewports:\n  desktop:\n    width: 1280\n');
+    expect(() => loadConfig(filePath)).toThrow(/viewport "desktop"/);
+  });
+
+  it('throws when pixelDiffThreshold is out of range', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'pixelDiffThreshold: 1.5\n');
+    expect(() => loadConfig(filePath)).toThrow(/pixelDiffThreshold/);
+  });
+
+  it('accepts a valid pixelDiffThreshold', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'pixelDiffThreshold: 0.02\n');
+    expect(loadConfig(filePath).pixelDiffThreshold).toBe(0.02);
+  });
+
+  it('throws when defaultMask is not a list', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'defaultMask: ".foo"\n');
+    expect(() => loadConfig(filePath)).toThrow(/defaultMask/);
+  });
+
+  it('throws when launchArgs is not a list', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'launchArgs: "--no-sandbox"\n');
+    expect(() => loadConfig(filePath)).toThrow(/launchArgs/);
+  });
+
+  it('accepts an auth profile with only storageStatePath', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'auth:\n  sso-user:\n    storageStatePath: .auth/sso.json\n',
+    );
+    expect(loadConfig(filePath).auth['sso-user'].storageStatePath).toBe('.auth/sso.json');
+  });
+
+  it('accepts an auth profile with all scripted-login fields', () => {
+    const scripted =
+      'auth:\n  standard-user:\n' +
+      '    loginUrl: /login\n' +
+      '    usernameSelector: "#username"\n' +
+      '    passwordSelector: "#password"\n' +
+      '    submitSelector: "button"\n' +
+      '    usernameEnv: USER_ENV\n' +
+      '    passwordEnv: PASS_ENV\n' +
+      '    successUrlPattern: "**/dashboard"\n';
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + scripted);
+    expect(loadConfig(filePath).auth['standard-user'].loginUrl).toBe('/login');
+  });
+
+  it('throws when an auth profile has neither storageStatePath nor the full scripted-login set', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'auth:\n  broken:\n    loginUrl: /login\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/auth profile "broken"/);
+  });
 });

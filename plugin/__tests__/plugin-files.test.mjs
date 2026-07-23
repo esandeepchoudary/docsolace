@@ -55,6 +55,13 @@ describe('hooks/hooks.json', () => {
   it('also installs the Playwright browser the capture runner needs', () => {
     expect(command).toContain('playwright install chromium');
   });
+
+  it('guards against CLAUDE_PLUGIN_DATA/CLAUDE_PLUGIN_ROOT being unset before any rm -rf', () => {
+    expect(command).toMatch(/CLAUDE_PLUGIN_DATA:\?/);
+    expect(command).toMatch(/CLAUDE_PLUGIN_ROOT:\?/);
+    // The guards must run before the destructive rm -rf, not after.
+    expect(command.indexOf('CLAUDE_PLUGIN_DATA:?')).toBeLessThan(command.indexOf('rm -rf'));
+  });
 });
 
 describe('.mcp.json (bundled, project-scoped)', () => {
