@@ -1,6 +1,26 @@
-# AutoDocs configuration (Phase 0 — minimal)
+# AutoDocs configuration
 baseUrl: http://localhost:5173
 viewport:
   width: 1280
   height: 800
 outputDir: .autodocs/artifacts
+
+# Auth profiles referenced by tours' preconditions.auth. Storage state from a
+# successful login is cached under <outputDir>/.auth/<profile-id>.json and
+# reused across runs instead of logging in per capture.
+auth:
+  standard-user:
+    loginUrl: /login
+    usernameSelector: "#username"
+    passwordSelector: "#password"
+    submitSelector: "button[type='submit']"
+    usernameEnv: AUTODOCS_STANDARD_USER_USERNAME
+    passwordEnv: AUTODOCS_STANDARD_USER_PASSWORD
+    successUrlPattern: "**/dashboard"
+
+# Named seed fixtures referenced by tours' preconditions.seed. The demo app
+# has no seeding API — its demo data is static — so these are documentation
+# only for now; a real target app would wire this to a fixture-loading step.
+seeds:
+  demo-baseline:
+    description: "Static demo data baked into the demo app; no seeding step required."
