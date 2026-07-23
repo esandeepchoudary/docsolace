@@ -153,6 +153,14 @@ repo runs it):
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/capture.mjs" --tour <slug>
    ```
+   If this fails because a `storageStatePath` auth profile hasn't recorded a
+   session yet, the error already names the exact `save-auth-state.mjs`
+   command to run — **resolve `${CLAUDE_PLUGIN_DATA}` to its real path
+   before relaying that command**, so the user can copy it straight into
+   their own terminal (it opens a real, visible browser window — this has to
+   run somewhere with a display, not from this Bash tool). Mention the
+   `--wait-for "<url-pattern>"` flag if they'd rather it detect completion
+   automatically than wait for them to press Enter.
 
 2. **Check drift.** Run:
    ```
