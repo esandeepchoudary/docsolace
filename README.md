@@ -201,6 +201,19 @@ plugin) is for `tour-scout`'s interactive authoring only; the automated
 pipeline (capture/drift/generate) drives Playwright directly and never goes
 through MCP.
 
+### It nudges you when a feature looks worth documenting
+
+A second `SessionStart` hook gives Claude standing instructions for every
+session in a project where the plugin is installed. Before `autodocs.config.yaml`
+exists, that's just a one-line reminder that `/document` will bootstrap
+things. Once the project is set up, it's a bit more: whenever Claude finishes
+a user-facing feature or flow, it's instructed to ask you whether it's worth
+a tutorial — suggesting `/document propose <slug> "<description>"` for
+something new, or `/document <tour-id>` to resync a flow an existing
+confirmed tour already covers. It only ever *suggests*; nothing runs or gets
+marked `confirmed` without you saying so. See
+`plugin/scripts/lib/session-guidance.mjs` for the exact wording.
+
 ### Developing on the plugin itself
 
 ```bash
