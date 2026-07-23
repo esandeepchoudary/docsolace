@@ -84,6 +84,13 @@ describe('extractKeepRegion', () => {
     const md = '# Page\n\n<!-- autodocs:keep -->\n  Some human note.  \n<!-- /autodocs:keep -->\n';
     expect(extractKeepRegion(md)).toBe('Some human note.');
   });
+
+  it('throws when the page has more than one keep-region', () => {
+    const md =
+      '# Page\n\n<!-- autodocs:keep -->\nFirst.\n<!-- /autodocs:keep -->\n\nMore text.\n\n' +
+      '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
+    expect(() => extractKeepRegion(md)).toThrow(/only one is supported/);
+  });
 });
 
 describe('nonKeepContent', () => {
@@ -107,6 +114,13 @@ describe('nonKeepContent', () => {
     const md1 = '# Page\n\nBody one.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
     const md2 = '# Page\n\nBody two.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
     expect(nonKeepContent(md1)).not.toBe(nonKeepContent(md2));
+  });
+
+  it('throws when the page has more than one keep-region', () => {
+    const md =
+      '# Page\n\n<!-- autodocs:keep -->\nFirst.\n<!-- /autodocs:keep -->\n\nMore text.\n\n' +
+      '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
+    expect(() => nonKeepContent(md)).toThrow(/only one is supported/);
   });
 });
 
