@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
+import { flattenScreenshotHashes } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
 import { loadState } from './lib/state.mjs';
 
@@ -40,9 +41,7 @@ for (const fileId of tourIds) {
     continue;
   }
 
-  const currentScreenshotHashes = Object.fromEntries(
-    tourManifest.captures.map((c) => [c.name, c.sha256]),
-  );
+  const currentScreenshotHashes = flattenScreenshotHashes(tourManifest.captures);
   const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
   const previousEntry = state[tour.id];
 

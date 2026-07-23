@@ -79,9 +79,15 @@ told otherwise.
 - **Selectors**: role/accessibility locators first (`role=button[name='...']`),
   CSS only as a fallback for things with no meaningful role.
 - **Masking**: any volatile region (timestamps, avatars, live counts) must be
-  in a capture's `mask` list. Masking redacts the region from both the saved
-  screenshot and its hash — that's what keeps drift detection from firing on
-  content that changes every run regardless of real UI changes.
+  masked — either in `autodocs.config.yaml`'s `defaultMask` (applies to every
+  capture in every tour) or a capture's own `mask` list (merged with the
+  defaults). Masking redacts the region from both the saved screenshot and
+  its hash — that's what keeps drift detection from firing on content that
+  changes every run regardless of real UI changes.
+- **Viewports**: every capture is shot once per entry in `autodocs.config.yaml`'s
+  `viewports` map, same page/session — don't add per-viewport steps to a
+  tour, the capture runner already loops over all configured viewports at
+  each capture point.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.

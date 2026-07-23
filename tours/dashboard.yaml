@@ -11,16 +11,12 @@ steps:
     path: /dashboard
   - capture: dashboard-full
     description: "Full dashboard after login"
-    mask:
-      - ".timestamp"
-      - ".user-avatar"
+    # .timestamp/.user-avatar are masked globally via autodocs.config.yaml's
+    # defaultMask — no need to repeat them here.
   - action: click
     selector: "role=button[name='Filters']"
   - capture: dashboard-filters
     description: "Filter panel expanded"
-    mask:
-      - ".timestamp"
-      - ".user-avatar"
 code_paths:
   - demo-app/src/pages/Dashboard.jsx
   - demo-app/src/pages/Dashboard.css

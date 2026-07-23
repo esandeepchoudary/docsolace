@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildManifest, sha256Buffer } from '../manifest.mjs';
+import { buildManifest, flattenScreenshotHashes, sha256Buffer } from '../manifest.mjs';
 
 describe('sha256Buffer', () => {
   it('hashes an empty buffer to the well-known empty-string SHA-256', () => {
@@ -34,5 +34,32 @@ describe('buildManifest', () => {
     const manifest = buildManifest('login', []);
     expect(() => new Date(manifest.generatedAt).toISOString()).not.toThrow();
     expect(new Date(manifest.generatedAt).toISOString()).toBe(manifest.generatedAt);
+  });
+});
+
+describe('flattenScreenshotHashes', () => {
+  it('flattens per-capture, per-viewport hashes into one map', () => {
+    const captures = [
+      {
+        name: 'dashboard-full',
+        viewports: {
+          desktop: { sha256: 'aaa' },
+          mobile: { sha256: 'bbb' },
+        },
+      },
+      {
+        name: 'dashboard-filters',
+        viewports: { desktop: { sha256: 'ccc' } },
+      },
+    ];
+    expect(flattenScreenshotHashes(captures)).toEqual({
+      'dashboard-full@desktop': 'aaa',
+      'dashboard-full@mobile': 'bbb',
+      'dashboard-filters@desktop': 'ccc',
+    });
+  });
+
+  it('returns an empty object for no captures', () => {
+    expect(flattenScreenshotHashes([])).toEqual({});
   });
 });
