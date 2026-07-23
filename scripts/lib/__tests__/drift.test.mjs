@@ -101,6 +101,17 @@ describe('isTourDirty', () => {
     ).toBe(false);
   });
 
+  it('is always false for proposed tours, even if stable and never generated', () => {
+    expect(
+      isTourDirty({
+        tour: { maturity: 'stable', status: 'proposed' },
+        previousEntry: undefined,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+      }),
+    ).toBe(false);
+  });
+
   it('is dirty when there is no previous entry (never generated)', () => {
     expect(
       isTourDirty({

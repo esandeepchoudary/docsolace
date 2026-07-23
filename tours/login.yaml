@@ -2,6 +2,7 @@ id: login
 title: "Login page"
 intent: "Show what a signed-out user sees before authenticating."
 maturity: stable
+status: confirmed
 steps:
   - action: goto
     path: /login

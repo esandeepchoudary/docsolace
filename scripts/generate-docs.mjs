@@ -68,6 +68,10 @@ if (tour.maturity === 'draft') {
   console.log(`Skipping "${tour.id}": maturity is "draft" — drift gate never regenerates it.`);
   process.exit(0);
 }
+if (tour.status === 'proposed') {
+  console.log(`Skipping "${tour.id}": status is "proposed" — needs human review before it's real.`);
+  process.exit(0);
+}
 
 const dirty = isTourDirty({
   tour,
