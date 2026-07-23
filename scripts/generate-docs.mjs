@@ -8,6 +8,9 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, renderTourPage } from './lib/docgen.mjs';
+import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
+import { loadState, saveTourState } from './lib/state.mjs';
+import { pixelDiffRatio } from './lib/pixel-diff.mjs';
 
 const PARAGRAPHS = {
   login: {
@@ -54,6 +57,31 @@ if (!paragraphs) {
   throw new Error(`No grounded paragraphs authored for tour "${tourId}" in PARAGRAPHS map.`);
 }
 
+const statePath = path.join(config.outputDir, 'state.json');
+const currentScreenshotHashes = Object.fromEntries(
+  tourManifest.captures.map((c) => [c.name, c.sha256]),
+);
+const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
+const previousEntry = loadState(statePath)[tour.id];
+
+if (tour.maturity === 'draft') {
+  console.log(`Skipping "${tour.id}": maturity is "draft" — drift gate never regenerates it.`);
+  process.exit(0);
+}
+
+const dirty = isTourDirty({
+  tour,
+  previousEntry,
+  currentScreenshotHashes,
+  currentCodePathsHash,
+});
+
+if (!dirty) {
+  console.log(`"${tour.id}" is unchanged since the last generation — skipping.`);
+  process.exit(0);
+}
+
+const pixelDiffThreshold = config.pixelDiffThreshold ?? 0.005;
 const imagesDir = path.join('docs', 'images', tour.id);
 fs.mkdirSync(imagesDir, { recursive: true });
 
@@ -69,8 +97,14 @@ const steps = tour.steps
       throw new Error(`No grounded paragraph authored for capture "${step.capture}"`);
     }
 
+    const newCapturePath = path.join(config.outputDir, captureEntry.png);
     const destPath = path.join(imagesDir, `${step.capture}.png`);
-    fs.copyFileSync(path.join(config.outputDir, captureEntry.png), destPath);
+    const diffRatio = pixelDiffRatio(destPath, newCapturePath);
+    if (diffRatio >= pixelDiffThreshold) {
+      fs.copyFileSync(newCapturePath, destPath);
+    } else {
+      console.log(`  - ${step.capture}: pixel diff ${(diffRatio * 100).toFixed(3)}% below threshold, keeping committed image`);
+    }
 
     return {
       description: step.description,
@@ -91,5 +125,9 @@ const finalMarkdown = applyKeepRegion(newMarkdown, previousMarkdown);
 
 fs.mkdirSync('docs', { recursive: true });
 fs.writeFileSync(docPath, finalMarkdown);
+saveTourState(statePath, tour.id, {
+  screenshotHashes: currentScreenshotHashes,
+  codePathsHash: currentCodePathsHash,
+});
 
 console.log(`Generated ${docPath}`);
