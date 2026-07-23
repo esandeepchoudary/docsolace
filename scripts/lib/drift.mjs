@@ -32,8 +32,12 @@ export function computeCodePathsHash(codePaths, cwd = process.cwd()) {
 // A tour is dirty if it has never been generated, or if either its
 // screenshot hashes or its code_paths hash changed since the last generation.
 // `draft` tours are never dirty — they're skipped by the gate entirely.
+// Neither is a `proposed` tour (an auto-suggested draft awaiting human
+// review — see Phase 7 in the brief): authorship confidence (`status`) is
+// independent of UI stability (`maturity`), and either one gates alone.
 export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, currentCodePathsHash }) {
   if (tour.maturity === 'draft') return false;
+  if (tour.status === 'proposed') return false;
   if (!previousEntry) return true;
   const hashesChanged =
     JSON.stringify(previousEntry.screenshotHashes) !== JSON.stringify(currentScreenshotHashes);

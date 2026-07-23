@@ -26,7 +26,11 @@ for (const fileId of tourIds) {
   const tour = loadTour('tours', fileId);
 
   if (tour.maturity === 'draft') {
-    console.log(`  draft   ${tour.id} (skipped by the gate)`);
+    console.log(`  draft    ${tour.id} (skipped by the gate)`);
+    continue;
+  }
+  if (tour.status === 'proposed') {
+    console.log(`  proposed ${tour.id} (awaiting human review — see Phase 7 in the brief)`);
     continue;
   }
 

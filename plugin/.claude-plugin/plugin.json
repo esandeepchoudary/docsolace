@@ -1,0 +1,8 @@
+{
+  "name": "autodocs",
+  "description": "Captures screenshots of a running app in a headless browser and generates tutorial-style docs that stay in sync with the code.",
+  "version": "0.1.0",
+  "author": {
+    "name": "AutoDocs"
+  }
+}

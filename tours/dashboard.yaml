@@ -2,6 +2,7 @@ id: dashboard-overview
 title: "Dashboard overview"
 intent: "Show a new user what the main dashboard displays and how to read it."
 maturity: stable
+status: confirmed
 preconditions:
   auth: standard-user
   seed: demo-baseline

@@ -62,6 +62,42 @@ told otherwise.
   arbitrary paths. Give Phase 4 (plugin packaging, new execution surface)
   and Phase 5 (CI/CD) a security pass before considering them done.
 
+### Tutorial-need check
+- When you finish implementing a new user-facing feature or flow (in a
+  project with this plugin installed), before wrapping up: ask the user
+  whether it's worth a tutorial. Don't silently decide either way.
+- If yes, propose a draft tour — `tours/<slug>.yaml` with `status: proposed`
+  and `maturity: draft` — for the user to review and edit (selectors,
+  masking, intent), rather than writing a finished tour yourself. Never set
+  `status: confirmed` yourself; that's the user's call.
+- This is a lightweight prompt-and-stub routine, not the full auto-discovery
+  engine scoped as Phase 7 in the brief (that would infer candidate steps by
+  driving the app, which isn't built).
+
+## Tour and doc-generation conventions
+
+- **Selectors**: role/accessibility locators first (`role=button[name='...']`),
+  CSS only as a fallback for things with no meaningful role.
+- **Masking**: any volatile region (timestamps, avatars, live counts) must be
+  in a capture's `mask` list. Masking redacts the region from both the saved
+  screenshot and its hash — that's what keeps drift detection from firing on
+  content that changes every run regardless of real UI changes.
+- **Never invent UI**: prose generation grounds strictly in the a11y snapshot
+  captured alongside each screenshot. An element not in that snapshot doesn't
+  get described, no matter how plausible it would be for this kind of page.
+- **Surgical updates**: regenerating a tour's page only touches that page;
+  content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` is
+  human-owned and must survive every regeneration untouched.
+- Tours are hand-authored (`tours/*.yaml`). Nothing crawls the app to invent
+  a full tour set on install — Playwright MCP (`.mcp.json`, project-scoped)
+  exists for *interactively* authoring a new tour with a human at the
+  keyboard. A tour's `status` (default `confirmed`) is separate from its
+  `maturity`: `status: proposed` means a tour was suggested (by the
+  tutorial-need routine below, or by hand) but not yet reviewed — the drift
+  gate and `/document` both skip it, same as `maturity: draft`, until a human
+  flips it to `confirmed`. See Phase 7 in the brief for the (unbuilt) full
+  auto-discovery design.
+
 ## Reference
 - `autodocs-implementation-brief.md` — full architecture, phases, acceptance
   criteria, and open questions.

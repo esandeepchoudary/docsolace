@@ -97,6 +97,7 @@ id: dashboard-overview
 title: "Dashboard overview"
 intent: "Show a new user what the main dashboard displays and how to read it."
 maturity: stable               # stable = kept in sync; draft = skipped until the UI settles
+status: confirmed               # confirmed = human-authored/reviewed; proposed = auto-suggested, not yet reviewed (see Phase 7)
 preconditions:
   auth: standard-user          # references an auth profile in autodocs.config
   seed: demo-baseline          # named, reproducible data fixture
@@ -126,6 +127,10 @@ Design rules:
 - `maturity` throttles churn on fast-moving UI: `draft` tours are skipped by the gate entirely, so a
   feature that's changing daily generates no doc noise until you flip it to `stable`. This is the lever
   for "development is too fast" — document a flow once it settles, not while it's still thrashing.
+- `status` (default `confirmed` if omitted) separates *authorship confidence* from `maturity`'s UI
+  stability: `proposed` marks a tour a human hasn't reviewed yet (see Phase 7 — Assisted tour
+  discovery). Neither the drift gate nor `/document` treats a `proposed` tour as real until a human
+  flips it to `confirmed`, no matter what `maturity` says.
 
 ### 5.2 Capture runner (`scripts/capture.mjs`)
 
@@ -226,6 +231,23 @@ since these details move; the notes below reflect the current model:
   opens a docs PR, with the trigger cadence read from `autodocs.config` (default: merge to main).
 - **Phase 6 — Hardening (stretch).** Multi-viewport capture, richer masking, human-edited-region
   preservation, visual-diff review UI.
+- **Phase 7 — Assisted tour discovery (future, not yet scoped for build).** Today, tours are 100%
+  hand-authored (§5.1) — nothing crawls the app or invents a tour set on install. This phase would add:
+  - A **tutorial-need routine**: after a feature is implemented (in a repo with this plugin installed),
+    prompt whether it's worth documenting, rather than silently deciding either way.
+  - If yes, **draft a candidate tour** — likely via Playwright MCP driving the app interactively (the
+    role §7 already reserves it for) plus the diff that introduced the feature — and write it with
+    `status: proposed` (§5.1) and `maturity: draft`, so neither the drift gate nor `/document` treats it
+    as real yet.
+  - A human then edits/confirms the proposed tour (selectors, masking, intent) and flips it to
+    `status: confirmed` before it enters the normal capture → drift → doc-generation loop. Auto-suggest,
+    never auto-confirm — the same "gate the expensive/unreliable step behind a human check" philosophy
+    as prose generation (§5.3) and doc PRs (§7).
+  - Open questions to resolve before building this phase: what signal triggers the prompt (a hook on
+    feature-branch PRs? a manual `/document propose <slug>`?); how much of a tour stub can be inferred
+    reliably vs. left blank for the human; how this interacts with tours added mid-development-cycle
+    (should work identically to a tour added at project start, since maturity/status are independent of
+    when a tour is created).
 
 ## 9. Acceptance criteria (definition of done, per phase)
 
