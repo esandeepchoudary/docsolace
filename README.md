@@ -14,7 +14,9 @@ build order, and `CLAUDE.md` for project conventions.
   keep-region updates): done, one tour's worth of prose so far.
 - **Phase 3** — drift gate (only dirty tours regenerate) + pixel-diff-gated
   screenshot commits: done.
-- **Phase 4+** — plugin packaging, publishing: not started.
+- **Phase 4** — plugin packaging (`/document` skill, `doc-scribe` subagent,
+  project-level Playwright MCP for interactive tour authoring): done.
+- **Phase 5+** — publishing, CI: not started.
 
 ## Layout
 
@@ -30,6 +32,9 @@ autodocs.config.yaml       Base URL, viewport, auth profiles, seed fixtures, pix
 docs/                      Generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
+plugin/                    Claude Code plugin: /document skill + doc-scribe subagent
+.mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
+                           (capture.mjs drives Playwright directly, not through MCP)
 ```
 
 ## Setup
@@ -83,3 +88,25 @@ npm run drift
 ```bash
 npm test
 ```
+
+## Plugin
+
+`plugin/` packages the pipeline as a Claude Code plugin: a `/document` skill
+that runs capture → drift check → dispatches each dirty tour to the
+`doc-scribe` subagent (isolated context, grounded strictly in that tour's a11y
+snapshot, `Read`+`Write` only) → assembles the page via `generate-docs.mjs`.
+
+To try it in this repo without a full marketplace install:
+
+```bash
+claude plugin validate ./plugin --strict   # structural check
+claude plugin init autodocs-dev            # scaffolds ~/.claude/skills/autodocs-dev/
+# then copy plugin/skills, plugin/agents, and plugin/.claude-plugin into it,
+# or symlink them, and restart Claude Code — /document becomes available.
+```
+
+Tours are hand-authored, not auto-discovered — see the "Tour and doc-generation
+conventions" section in `CLAUDE.md`. `.mcp.json` wires up Playwright MCP at
+the project level for *interactively* authoring a new tour with a human at
+the keyboard; the automated pipeline drives Playwright directly and never
+goes through MCP.

@@ -1,8 +1,9 @@
-// Phase 2: assembles docs/<tour-id>.md from a tour's captures (screenshots +
-// a11y snapshots) via scripts/lib/docgen.mjs. The PARAGRAPHS below are
-// authored prose, grounded strictly in each capture's a11y snapshot — Phase 4
-// replaces this hardcoded map with the doc-scribe subagent, which does the
-// same grounding automatically for whichever tours the drift gate marks dirty.
+// Assembles docs/<tour-id>.md from a tour's captures (screenshots + a11y
+// snapshots) via scripts/lib/docgen.mjs, gated by the drift check and the
+// pixel-diff threshold. Prose comes from whichever the `doc-scribe` subagent
+// wrote to .autodocs/artifacts/prose/<tour-id>.json (see plugin/agents/
+// doc-scribe.md); the PARAGRAPHS map below is a fallback for the two demo
+// tours so the pipeline is runnable without invoking a subagent.
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
@@ -52,10 +53,9 @@ if (!tourManifest) {
   throw new Error(`No manifest entry for tour "${tour.id}" — run \`npm run capture -- --tour ${tourId}\` first.`);
 }
 
-const paragraphs = PARAGRAPHS[tourId];
-if (!paragraphs) {
-  throw new Error(`No grounded paragraphs authored for tour "${tourId}" in PARAGRAPHS map.`);
-}
+const prosePath = path.join(config.outputDir, 'prose', `${tour.id}.json`);
+const subagentProse = fs.existsSync(prosePath) ? JSON.parse(fs.readFileSync(prosePath, 'utf8')) : {};
+const paragraphs = { ...(PARAGRAPHS[tourId] ?? {}), ...subagentProse };
 
 const statePath = path.join(config.outputDir, 'state.json');
 const currentScreenshotHashes = Object.fromEntries(
