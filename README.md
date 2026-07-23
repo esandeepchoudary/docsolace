@@ -98,6 +98,13 @@ there:
   a worked example, start to finish (this repo also happens to be its own
   best demo project — it's both the plugin source and a working AutoDocs
   project).
+- **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
+  and every tour, without launching a browser: an undefined
+  `preconditions.auth` profile is an error, an empty `code_paths` match, an
+  unrecorded `storageStatePath` session, or a non-`role=`/`text=` selector
+  are warnings. Worth running right after authoring or confirming a tour, so
+  a typo in an auth profile name surfaces immediately instead of partway
+  through a real capture.
 - **`/autodocs:document init-site`** — once you've got at least one
   confirmed, generated tour, scaffolds a Docusaurus site in your project
   reading its `docs/` folder directly. Prompt-driven, not a bundled script,
@@ -309,6 +316,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 
 | Command | What it does |
 |---|---|
+| `npm run validate` | Preflight-check config/tours (undefined auth profiles, empty `code_paths` matches, non-role selectors) without launching a browser |
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
