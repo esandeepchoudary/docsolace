@@ -76,8 +76,15 @@ Open Claude Code in whatever project you want tutorials for and run
 this is the full command (plain `/document` may also resolve if it's
 unambiguous, but `/autodocs:document` always works). **The first time**, it
 notices there's no `autodocs.config.yaml` yet, asks for your app's local base
-URL, and scaffolds a starter config plus an empty `tours/` directory — then
-tells you there's nothing to generate until a tour exists. From there:
+URL, and bootstraps the project: a real, annotated `autodocs.config.yaml`
+(every optional section — `auth`, `defaultMask`, `seeds`, etc. — included as
+commented-out examples right in the file), an empty `tours/` directory with
+a short "what's next" `tours/README.md`, a `.env.example`, and — worth
+calling out since it's easy to get wrong by hand — your project's
+`.gitignore` gets `.autodocs/artifacts/` and `.env` added automatically, so
+the session cookies and credentials those can hold never end up committed.
+Then it tells you there's nothing to generate until a tour exists. From
+there:
 
 - **`/autodocs:document`** — run the full pipeline over every tour.
 - **`/autodocs:document <tour-id>`** — just that one tour.
