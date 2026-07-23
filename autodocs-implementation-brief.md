@@ -29,6 +29,13 @@ Given any web application, produce and maintain a set of **getting-started / fea
 - publish to a docs site,
 - and run as a **reusable Claude Code plugin** that drops into any project with minimal wiring.
 
+**Audience: solo developers building their own projects.** The primary workflow is a single person
+(or Claude, working with them) running `/document` themselves — locally, whenever a feature is worth
+documenting — not a team-scale pipeline that regenerates docs automatically on every merge. That
+shapes several decisions below: CI-triggered automation (§7, §8 Phase 5) is a parked nice-to-have, not
+core; the tutorial-need routine (CLAUDE.md) is designed around one person's own workflow, prompting at
+the moment they finish a feature rather than relying on process to catch it later.
+
 ## 2. Non-goals (scope guards)
 
 - Not a full API/reference-doc generator. This is for **narrative UI tutorials**, not exhaustive
@@ -214,16 +221,19 @@ since these details move; the notes below reflect the current model:
   This lets the agent drive a real browser via the accessibility tree. (You may instead call
   Playwright directly from `capture.mjs` and reserve MCP for interactive authoring — decide in §8.)
 - **Run trigger (configurable, not hardcoded)** — the capture → gate → generate engine is identical
-  regardless of when it fires, so the trigger is just wiring set in `autodocs.config`. Cadence options,
-  noisy → stable: every commit (too churny during fast dev — avoid), **merge to main** (recommended
-  default: main is the "actually shipped" line, so docs track shipped reality, not work-in-progress),
-  release/tag only (most stable, but docs can lag main between releases), plus manual `/document` and
-  nightly as supplements. Default implementation: a CI job using `anthropics/claude-code-action`, with
-  an optional local `post-merge` hook. Keep humans in the loop via the PR — never auto-merge docs.
-- **Generation timing (one decision to make)** — run the pipeline *post-merge* (a separate docs PR
-  opens once code hits main; simpler, but a brief window exists where main has code without matching
-  docs) or *in the feature PR* (doc diff reviewed next to the code; main is never inconsistent, at the
-  cost of running on every PR push — cheap anyway, since the drift gate no-ops when no tour changed).
+  regardless of when it fires, so the trigger is just wiring set in `autodocs.config`. **Default:
+  `manual-only`** — this is a solo-developer tool, and the primary path is running `/document` (or
+  `npm run generate-docs`) yourself, when you decide a feature is worth documenting. CI-triggered
+  cadences (merge-to-main, release-tag, nightly) are supported by the same engine and the workflow file
+  exists (`.github/workflows/docs.yml`, using `anthropics/claude-code-action`) — but it's parked on
+  `workflow_dispatch` (manual trigger only) as a **nice-to-have for later**, not something built or
+  maintained as core. Flip its `on:` block back to `push: branches: [main]` if this ever becomes a
+  team project where automatic sync is worth the added cost (a real browser + a real LLM call per run)
+  and complexity. Keep humans in the loop either way — never auto-merge docs.
+- **Generation timing** — for a solo dev running things manually, this mostly doesn't apply (you decide
+  when). If the CI path is ever turned back on: *post-merge* (a separate docs PR opens once code hits
+  main; simpler, brief window where main has code without matching docs) vs. *in the feature PR* (doc
+  diff reviewed next to the code, at the cost of running on every PR push).
 - **CLAUDE.md** — record conventions: role-based selectors, masking policy, "never invent UI,"
   surgical-update rule, and the keep-region markers.
 
@@ -239,8 +249,11 @@ since these details move; the notes below reflect the current model:
   only past a pixel-diff threshold.
 - **Phase 4 — Plugin packaging.** `/document` skill + `doc-scribe` subagent + project MCP config +
   CLAUDE.md conventions. One-command install into a fresh repo.
-- **Phase 5 — Publish + CI.** Wire Docusaurus (or chosen site) and the `claude-code-action` job that
-  opens a docs PR, with the trigger cadence read from `autodocs.config` (default: merge to main).
+- **Phase 5 — Publish (done) + CI (parked, nice-to-have).** Docusaurus site wired up and serving
+  `docs/` directly — done, core deliverable. The `claude-code-action` job that opens a docs PR on a
+  cadence is *built* (`.github/workflows/docs.yml`) but deliberately parked on manual dispatch — see §7
+  and §1 — since this is a solo-developer tool where running `/document` yourself is the primary path,
+  not something a team-scale automatic pipeline is core to.
 - **Phase 6 — Hardening (stretch). Done**, all four sub-items: multi-viewport capture; config-wide
   default masks; a visual-diff review report (`npm run review-diffs` renders before/after/diff for every
   screenshot the pixel-diff gate is about to replace, before you push); and a guard against silently
@@ -277,8 +290,9 @@ since these details move; the notes below reflect the current model:
   untouched and their prose is not rewritten.
 - **P4:** Fresh repo → install plugin → `/document` runs the full loop with no manual glue beyond
   `autodocs.config` and tours.
-- **P5:** A merge to main opens a docs PR with updated pages + screenshots and a change summary; docs
-  site builds.
+- **P5:** Docs site builds (core, verified). The CI docs-PR path (merge to main → updated pages +
+  screenshots + change summary) is built and would satisfy this if ever enabled — parked on manual
+  dispatch, not exercised as part of core acceptance.
 
 ## 10. Known hazards (design against these from the start)
 

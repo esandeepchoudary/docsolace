@@ -1,14 +1,16 @@
 name: Update docs
 
-# Default run trigger per autodocs.config.yaml / the implementation brief:
-# regenerate on merge to main, opening a separate docs PR rather than
-# committing straight to main. If you change the intended cadence in
-# autodocs.config.yaml, update this `on:` block to match — GitHub Actions
-# triggers are static YAML, they can't read the config file to decide when
-# to fire.
+# PARKED as a nice-to-have, not part of the core solo-developer workflow:
+# AutoDocs is built for one person driving `/document` themselves (locally,
+# or via the tutorial-need routine in CLAUDE.md) — a team-scale "regenerate
+# automatically on every merge" pipeline isn't the primary use case, and this
+# job is heavier than it looks (spins up the real app + a real browser + an
+# LLM call per run). The logic is left intact and correct; it's just gated to
+# manual dispatch only so it never fires — and never spends API budget —
+# without someone deciding to run it. Flip the `on:` trigger back to
+# `push: branches: [main]` if this project ever grows into something where
+# automatic sync is worth the cost.
 on:
-  push:
-    branches: [main]
   workflow_dispatch: {}
 
 permissions:
