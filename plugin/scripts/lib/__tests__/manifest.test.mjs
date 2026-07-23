@@ -1,5 +1,8 @@
-import { describe, expect, it } from 'vitest';
-import { buildManifest, flattenScreenshotHashes, sha256Buffer } from '../manifest.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import { buildManifest, flattenScreenshotHashes, loadManifest, saveManifestEntry, sha256Buffer } from '../manifest.mjs';
 
 describe('sha256Buffer', () => {
   it('hashes an empty buffer to the well-known empty-string SHA-256', () => {
@@ -61,5 +64,37 @@ describe('flattenScreenshotHashes', () => {
 
   it('returns an empty object for no captures', () => {
     expect(flattenScreenshotHashes([])).toEqual({});
+  });
+});
+
+describe('loadManifest / saveManifestEntry', () => {
+  const tmpDirs = [];
+
+  afterEach(() => {
+    while (tmpDirs.length) fs.rmSync(tmpDirs.pop(), { recursive: true, force: true });
+  });
+
+  function tmpManifestPath() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-manifest-test-'));
+    tmpDirs.push(dir);
+    return path.join(dir, 'manifest.json');
+  }
+
+  it('returns an empty object when the manifest file does not exist yet', () => {
+    expect(loadManifest(tmpManifestPath())).toEqual({});
+  });
+
+  it('creates the manifest file with a single tour entry', () => {
+    const manifestPath = tmpManifestPath();
+    const manifest = buildManifest('login', [{ name: 'login-full' }], '2026-01-01T00:00:00.000Z');
+    saveManifestEntry(manifestPath, manifest);
+    expect(loadManifest(manifestPath)).toEqual({ login: manifest });
+  });
+
+  it('merges with existing entries for other tours instead of overwriting them', () => {
+    const manifestPath = tmpManifestPath();
+    saveManifestEntry(manifestPath, buildManifest('login', [], '2026-01-01T00:00:00.000Z'));
+    saveManifestEntry(manifestPath, buildManifest('dashboard', [], '2026-01-02T00:00:00.000Z'));
+    expect(Object.keys(loadManifest(manifestPath)).sort()).toEqual(['dashboard', 'login']);
   });
 });
