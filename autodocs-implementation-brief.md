@@ -212,7 +212,12 @@ Hard rules for the generator prompt:
 - **Seeded/mock data or a dedicated demo environment.** Real, live data makes every run differ and
   every screenshot "change." Provide named fixtures referenced by `preconditions.seed`.
 - **Auth**: define auth profiles that log in once and reuse Playwright **storage state**; don't log
-  in per step.
+  in per step. Two profile shapes: a scripted username/password fill
+  (`usernameSelector`/`passwordSelector`/`submitSelector`/`successUrlPattern`) for plain login forms,
+  or `storageStatePath` for everything else — OAuth, SSO, magic links, 2FA. For the latter, a human
+  logs in once, manually, in a real browser window via `save-auth-state.mjs`, and that recorded
+  session is reused directly; no login flow is ever scripted. This closes what was Open Question 2
+  below — resolved, not still open.
 - **Volatile UI**: use `mask` (see §5.1). Freeze time/animations where the app allows.
 
 ## 7. Claude Code packaging (the "reusable, easy to integrate" part)
@@ -262,6 +267,15 @@ since these details move; the notes below reflect the current model:
   the plugin, found it cached correctly, ran the hook's install command against the real cache, and
   ran the real installed `capture.mjs`/`drift.mjs`/`generate-docs.mjs` against a throwaway project
   directory with no relationship to this repo — full loop worked end to end.
+- **Publishing in a new project, and deploying it** — bootstrapping (above) gets you config + tours;
+  `/document init-site` (prompt-driven, see §7's subagent note style — not a bundled script, since
+  scaffolding-tool versions drift) scaffolds a Docusaurus site for that project's `docs/`, following
+  this repo's own proven `site/` recipe exactly, including two non-obvious, verified requirements:
+  `markdown.format: 'md'` (the default MDX parser fails on `<!-- autodocs:keep -->` comments) and
+  fixing the scaffold's default `/docs/intro` homepage link (build-fails once `docs.path` points at
+  the real `docs/` — confirmed by actually hitting this exact error in a scratch project, not assumed).
+  The README's "Deploying your docs" section covers actually publishing the built static site
+  (GitHub Pages via Docusaurus's built-in `deploy` command, or Netlify/Vercel).
 - **Run trigger (configurable, not hardcoded)** — the capture → gate → generate engine is identical
   regardless of when it fires, so the trigger is just wiring set in `autodocs.config`. **Default:
   `manual-only`** — this is a solo-developer tool, and the primary path is running `/document` (or
@@ -377,6 +391,9 @@ since these details move; the notes below reflect the current model:
 
 1. **Target app** for the first integration: which app, what stack, and its local run command + base URL?
 2. **Auth mechanism** (session cookie, OAuth, magic link, SSO)? Is there a seedable test account?
+   Answered for the demo app (scripted username/password); generalized later in §6 once the plugin
+   needed to work against *any* project's app, not just this one — `storageStatePath` covers OAuth/
+   SSO/magic-link/2FA via a manually-recorded session instead of a scripted flow.
 3. **Seed data**: is there an existing fixture/demo-seed path, or do we need to build one?
 4. **Publish target**: Docusaurus, Mintlify, Starlight, MkDocs, or an existing docs site?
 5. **Screenshot storage**: commit to git (with diff gate) or push to an artifact bucket (which)?

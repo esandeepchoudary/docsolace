@@ -112,9 +112,11 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('tours/');
   });
 
-  it("invokes bundled scripts from the plugin's data directory, not via npm run", () => {
+  it("invokes the AutoDocs pipeline from the plugin's data directory, not via npm run", () => {
     expect(body).toContain('${CLAUDE_PLUGIN_DATA}/scripts/');
-    expect(body).not.toMatch(/npm run \w/);
+    // "npm run build" is legitimate here — it's the *scaffolded site's own*
+    // build script (see "Scaffold a docs site"), not the AutoDocs pipeline.
+    expect(body).not.toMatch(/npm run (capture|drift|generate-docs)\b/);
   });
 
   it('delegates prose generation to the doc-scribe subagent, not itself', () => {
@@ -127,6 +129,20 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('draft the tour yourself');
     expect(body).toContain('status');
     expect(body).toContain('confirmed');
+  });
+
+  it('has an init-site mode that encodes the verified markdown.format fix', () => {
+    expect(frontmatter['argument-hint']).toContain('init-site');
+    expect(body).toContain('init-site');
+    // The non-obvious bug this codifies: Docusaurus's default MDX parser
+    // fails on the <!-- autodocs:keep --> comments generate-docs.mjs
+    // writes. Losing this line from the recipe silently breaks the site.
+    expect(body).toContain("markdown: { format: 'md' }");
+    expect(body.toLowerCase()).toContain('not optional');
+  });
+
+  it('scaffolds the site to read docs/ directly, not a copy', () => {
+    expect(body).toContain("docs.path: '../docs'");
   });
 });
 
