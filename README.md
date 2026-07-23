@@ -1,159 +1,127 @@
 # AutoDocs
 
-A Claude Code plugin for **solo developers**: drives a running web app in a
-headless browser, captures feature screenshots, and generates tutorial-style
-Markdown docs that stay in sync with the app. Built around one person running
-`/document` themselves whenever a feature is worth documenting — not a
-team-scale pipeline that regenerates docs automatically on every merge. See
-`autodocs-implementation-brief.md` for the full design and phased build
-order, and `CLAUDE.md` for project conventions.
+AutoDocs writes and maintains your app's tutorials for you, by actually
+using it. Instead of a human clicking through the app, taking screenshots,
+and writing "here's how the dashboard works" — which goes stale the moment
+the UI changes — AutoDocs drives a real headless browser against your
+*running* app, takes the screenshots itself, and writes grounded,
+tutorial-style docs from what it actually saw. It's built for **solo
+developers**: one person runs it themselves when a feature's worth
+documenting, not a team pipeline that fires on every merge.
 
-## Status
+It ships as a **Claude Code plugin**. New to Claude Code? It's Anthropic's
+command-line coding agent — see
+[the docs](https://docs.claude.com/en/docs/claude-code) if you want the full
+picture, but you don't need to have used it before to follow this README.
 
-- **Phase 0** — scaffold + deterministic capture proof: done.
-- **Phase 1** — tour-driven capture runner (auth, multi-step, masking, a11y
-  snapshots, manifest): done.
-- **Phase 2** — doc generator (grounded Markdown from captures, surgical
-  keep-region updates): done, one tour's worth of prose so far.
-- **Phase 3** — drift gate (only dirty tours regenerate) + pixel-diff-gated
-  screenshot commits: done.
-- **Phase 4** — plugin packaging (`/document` skill, `doc-scribe` subagent,
-  project-level Playwright MCP for interactive tour authoring): done.
-- **Phase 5** — publish (Docusaurus site serving `docs/` directly): done.
-  CI (`.github/workflows/docs.yml`) is built but parked on manual dispatch
-  — nice-to-have for later, not core for a solo-developer tool.
-- **Phase 6** — hardening (stretch): done. Multi-viewport capture,
-  config-wide default masks, a visual-diff review report, and a guard
-  against overwriting human edits made outside the keep-region.
-- **Phase 7** — assisted tour discovery: done. `/document propose` +
-  `tour-scout` draft a candidate tour by driving the app; a human still
-  reviews and confirms before it's real.
+## Prerequisites
 
-## Layout
+- **Node.js 22+** and npm (this project is built and tested against
+  Node 22.21.1; nothing here relies on anything newer).
+- **git**.
+- **Claude Code**, *only* if you want the `/document` plugin workflow
+  described later. The underlying pipeline (`npm run capture`,
+  `generate-docs`, etc.) is plain Node scripts — you can run the whole thing
+  from a terminal without Claude Code at all.
 
-```
-demo-app/                  React + Vite app used to exercise the pipeline (login + dashboard)
-tours/*.yaml               Declarative feature walks (steps, preconditions, masking)
-scripts/capture.mjs        Playwright runner: tour -> screenshots + a11y snapshots + manifest
-scripts/generate-docs.mjs  Assembles docs/<tour-id>.md from a tour's captures, gated by drift + pixel-diff
-scripts/drift.mjs          Reports which tours are dirty, without changing anything
-scripts/review-diffs.mjs   Renders a before/after/diff HTML report for pending screenshot changes
-scripts/lib/               Unit-tested helpers (config/tour loading, hashing, manifest,
-                           doc templating, drift/state, pixel-diff)
-autodocs.config.yaml       Base URL, viewport, auth profiles, seed fixtures, pixel-diff threshold
-docs/                      Generated tutorials (images + markdown); edits inside
-                           `<!-- autodocs:keep -->` blocks survive regeneration
-.autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
-plugin/                    Claude Code plugin: /document skill + doc-scribe + tour-scout subagents
-.mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
-                           (capture.mjs drives Playwright directly, not through MCP)
-site/                      Docusaurus site serving docs/ directly (no content duplication)
-.github/workflows/docs.yml CI: on merge to main, regenerates dirty tours and opens a docs PR
-```
+## Quickstart
 
-## Setup
+This repo bundles a tiny demo app (a login page + dashboard) purely so you
+can see the whole loop work before touching your own project.
+
+**Terminal 1** — install everything, then start the demo app and leave it running:
 
 ```bash
 npm install
-cp .env.example .env   # demo login credentials
+cp .env.example .env
 cd demo-app && npm install
+npm run dev              # http://localhost:5173 — leave this running
 ```
 
-## Run it
+**Terminal 2** — back in the repo root, capture a real screenshot and turn it into a tutorial:
 
 ```bash
-# start the demo app
-cd demo-app && npm run dev   # http://localhost:5173
-
-# in another terminal, capture a tour
-npm run capture -- --tour login       # public login page
-npm run capture -- --tour dashboard   # dashboard (logs in, applies filters)
-```
-
-Output lands in `.autodocs/artifacts/`: `screenshots/<tour-id>/`,
-`snapshots/<tour-id>/` (accessibility snapshots), and `manifest.json`
-(per-capture, per-viewport SHA-256, computed after masking). Every capture
-point is shot once per viewport configured in `autodocs.config.yaml`'s
-`viewports` map (desktop + mobile by default) — files are named
-`<capture>@<viewport-name>.png`.
-
-Then generate the tutorial page from those captures:
-
-```bash
+npm run capture -- --tour login
 npm run generate-docs -- --tour login
-npm run generate-docs -- --tour dashboard
+cat docs/login.md        # <- look at what it wrote
 ```
 
-Writes `docs/<tour-id>.md` + copies its screenshots into `docs/images/`. Any
-text you add inside the `<!-- autodocs:keep -->` block at the bottom of a
-page survives the next regeneration.
+That's the whole loop: a real screenshot went in, a grounded Markdown
+tutorial came out. Everything past this point is about how that works, how
+to point it at your own app, and how to run it from inside Claude Code
+instead of the terminal.
 
-`generate-docs` only regenerates a tour if it's actually changed (its
-screenshots or its `code_paths` source) since the last generation — see
-`.autodocs/artifacts/state.json`. A recaptured screenshot only replaces the
-one committed under `docs/images/` if enough pixels changed
-(`pixelDiffThreshold` in the config); otherwise the existing image is left
-alone to avoid binary git churn. To see what's dirty without generating
-anything:
+## How it works
 
-```bash
-npm run drift
-```
+Four stages, run in order:
 
-Before pushing a docs change, review exactly what screenshots would be
-replaced:
+1. **Capture** (`npm run capture`) — a **tour** is a YAML file describing one
+   feature walk: which pages to visit, what to click, and where to take
+   screenshots. AutoDocs reads a tour and actually drives a headless browser
+   through it against your running app — no fixtures, no mocked-up
+   walkthrough, the real thing. Every screenshot is taken at every viewport
+   size you've configured (desktop + mobile by default), and every
+   screenshot comes with an accessibility snapshot of the page at that
+   moment — a structured description of what's really on screen, which
+   becomes the "ground truth" for step 3.
+2. **Drift check** (`npm run drift`) — comparing this capture against the
+   last one, has anything actually changed? If a tour's screenshots and
+   underlying source code are both unchanged, there's nothing to
+   regenerate — skip it. This is what keeps the pipeline cheap: the
+   expensive step (3) only runs for tours that actually changed.
+3. **Generate** (`npm run generate-docs`) — for anything the drift check
+   flagged, write the tutorial prose. This step is **grounded**: it
+   describes only what's actually in the accessibility snapshot from step 1,
+   never anything invented or guessed, however plausible-sounding. Any text
+   you hand-write inside a page's `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->`
+   block (a **keep-region**) is preserved untouched across every future
+   regeneration — it's yours, not the tool's.
+4. **Publish** — the generated Markdown lives in `docs/`, viewable as-is or
+   served through the bundled Docusaurus site (see below).
 
-```bash
-npm run review-diffs   # writes .autodocs/artifacts/diff-report.html
-```
+## Using it on your own project
 
-If someone hand-edits a page outside its `<!-- autodocs:keep -->` region,
-the next `generate-docs` run stops with an error instead of silently
-overwriting it — move the edit into the keep-region, or re-run with
-`--force` to overwrite deliberately.
+Two things to set up, both by example in this repo:
 
-## Test
+- **`autodocs.config.yaml`** — your app's `baseUrl`, the `viewports` to
+  capture at, and (if pages need to be signed in) an `auth` profile. See the
+  comments in this repo's own `autodocs.config.yaml` for every field.
+- **`tours/*.yaml`** — one file per feature walk. `tours/login.yaml` is the
+  simplest real example in this repo:
 
-```bash
-npm test
-```
+  ```yaml
+  id: login
+  title: "Login page"
+  intent: "Show what a signed-out user sees before authenticating."
+  maturity: stable      # draft = still churning, skipped until you flip it
+  status: confirmed     # confirmed = ready to use (see "Using the Claude Code plugin" below)
+  steps:
+    - action: goto
+      path: /login
+    - capture: login-full
+      description: "Login form, signed out"
+  code_paths:            # source that, if it changes, means this tour is dirty
+    - demo-app/src/pages/Login.jsx
+    - demo-app/src/pages/Login.css
+  ```
 
-## Docs site
+  `tours/dashboard.yaml` shows a fuller example: signing in, clicking things,
+  and masking volatile content (timestamps, avatars) so it doesn't cause
+  false "changed" results. Prefer role-based selectors
+  (`role=button[name='...']`) over CSS — they're far less flaky.
 
-`site/` is a Docusaurus site configured to read the repo's `docs/` folder
-directly (`path: '../docs'` in `docusaurus.config.js`) — no copying, no
-second source of truth. It treats docs as plain CommonMark
-(`markdown.format: 'md'`), since the `<!-- autodocs:keep -->` comments
-`generate-docs.mjs` writes aren't valid MDX (Docusaurus's default parser).
+## Using the Claude Code plugin
 
-```bash
-cd site && npm install
-npm start           # dev server with live reload
-npm run build       # static build into site/build/
-```
+Two Claude Code concepts, in one sentence each, if you haven't met them
+before: a **skill** is a `/command` that packages up a multi-step procedure;
+a **subagent** is a separate Claude instance a skill can hand off a
+sub-task to, so that sub-task's back-and-forth doesn't clutter your main
+conversation.
 
-## CI (parked — nice-to-have, not core)
-
-AutoDocs is built for a solo developer running `/document` themselves, not a
-team-scale auto-sync pipeline — so `.github/workflows/docs.yml` exists and
-works, but is parked on manual dispatch (`workflow_dispatch`) rather than
-firing on every push. Trigger it manually from the Actions tab (or `gh
-workflow run docs.yml`) when you want it: captures all tours, checks drift,
-and — only if something's actually dirty — runs the same procedure as the
-`/document` skill and opens a PR via `peter-evans/create-pull-request`.
-Requires an `ANTHROPIC_API_KEY` repo secret. Never auto-merges.
-
-If this ever grows into a team project where automatic sync on merge is
-worth the cost (a real browser + a real LLM call per run), flip the `on:`
-block back to `push: branches: [main]` and update
-`autodocs.config.yaml`'s `runTrigger` to match.
-
-## Plugin
-
-`plugin/` packages the pipeline as a Claude Code plugin: a `/document` skill
-that runs capture → drift check → dispatches each dirty tour to the
-`doc-scribe` subagent (isolated context, grounded strictly in that tour's a11y
-snapshot, `Read`+`Write` only) → assembles the page via `generate-docs.mjs`.
+`plugin/` packages AutoDocs as exactly that: a `/document` skill that runs
+capture → drift check → hands each changed tour to the `doc-scribe`
+subagent (which writes the grounded prose, in its own isolated context) →
+assembles the final page.
 
 To try it in this repo without a full marketplace install:
 
@@ -164,21 +132,113 @@ claude plugin init autodocs-dev            # scaffolds ~/.claude/skills/autodocs
 # or symlink them, and restart Claude Code — /document becomes available.
 ```
 
-Tours are hand-authored by default — see the "Tour and doc-generation
-conventions" section in `CLAUDE.md`. `.mcp.json` wires up Playwright MCP at
-the project level for *interactively* authoring a new tour with a human at
-the keyboard; the automated pipeline (capture, drift, generation) drives
-Playwright directly and never goes through MCP.
+Then, inside a Claude Code session:
 
-### Assisted tour discovery (Phase 7)
+- **`/document`** — run the full pipeline over every tour.
+- **`/document dashboard`** — just that one tour.
+- **`/document propose <slug> "<description>"`** — just implemented a
+  feature and think it's worth a tutorial? This drafts a *candidate* tour
+  instead: the `tour-scout` subagent drives your app via Playwright MCP and
+  writes `tours/<slug>.yaml` grounded in what it actually finds, marked
+  `status: proposed` — nothing downstream treats it as real until you review
+  the steps/selectors, fill in anything left as a TODO, and flip it to
+  `confirmed` yourself. See `tours/dashboard-export.yaml` in this repo for a
+  worked example, start to finish.
 
-`/document propose <slug> "<description>"` drafts a candidate tour instead of
-running the normal pipeline: it computes candidate `code_paths` from `git
-diff`, then dispatches the `tour-scout` subagent, which drives the app via
-Playwright MCP and writes `tours/<slug>.yaml` grounded in what it actually
-finds — `status: proposed`, `maturity: draft`, so neither the drift gate nor
-the normal `/document` run treats it as real. Review the steps/selectors,
-fill in anything left as a TODO (seed fixtures, masking — tour-scout won't
-guess those), and flip `status: confirmed` yourself. See
-`tours/dashboard-export.yaml` for a worked example (drafted, reviewed, and
-confirmed the same way an assisted proposal would be).
+Tours are always hand-authored or human-confirmed — nothing here crawls
+your app and invents a tour set on its own. `.mcp.json` wires up Playwright
+MCP at the project level for this interactive authoring; the automated
+pipeline (capture/drift/generate) drives Playwright directly and never goes
+through MCP.
+
+## Everyday commands
+
+| Command | What it does |
+|---|---|
+| `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
+| `npm run drift` | Show which tours changed, without generating anything |
+| `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
+| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
+| `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
+
+## Docs site
+
+`site/` is a [Docusaurus](https://docusaurus.io/) site configured to read
+this repo's `docs/` folder directly — no copying, one source of truth.
+
+```bash
+cd site && npm install
+npm start           # dev server with live reload
+npm run build        # static build into site/build/
+```
+
+## CI (optional, off by default)
+
+`.github/workflows/docs.yml` can run the whole pipeline in GitHub Actions
+and open a PR with anything that changed, but it's parked on manual trigger
+(`workflow_dispatch`) rather than firing automatically — this is a
+solo-developer tool, so running things yourself is the default, not
+something to set up before you can use AutoDocs. If you ever want it
+automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
+`on:` trigger and set an `ANTHROPIC_API_KEY` repo secret.
+
+## Troubleshooting
+
+- **`capture` hangs or times out** — is the app it's supposed to screenshot
+  actually running? (In the quickstart, that's `npm run dev` inside
+  `demo-app/`, left running in its own terminal.)
+- **Playwright asks for a password / `--with-deps` fails** — some Linux
+  setups need root to install system-level browser dependencies. If
+  `npx playwright install --with-deps chromium` fails, try
+  `npx playwright install chromium` (browser only, no system deps) — that's
+  usually enough.
+- **Port 5173 already in use** — something else is already running the demo
+  app (or a previous run didn't shut down); stop it first, or note whichever
+  port Vite actually picked and adjust `baseUrl` in `autodocs.config.yaml`
+  for that run.
+- **Two runs produce different screenshot hashes for content that "didn't
+  change"** — something on the page is genuinely non-deterministic (a
+  clock, an animation, live data). Mask it — see `defaultMask` in
+  `autodocs.config.yaml` or a tour's own `mask` list.
+
+## Project layout
+
+```
+demo-app/                  React + Vite app used to exercise the pipeline (login + dashboard)
+tours/*.yaml               Declarative feature walks (steps, preconditions, masking)
+scripts/capture.mjs        Playwright runner: tour -> screenshots + a11y snapshots + manifest
+scripts/generate-docs.mjs  Assembles docs/<tour-id>.md from a tour's captures, gated by drift + pixel-diff
+scripts/drift.mjs          Reports which tours are dirty, without changing anything
+scripts/review-diffs.mjs   Renders a before/after/diff HTML report for pending screenshot changes
+scripts/lib/               Unit-tested helpers (config/tour loading, hashing, manifest,
+                           doc templating, drift/state, pixel-diff)
+autodocs.config.yaml       Base URL, viewports, auth profiles, seed fixtures, pixel-diff threshold
+docs/                      Generated tutorials (images + markdown); edits inside
+                           `<!-- autodocs:keep -->` blocks survive regeneration
+.autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
+plugin/                    Claude Code plugin: /document skill + doc-scribe + tour-scout subagents
+.mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
+                           (capture.mjs drives Playwright directly, not through MCP)
+site/                      Docusaurus site serving docs/ directly (no content duplication)
+.github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" above
+```
+
+## Project status
+
+Every phase of the original build plan is done: capture, drift gating,
+grounded generation, plugin packaging, publishing, hardening (multi-viewport,
+default masks, diff review, edit-safety guard), and assisted tour discovery.
+See `autodocs-implementation-brief.md` for the phase-by-phase acceptance
+criteria this was built against.
+
+## Learn more
+
+Neither of these is required reading to just use AutoDocs — they're here
+for going deeper or contributing:
+
+- **`CLAUDE.md`** — working conventions for anyone (human or Claude)
+  developing *on* this repo: testing, git workflow, security review, and the
+  tour/doc-generation rules referenced above in full.
+- **`autodocs-implementation-brief.md`** — the original design brief: full
+  architecture, every phase's acceptance criteria, and the open questions
+  each phase resolved.
