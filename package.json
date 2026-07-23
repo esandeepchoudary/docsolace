@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "capture": "node scripts/capture.mjs",
+    "generate-docs": "node scripts/generate-docs.mjs",
     "test": "vitest run"
   },
   "repository": {
