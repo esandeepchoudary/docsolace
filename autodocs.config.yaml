@@ -5,6 +5,12 @@ viewport:
   height: 800
 outputDir: .autodocs/artifacts
 
+# Intended cadence for the docs pipeline (informational — GitHub Actions
+# triggers are static YAML, so .github/workflows/docs.yml's `on:` block must
+# be kept in sync by hand if you change this). Options: merge-to-main
+# (default — main is the "shipped" line), release-tag, manual-only.
+runTrigger: merge-to-main
+
 # A recaptured screenshot only replaces the committed one in docs/images/
 # when the fraction of changed pixels exceeds this threshold — keeps binary
 # git churn out of history for visually-insignificant re-renders.
