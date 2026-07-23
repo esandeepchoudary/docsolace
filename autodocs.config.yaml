@@ -5,6 +5,11 @@ viewport:
   height: 800
 outputDir: .autodocs/artifacts
 
+# A recaptured screenshot only replaces the committed one in docs/images/
+# when the fraction of changed pixels exceeds this threshold — keeps binary
+# git churn out of history for visually-insignificant re-renders.
+pixelDiffThreshold: 0.005
+
 # Auth profiles referenced by tours' preconditions.auth. Storage state from a
 # successful login is cached under <outputDir>/.auth/<profile-id>.json and
 # reused across runs instead of logging in per capture.
