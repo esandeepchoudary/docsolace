@@ -1,9 +1,12 @@
 # AutoDocs
 
-Drives a running web app in a headless browser, captures feature screenshots,
-and (soon) generates tutorial-style Markdown docs that stay in sync with the
-app. See `autodocs-implementation-brief.md` for the full design and phased
-build order, and `CLAUDE.md` for project conventions.
+A Claude Code plugin for **solo developers**: drives a running web app in a
+headless browser, captures feature screenshots, and generates tutorial-style
+Markdown docs that stay in sync with the app. Built around one person running
+`/document` themselves whenever a feature is worth documenting — not a
+team-scale pipeline that regenerates docs automatically on every merge. See
+`autodocs-implementation-brief.md` for the full design and phased build
+order, and `CLAUDE.md` for project conventions.
 
 ## Status
 
@@ -16,8 +19,9 @@ build order, and `CLAUDE.md` for project conventions.
   screenshot commits: done.
 - **Phase 4** — plugin packaging (`/document` skill, `doc-scribe` subagent,
   project-level Playwright MCP for interactive tour authoring): done.
-- **Phase 5** — publish (Docusaurus site serving `docs/` directly) + CI
-  (`.github/workflows/docs.yml` opens a docs PR on merge to main): done.
+- **Phase 5** — publish (Docusaurus site serving `docs/` directly): done.
+  CI (`.github/workflows/docs.yml`) is built but parked on manual dispatch
+  — nice-to-have for later, not core for a solo-developer tool.
 - **Phase 6** — hardening (stretch): done. Multi-viewport capture,
   config-wide default masks, a visual-diff review report, and a guard
   against overwriting human edits made outside the keep-region.
@@ -127,19 +131,21 @@ npm start           # dev server with live reload
 npm run build       # static build into site/build/
 ```
 
-## CI
+## CI (parked — nice-to-have, not core)
 
-`.github/workflows/docs.yml` runs on every push to `main`: captures all
-tours, checks drift, and — only if something's actually dirty — runs the
-same procedure as the `/document` skill (Claude Code headlessly dispatching
-`doc-scribe` per dirty tour, then `generate-docs.mjs`) and opens a PR with
-the result via `peter-evans/create-pull-request`. Requires an
-`ANTHROPIC_API_KEY` repo secret. Never auto-merges — review the PR like any
-other docs change.
+AutoDocs is built for a solo developer running `/document` themselves, not a
+team-scale auto-sync pipeline — so `.github/workflows/docs.yml` exists and
+works, but is parked on manual dispatch (`workflow_dispatch`) rather than
+firing on every push. Trigger it manually from the Actions tab (or `gh
+workflow run docs.yml`) when you want it: captures all tours, checks drift,
+and — only if something's actually dirty — runs the same procedure as the
+`/document` skill and opens a PR via `peter-evans/create-pull-request`.
+Requires an `ANTHROPIC_API_KEY` repo secret. Never auto-merges.
 
-The intended cadence is recorded in `autodocs.config.yaml`'s `runTrigger`
-(default `merge-to-main`); GitHub Actions triggers are static YAML, so
-changing that value means updating the workflow's `on:` block to match.
+If this ever grows into a team project where automatic sync on merge is
+worth the cost (a real browser + a real LLM call per run), flip the `on:`
+block back to `push: branches: [main]` and update
+`autodocs.config.yaml`'s `runTrigger` to match.
 
 ## Plugin
 
