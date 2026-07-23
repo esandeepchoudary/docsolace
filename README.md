@@ -9,51 +9,139 @@ tutorial-style docs from what it actually saw. It's built for **solo
 developers**: one person runs it themselves when a feature's worth
 documenting, not a team pipeline that fires on every merge.
 
-It ships as a **Claude Code plugin**. New to Claude Code? It's Anthropic's
-command-line coding agent — see
+It ships as a **Claude Code plugin** — that's the primary way to use it, and
+what the rest of this README leads with. New to Claude Code? It's
+Anthropic's command-line coding agent — see
 [the docs](https://docs.claude.com/en/docs/claude-code) if you want the full
-picture, but you don't need to have used it before to follow this README.
+picture, but you don't need to have used it before to follow along; the next
+section walks through installing it.
 
 ## Prerequisites
 
-- **Node.js 22+** and npm (this project is built and tested against
-  Node 22.21.1; nothing here relies on anything newer).
+- **Claude Code** — install/log in per [its docs](https://docs.claude.com/en/docs/claude-code)
+  if you haven't already. Would rather skip it entirely? The underlying
+  pipeline is plain Node scripts you can run from a terminal instead — see
+  "Running it without Claude Code" below.
+- **Node.js 22+** and npm (built and tested against Node 22.21.1; nothing
+  here relies on anything newer). Once the plugin is installed, it installs
+  its *own* runtime dependencies (Playwright, js-yaml, etc.) into its own
+  data directory on first use — never into your project's `node_modules`.
 - **git**.
-- **Claude Code**, *only* if you want the `/document` plugin workflow
-  described later. The underlying pipeline (`npm run capture`,
-  `generate-docs`, etc.) is plain Node scripts — you can run the whole thing
-  from a terminal without Claude Code at all.
 
-## Quickstart
+## Install the plugin
 
-This repo bundles a tiny demo app (a login page + dashboard) purely so you
-can see the whole loop work before touching your own project.
+This repo doubles as a private Claude Code plugin marketplace with one
+plugin in it (`autodocs`). You don't need to clone it into the project you
+want to document — just point Claude Code at it once, from anywhere.
 
-**Terminal 1** — install everything, then start the demo app and leave it running:
+Inside Claude Code:
 
-```bash
-npm install
-cp .env.example .env
-cd demo-app && npm install
-npm run dev              # http://localhost:5173 — leave this running
+```
+/plugin marketplace add esandeepchoudary/autodocs
 ```
 
-**Terminal 2** — back in the repo root, capture a real screenshot and turn it into a tutorial:
+(GitHub shorthand — works as long as you can reach this repo. Working from a
+local clone instead? Use the path: `/plugin marketplace add /path/to/autodocs`.)
 
-```bash
-npm run capture -- --tour login
-npm run generate-docs -- --tour login
-cat docs/login.md        # <- look at what it wrote
+Then install the plugin from that marketplace:
+
+```
+/plugin install autodocs@autodocs-marketplace
 ```
 
-That's the whole loop: a real screenshot went in, a grounded Markdown
-tutorial came out. Everything past this point is about how that works, how
-to point it at your own app, and how to run it from inside Claude Code
-instead of the terminal.
+Activate it in your current session:
+
+```
+/reload-plugins
+```
+
+(or just restart Claude Code). The first time a session starts with the
+plugin active, a `SessionStart` hook installs the plugin's own runtime
+dependencies (Playwright, js-yaml, etc.) and the Playwright browser into a
+private data directory — this can take a minute the first time (browser
+download), and is instant on every session after.
+
+Verify it took:
+
+```
+/plugin list
+```
+
+should show `autodocs@autodocs-marketplace` enabled.
+
+## Use it in your project
+
+Open Claude Code in whatever project you want tutorials for and run
+`/autodocs:document` — plugin skills are namespaced by the plugin's name, so
+this is the full command (plain `/document` may also resolve if it's
+unambiguous, but `/autodocs:document` always works). **The first time**, it
+notices there's no `autodocs.config.yaml` yet, asks for your app's local base
+URL, and scaffolds a starter config plus an empty `tours/` directory — then
+tells you there's nothing to generate until a tour exists. From there:
+
+- **`/autodocs:document`** — run the full pipeline over every tour.
+- **`/autodocs:document <tour-id>`** — just that one tour.
+- **`/autodocs:document propose <slug> "<description>"`** — just implemented
+  a feature and think it's worth a tutorial? This drafts a *candidate* tour
+  instead: the `tour-scout` subagent drives your app via Playwright MCP and
+  writes `tours/<slug>.yaml` grounded in what it actually finds, marked
+  `status: proposed` — nothing downstream treats it as real until you review
+  the steps/selectors, fill in anything left as a TODO, and flip it to
+  `confirmed` yourself. See `tours/dashboard-export.yaml` in *this* repo for
+  a worked example, start to finish (this repo also happens to be its own
+  best demo project — it's both the plugin source and a working AutoDocs
+  project).
+- **`/autodocs:document init-site`** — once you've got at least one
+  confirmed, generated tour, scaffolds a Docusaurus site in your project
+  reading its `docs/` folder directly. Prompt-driven, not a bundled script,
+  so it adapts to scaffolding-tool changes instead of breaking — but it
+  follows a proven recipe, this repo's own `site/`. See "Publishing a docs
+  site" below for details and deployment.
+
+Tours are always hand-authored or human-confirmed — nothing here crawls your
+app and invents a tour set on its own. Playwright MCP (bundled in the
+plugin) is for `tour-scout`'s interactive authoring only; the automated
+pipeline (capture/drift/generate) drives Playwright directly and never goes
+through MCP.
+
+### It nudges you when a feature looks worth documenting
+
+A second `SessionStart` hook gives Claude standing instructions for every
+session in a project where the plugin is installed. Before
+`autodocs.config.yaml` exists, that's just a one-line reminder that
+`/autodocs:document` will bootstrap things. Once the project is set up, it's
+a bit more: whenever Claude finishes a user-facing feature or flow, it's
+instructed to ask you whether it's worth a tutorial — suggesting
+`/autodocs:document propose <slug> "<description>"` for something new, or
+`/autodocs:document <tour-id>` to resync a flow an existing confirmed tour
+already covers. It only ever *suggests*; nothing runs or gets marked
+`confirmed` without you saying so. See
+`plugin/scripts/lib/session-guidance.mjs` for the exact wording.
+
+## Keeping the plugin updated
+
+New commits to this repo (or a version bump) don't reach an
+already-installed copy automatically. Third-party and local marketplaces
+(like this one) have auto-update **off** by default — that's a safety
+default, not a bug. To pull in a newer version:
+
+```
+/plugin marketplace update autodocs-marketplace
+/reload-plugins
+```
+
+Updates only actually land when `plugin/.claude-plugin/plugin.json`'s
+`version` field has been bumped since your install — Claude Code caches by
+that version string, so new commits alone don't count. If you'd rather not
+update by hand, enable auto-update for this marketplace from `/plugin` →
+the **Marketplaces** tab → select `autodocs-marketplace` → **Enable
+auto-update**.
 
 ## How it works
 
-Four stages, run in order:
+Four stages, run in order — this is what `/autodocs:document` orchestrates
+end to end (the same stages are also runnable directly as `npm run`
+scripts; see "Running it without Claude Code" below):
 
 1. **Capture** (`npm run capture`) — a **tour** is a YAML file describing one
    feature walk: which pages to visit, what to click, and where to take
@@ -77,9 +165,10 @@ Four stages, run in order:
    block (a **keep-region**) is preserved untouched across every future
    regeneration — it's yours, not the tool's.
 4. **Publish** — the generated Markdown lives in `docs/`, viewable as-is or
-   served through the bundled Docusaurus site (see below).
+   served through the bundled Docusaurus site (see "Publishing a docs site"
+   below).
 
-## Using it on your own project
+## Configuring tours and auth
 
 Two things to set up, both by example in this repo:
 
@@ -94,7 +183,7 @@ Two things to set up, both by example in this repo:
   title: "Login page"
   intent: "Show what a signed-out user sees before authenticating."
   maturity: stable      # draft = still churning, skipped until you flip it
-  status: confirmed     # confirmed = ready to use (see "Using the Claude Code plugin" below)
+  status: confirmed     # confirmed = ready to use (see "Use it in your project" above)
   steps:
     - action: goto
       path: /login
@@ -124,11 +213,17 @@ auth:
 ```
 
 Then record a session for it once — this opens a real, visible browser
-window so you can log in however the app actually requires:
+window so you can log in however the app actually requires. Ask Claude to
+run:
 
 ```bash
 node "${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile oauth-user
 ```
+
+(`${CLAUDE_PLUGIN_DATA}` only resolves inside the plugin's own runtime — let
+Claude run this rather than pasting it into your own shell. Running the
+pipeline standalone instead? Use `node plugin/scripts/save-auth-state.mjs
+--profile oauth-user`.)
 
 Log in, come back to the terminal, press Enter. Every tour whose
 `preconditions.auth` points at that profile reuses the saved session
@@ -136,120 +231,20 @@ directly — no scripted login is ever attempted for it. Verified this really
 skips the scripted path, not just that it doesn't error: ran it against a
 profile with none of the username/password fields set at all.
 
-## Using the Claude Code plugin
+## Publishing a docs site
 
-Two Claude Code concepts, in one sentence each, if you haven't met them
-before: a **skill** is a `/command` that packages up a multi-step procedure;
-a **subagent** is a separate Claude instance a skill can hand off a
-sub-task to, so that sub-task's back-and-forth doesn't clutter your main
-conversation.
+The fastest path is **`/autodocs:document init-site`** (see "Use it in your
+project" above) — it scaffolds a [Docusaurus](https://docusaurus.io/) site
+in your project that reads its `docs/` folder directly, no content
+duplication.
 
-`plugin/` packages AutoDocs as exactly that: a `/document` skill that runs
-capture → drift check → hands each changed tour to the `doc-scribe`
-subagent (which writes the grounded prose, in its own isolated context) →
-assembles the final page. It's **self-contained** — the pipeline scripts,
-their dependencies, and the Playwright MCP config all live inside `plugin/`,
-so it works in *any* project, not just this one.
-
-### Install it once, privately
-
-This repo is itself a private plugin marketplace with one plugin in it.
-From anywhere:
-
-```bash
-claude plugin marketplace add /path/to/this/repo   # or its git URL
-claude plugin install autodocs@autodocs-marketplace
-```
-
-The first time Claude Code starts a session afterward, a `SessionStart` hook
-installs the plugin's own dependencies (Playwright, js-yaml, etc.) and the
-Playwright browser into a private data directory — this can take a minute
-the very first time (browser download), and is instant on every session
-after. Nothing is installed into your projects' own `node_modules` or
-`package.json`.
-
-### Use it in any project
-
-Open Claude Code in whatever project you want tutorials for and run
-`/document`. **The first time**, it notices there's no `autodocs.config.yaml`
-yet, asks for your app's local base URL, and scaffolds a starter config plus
-an empty `tours/` directory — then tells you there's nothing to generate
-until a tour exists. From there:
-
-- **`/document`** — run the full pipeline over every tour.
-- **`/document <tour-id>`** — just that one tour.
-- **`/document propose <slug> "<description>"`** — just implemented a
-  feature and think it's worth a tutorial? This drafts a *candidate* tour
-  instead: the `tour-scout` subagent drives your app via Playwright MCP and
-  writes `tours/<slug>.yaml` grounded in what it actually finds, marked
-  `status: proposed` — nothing downstream treats it as real until you review
-  the steps/selectors, fill in anything left as a TODO, and flip it to
-  `confirmed` yourself. See `tours/dashboard-export.yaml` in *this* repo for
-  a worked example, start to finish (this repo also happens to be its own
-  best demo project — it's both the plugin source and a working AutoDocs
-  project).
-- **`/document init-site`** — once you've got at least one confirmed,
-  generated tour, scaffolds a Docusaurus site in your project reading its
-  `docs/` folder directly. Prompt-driven, not a bundled script, so it
-  adapts to scaffolding-tool changes instead of breaking — but it follows a
-  proven recipe, this repo's own `site/`. See "Deploying your docs" below
-  for publishing it.
-
-Tours are always hand-authored or human-confirmed — nothing here crawls
-your app and invents a tour set on its own. Playwright MCP (bundled in the
-plugin) is for `tour-scout`'s interactive authoring only; the automated
-pipeline (capture/drift/generate) drives Playwright directly and never goes
-through MCP.
-
-### It nudges you when a feature looks worth documenting
-
-A second `SessionStart` hook gives Claude standing instructions for every
-session in a project where the plugin is installed. Before `autodocs.config.yaml`
-exists, that's just a one-line reminder that `/document` will bootstrap
-things. Once the project is set up, it's a bit more: whenever Claude finishes
-a user-facing feature or flow, it's instructed to ask you whether it's worth
-a tutorial — suggesting `/document propose <slug> "<description>"` for
-something new, or `/document <tour-id>` to resync a flow an existing
-confirmed tour already covers. It only ever *suggests*; nothing runs or gets
-marked `confirmed` without you saying so. See
-`plugin/scripts/lib/session-guidance.mjs` for the exact wording.
-
-### Developing on the plugin itself
-
-```bash
-claude plugin validate ./plugin --strict   # structural check
-```
-
-Root `package.json`'s `npm run capture`/`drift`/`generate-docs` scripts
-(used throughout this README's Quickstart) call the exact same code under
-`plugin/scripts/` — they're how this repo dogfoods its own plugin against
-the bundled demo app, without needing a real install.
-
-## Everyday commands
-
-| Command | What it does |
-|---|---|
-| `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
-| `npm run drift` | Show which tours changed, without generating anything |
-| `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
-| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
-| `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
-
-## Docs site
-
-`site/` is a [Docusaurus](https://docusaurus.io/) site configured to read
-this repo's `docs/` folder directly — no copying, one source of truth.
+This repo's own `site/` is that same scaffold, dogfooded:
 
 ```bash
 cd site && npm install
 npm start           # dev server with live reload
 npm run build        # static build into site/build/
 ```
-
-On your own project, `/document init-site` scaffolds an equivalent `site/`
-for you — see "Using the Claude Code plugin" above.
-
-## Deploying your docs
 
 `npm run build` only produces static files in `site/build/` — it doesn't
 publish them anywhere. Three common targets:
@@ -275,6 +270,47 @@ once connected.
 Whichever you use, the docs site itself is a plain static build — nothing
 about it is AutoDocs-specific once it's built.
 
+## Running it without Claude Code
+
+The plugin is the primary way to use AutoDocs, but the pipeline underneath
+it is just plain Node scripts — nothing about it requires Claude Code. This
+repo bundles a tiny demo app (a login page + dashboard) so you can see the
+whole loop work without installing the plugin at all.
+
+**Terminal 1** — install everything, then start the demo app and leave it running:
+
+```bash
+npm install
+cp .env.example .env
+cd demo-app && npm install
+npm run dev              # http://localhost:5173 — leave this running
+```
+
+**Terminal 2** — back in the repo root, capture a real screenshot and turn it into a tutorial:
+
+```bash
+npm run capture -- --tour login
+npm run generate-docs -- --tour login
+cat docs/login.md        # <- look at what it wrote
+```
+
+That's the whole loop: a real screenshot went in, a grounded Markdown
+tutorial came out.
+
+Everyday commands, once you've got your own `autodocs.config.yaml` and
+`tours/` (see "Configuring tours and auth" above):
+
+| Command | What it does |
+|---|---|
+| `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
+| `npm run drift` | Show which tours changed, without generating anything |
+| `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
+| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
+| `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
+
+These are the exact same scripts `/autodocs:document` calls under the hood —
+see "Developing on the plugin itself" below.
+
 ## CI (optional, off by default)
 
 `.github/workflows/docs.yml` can run the whole pipeline in GitHub Actions
@@ -287,9 +323,16 @@ automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
 
 ## Troubleshooting
 
+- **`/plugin` isn't recognized** — your Claude Code install is out of date;
+  check with `claude --version` and upgrade however you installed it, then
+  restart.
+- **Plugin's installed but `/autodocs:document` doesn't show up** — run
+  `/reload-plugins`. Still missing? Clear the cache
+  (`rm -rf ~/.claude/plugins/cache`), restart, and reinstall.
 - **`capture` hangs or times out** — is the app it's supposed to screenshot
-  actually running? (In the quickstart, that's `npm run dev` inside
-  `demo-app/`, left running in its own terminal.)
+  actually running? (In the "Running it without Claude Code" example,
+  that's `npm run dev` inside `demo-app/`, left running in its own
+  terminal.)
 - **Playwright asks for a password / `--with-deps` fails** — some Linux
   setups need root to install system-level browser dependencies. If
   `npx playwright install --with-deps chromium` fails, try
@@ -308,15 +351,16 @@ automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
 
 ```
 .claude-plugin/marketplace.json  This repo doubles as a private plugin marketplace (one entry: ./plugin)
-plugin/                    The self-contained, installable Claude Code plugin — see below
+plugin/                    The self-contained, installable Claude Code plugin — see above
   .claude-plugin/plugin.json   Plugin manifest (name, version — bump it to ship updates)
   package.json                 Runtime deps (playwright, js-yaml, ...), installed into
                                 CLAUDE_PLUGIN_DATA on first use, never into a target project
-  hooks/hooks.json              SessionStart: installs deps + Playwright's browser once
+  hooks/hooks.json              SessionStart: installs deps + Playwright's browser once,
+                                and emits the "suggest documentation" standing guidance
   .mcp.json                    Playwright MCP — bundled, travels with the plugin to any project
-  skills/document/SKILL.md      /document — bootstraps config/tours, runs the pipeline
+  skills/document/SKILL.md      /autodocs:document — bootstraps config/tours, runs the pipeline
   agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
-  agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (/document propose)
+  agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose subcommand)
   scripts/                     The engine: capture.mjs, drift.mjs, generate-docs.mjs,
                                 review-diffs.mjs, lib/ (unit-tested helpers)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
@@ -352,3 +396,14 @@ for going deeper or contributing:
 - **`autodocs-implementation-brief.md`** — the original design brief: full
   architecture, every phase's acceptance criteria, and the open questions
   each phase resolved.
+
+## Developing on the plugin itself
+
+```bash
+claude plugin validate ./plugin --strict   # structural check
+```
+
+Root `package.json`'s `npm run capture`/`drift`/`generate-docs` scripts
+(used throughout "Running it without Claude Code" above) call the exact
+same code under `plugin/scripts/` — they're how this repo dogfoods its own
+plugin against the bundled demo app, without needing a real install.
