@@ -76,8 +76,15 @@ Open Claude Code in whatever project you want tutorials for and run
 this is the full command (plain `/document` may also resolve if it's
 unambiguous, but `/autodocs:document` always works). **The first time**, it
 notices there's no `autodocs.config.yaml` yet, asks for your app's local base
-URL, and scaffolds a starter config plus an empty `tours/` directory — then
-tells you there's nothing to generate until a tour exists. From there:
+URL, and bootstraps the project: a real, annotated `autodocs.config.yaml`
+(every optional section — `auth`, `defaultMask`, `seeds`, etc. — included as
+commented-out examples right in the file), an empty `tours/` directory with
+a short "what's next" `tours/README.md`, a `.env.example`, and — worth
+calling out since it's easy to get wrong by hand — your project's
+`.gitignore` gets `.autodocs/artifacts/` and `.env` added automatically, so
+the session cookies and credentials those can hold never end up committed.
+Then it tells you there's nothing to generate until a tour exists. From
+there:
 
 - **`/autodocs:document`** — run the full pipeline over every tour.
 - **`/autodocs:document <tour-id>`** — just that one tour.
@@ -91,6 +98,13 @@ tells you there's nothing to generate until a tour exists. From there:
   a worked example, start to finish (this repo also happens to be its own
   best demo project — it's both the plugin source and a working AutoDocs
   project).
+- **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
+  and every tour, without launching a browser: an undefined
+  `preconditions.auth` profile is an error, an empty `code_paths` match, an
+  unrecorded `storageStatePath` session, or a non-`role=`/`text=` selector
+  are warnings. Worth running right after authoring or confirming a tour, so
+  a typo in an auth profile name surfaces immediately instead of partway
+  through a real capture.
 - **`/autodocs:document init-site`** — once you've got at least one
   confirmed, generated tour, scaffolds a Docusaurus site in your project
   reading its `docs/` folder directly. Prompt-driven, not a bundled script,
@@ -213,23 +227,33 @@ auth:
 ```
 
 Then record a session for it once — this opens a real, visible browser
-window so you can log in however the app actually requires. Ask Claude to
-run:
+window, so it needs to run **in your own terminal**, not handed to Claude to
+run: Claude's Bash tool has no display to show that browser window in, and
+often no interactive stdin either — which matters for the next part. Ask
+Claude what `${CLAUDE_PLUGIN_DATA}` resolves to for this session (it can
+tell you without running the command itself), then run it yourself:
 
 ```bash
-node "${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile oauth-user
+node "<the resolved path>/scripts/save-auth-state.mjs" --profile oauth-user
 ```
 
-(`${CLAUDE_PLUGIN_DATA}` only resolves inside the plugin's own runtime — let
-Claude run this rather than pasting it into your own shell. Running the
-pipeline standalone instead? Use `node plugin/scripts/save-auth-state.mjs
---profile oauth-user`.)
+(Running the pipeline standalone instead? Use `node
+plugin/scripts/save-auth-state.mjs --profile oauth-user`.)
 
-Log in, come back to the terminal, press Enter. Every tour whose
-`preconditions.auth` points at that profile reuses the saved session
-directly — no scripted login is ever attempted for it. Verified this really
-skips the scripted path, not just that it doesn't error: ran it against a
-profile with none of the username/password fields set at all.
+By default it waits for you to log in and press Enter once you're done —
+fine from your own terminal, since it's a real TTY. If you'd rather it
+detect completion on its own (or you're running it somewhere without a
+reliable stdin), pass `--wait-for "<url-pattern>"` — e.g. `--wait-for
+"**/dashboard"` — and it saves the session automatically the moment the
+browser navigates to a matching URL, no Enter needed. Without a real
+terminal *and* without `--wait-for`, it refuses up front with a clear
+message instead of hanging forever waiting for input that will never come.
+
+Every tour whose `preconditions.auth` points at that profile reuses the
+saved session directly — no scripted login is ever attempted for it.
+Verified this really skips the scripted path, not just that it doesn't
+error: ran it against a profile with none of the username/password fields
+set at all.
 
 ### Reproducible data with seeds
 
@@ -327,6 +351,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 
 | Command | What it does |
 |---|---|
+| `npm run validate` | Preflight-check config/tours (undefined auth profiles, empty `code_paths` matches, non-role selectors) without launching a browser |
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
