@@ -1,0 +1,33 @@
+# Export dashboard activity
+
+Show how to export the current activity table as a CSV.
+
+## Steps
+
+1. **Export CSV button visible on the dashboard**
+
+   *desktop*
+
+   ![Export CSV button visible on the dashboard (desktop)](images/dashboard-export/export-button@desktop.png)
+
+   *mobile*
+
+   ![Export CSV button visible on the dashboard (mobile)](images/dashboard-export/export-button@mobile.png)
+
+   Next to the Filters button is an Export CSV button, which starts a client-side export of whatever rows the activity table currently shows.
+
+2. **Confirmation message after exporting**
+
+   *desktop*
+
+   ![Confirmation message after exporting (desktop)](images/dashboard-export/export-confirmed@desktop.png)
+
+   *mobile*
+
+   ![Confirmation message after exporting (mobile)](images/dashboard-export/export-confirmed@mobile.png)
+
+   After clicking Export CSV, a confirmation message appears next to the buttons showing how many rows were exported — matching the row count currently visible in the table below.
+
+<!-- autodocs:keep -->
+<!-- Notes added here are preserved across regeneration. -->
+<!-- /autodocs:keep -->

@@ -7,6 +7,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [statusFilter, setStatusFilter] = useState('all')
+  const [exported, setExported] = useState(false)
 
   function handleLogout() {
     localStorage.removeItem('auth-token')
@@ -38,15 +39,25 @@ export default function Dashboard() {
         ))}
       </section>
 
-      <button
-        type="button"
-        className="filters-toggle"
-        onClick={() => setFiltersOpen((open) => !open)}
-        aria-expanded={filtersOpen}
-        aria-controls="filters-panel"
-      >
-        Filters
-      </button>
+      <div className="toolbar">
+        <button
+          type="button"
+          className="filters-toggle"
+          onClick={() => setFiltersOpen((open) => !open)}
+          aria-expanded={filtersOpen}
+          aria-controls="filters-panel"
+        >
+          Filters
+        </button>
+        <button type="button" className="export-button" onClick={() => setExported(true)}>
+          Export CSV
+        </button>
+        {exported && (
+          <span className="export-confirmation" role="status">
+            Exported {rows.length} rows
+          </span>
+        )}
+      </div>
 
       {filtersOpen && (
         <section id="filters-panel" className="filters-panel" aria-label="Filters">

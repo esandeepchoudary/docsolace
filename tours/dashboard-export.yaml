@@ -1,0 +1,20 @@
+id: dashboard-export
+title: "Export dashboard activity"
+intent: "Show how to export the current activity table as a CSV."
+maturity: stable
+status: confirmed
+preconditions:
+  auth: standard-user
+  seed: demo-baseline
+steps:
+  - action: goto
+    path: /dashboard
+  - capture: export-button
+    description: "Export CSV button visible on the dashboard"
+  - action: click
+    selector: "role=button[name='Export CSV']"
+  - capture: export-confirmed
+    description: "Confirmation message after exporting"
+code_paths:
+  - demo-app/src/pages/Dashboard.jsx
+  - demo-app/src/pages/Dashboard.css
