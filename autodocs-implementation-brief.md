@@ -157,10 +157,16 @@ Hard rules for the generator prompt:
 - **Ground strictly** in the a11y snapshot and screenshots. Never describe UI elements not present
   in the snapshot. If unsure, omit — do not invent.
 - **Surgical updates**: only rewrite the page whose tour is dirty; within a page, preserve any region
-  wrapped in `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` (human-authored content).
+  wrapped in `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` (human-authored content). The
+  keep-region is the *only* part of a page a human is free to hand-edit: `generate-docs.mjs` hashes
+  everything outside it at each successful generation, and refuses to regenerate (rather than silently
+  overwriting) if that hash no longer matches on the next run — pass `--force` to override deliberately.
 - Each page: short intent line, the ordered steps with the relevant screenshot inlined, and a
   one-paragraph "what you're looking at" per shot. No filler.
 - Emit a change summary for the PR body (what changed and why).
+- Before a recaptured screenshot replaces a committed one (§5.4's pixel-diff gate), `npm run
+  review-diffs` renders a static before/after/diff report so a human can look at exactly what would
+  change before it's pushed.
 
 ### 5.4 Drift gate (`scripts/drift.mjs`)
 
@@ -235,11 +241,12 @@ since these details move; the notes below reflect the current model:
   CLAUDE.md conventions. One-command install into a fresh repo.
 - **Phase 5 — Publish + CI.** Wire Docusaurus (or chosen site) and the `claude-code-action` job that
   opens a docs PR, with the trigger cadence read from `autodocs.config` (default: merge to main).
-- **Phase 6 — Hardening (stretch).** Multi-viewport capture (done) and config-wide default masks
-  (done, a "richer masking" sub-item). Still open: a visual-diff review UI (pixelmatch already produces
-  a diff buffer when the pixel-diff gate fires — not yet surfaced anywhere reviewable) and warning on
-  human edits made *outside* the keep-region before a regeneration silently overwrites them (today only
-  the keep-region itself is protected).
+- **Phase 6 — Hardening (stretch). Done**, all four sub-items: multi-viewport capture; config-wide
+  default masks; a visual-diff review report (`npm run review-diffs` renders before/after/diff for every
+  screenshot the pixel-diff gate is about to replace, before you push); and a guard against silently
+  overwriting human edits made *outside* the keep-region (`generate-docs.mjs` hashes the page's non-keep
+  content at each successful generation — if it doesn't match on the next run, generation stops with an
+  error unless you pass `--force`).
 - **Phase 7 — Assisted tour discovery (future, not yet scoped for build).** Today, tours are 100%
   hand-authored (§5.1) — nothing crawls the app or invents a tour set on install. This phase would add:
   - A **tutorial-need routine**: after a feature is implemented (in a repo with this plugin installed),
