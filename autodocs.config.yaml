@@ -1,9 +1,26 @@
 # AutoDocs configuration
 baseUrl: http://localhost:5173
-viewport:
-  width: 1280
-  height: 800
+
+# Every capture point is shot at each of these viewports (same page/session —
+# only the viewport size changes between shots, so navigation/auth state
+# doesn't need to be repeated). The first entry is the "primary" one used for
+# the login flow itself.
+viewports:
+  desktop:
+    width: 1280
+    height: 800
+  mobile:
+    width: 390
+    height: 844
+
 outputDir: .autodocs/artifacts
+
+# Selectors masked on every capture, in addition to whatever a tour's own
+# `mask` list adds. Keeps common volatile regions (timestamps, avatars) out
+# of every tour spec instead of repeating them per tour.
+defaultMask:
+  - ".timestamp"
+  - ".user-avatar"
 
 # Intended cadence for the docs pipeline (informational — GitHub Actions
 # triggers are static YAML, so .github/workflows/docs.yml's `on:` block must

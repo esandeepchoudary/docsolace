@@ -9,6 +9,7 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, renderTourPage } from './lib/docgen.mjs';
+import { flattenScreenshotHashes } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { pixelDiffRatio } from './lib/pixel-diff.mjs';
@@ -58,9 +59,7 @@ const subagentProse = fs.existsSync(prosePath) ? JSON.parse(fs.readFileSync(pros
 const paragraphs = { ...(PARAGRAPHS[tourId] ?? {}), ...subagentProse };
 
 const statePath = path.join(config.outputDir, 'state.json');
-const currentScreenshotHashes = Object.fromEntries(
-  tourManifest.captures.map((c) => [c.name, c.sha256]),
-);
+const currentScreenshotHashes = flattenScreenshotHashes(tourManifest.captures);
 const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
 const previousEntry = loadState(statePath)[tour.id];
 
@@ -101,18 +100,23 @@ const steps = tour.steps
       throw new Error(`No grounded paragraph authored for capture "${step.capture}"`);
     }
 
-    const newCapturePath = path.join(config.outputDir, captureEntry.png);
-    const destPath = path.join(imagesDir, `${step.capture}.png`);
-    const diffRatio = pixelDiffRatio(destPath, newCapturePath);
-    if (diffRatio >= pixelDiffThreshold) {
-      fs.copyFileSync(newCapturePath, destPath);
-    } else {
-      console.log(`  - ${step.capture}: pixel diff ${(diffRatio * 100).toFixed(3)}% below threshold, keeping committed image`);
-    }
+    const images = Object.entries(captureEntry.viewports).map(([viewportName, v]) => {
+      const newCapturePath = path.join(config.outputDir, v.png);
+      const destPath = path.join(imagesDir, `${step.capture}@${viewportName}.png`);
+      const diffRatio = pixelDiffRatio(destPath, newCapturePath);
+      if (diffRatio >= pixelDiffThreshold) {
+        fs.copyFileSync(newCapturePath, destPath);
+      } else {
+        console.log(
+          `  - ${step.capture}@${viewportName}: pixel diff ${(diffRatio * 100).toFixed(3)}% below threshold, keeping committed image`,
+        );
+      }
+      return { viewport: viewportName, path: path.relative('docs', destPath) };
+    });
 
     return {
       description: step.description,
-      imagePath: path.relative('docs', destPath),
+      images,
       paragraph,
     };
   });

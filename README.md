@@ -18,7 +18,9 @@ build order, and `CLAUDE.md` for project conventions.
   project-level Playwright MCP for interactive tour authoring): done.
 - **Phase 5** — publish (Docusaurus site serving `docs/` directly) + CI
   (`.github/workflows/docs.yml` opens a docs PR on merge to main): done.
-- **Phase 6** — hardening (stretch): not started.
+- **Phase 6** — hardening (stretch): multi-viewport capture + config-wide
+  default masks done; visual-diff review UI and out-of-keep-region edit
+  warnings still open.
 - **Phase 7** — assisted tour discovery: scoped in the brief, not built —
   tours stay hand-authored for now.
 
@@ -64,7 +66,10 @@ npm run capture -- --tour dashboard   # dashboard (logs in, applies filters)
 
 Output lands in `.autodocs/artifacts/`: `screenshots/<tour-id>/`,
 `snapshots/<tour-id>/` (accessibility snapshots), and `manifest.json`
-(per-capture SHA-256, computed after masking).
+(per-capture, per-viewport SHA-256, computed after masking). Every capture
+point is shot once per viewport configured in `autodocs.config.yaml`'s
+`viewports` map (desktop + mobile by default) — files are named
+`<capture>@<viewport-name>.png`.
 
 Then generate the tutorial page from those captures:
 

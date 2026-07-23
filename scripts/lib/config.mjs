@@ -9,5 +9,8 @@ export function loadConfig(configPath) {
   if (!config.outputDir) {
     throw new Error(`autodocs config at "${configPath}" is missing required "outputDir"`);
   }
+  if (!config.viewports || Object.keys(config.viewports).length === 0) {
+    throw new Error(`autodocs config at "${configPath}" needs at least one entry under "viewports"`);
+  }
   return config;
 }

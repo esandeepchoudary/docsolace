@@ -20,7 +20,15 @@ export function applyKeepRegion(newMarkdown, previousMarkdown) {
 export function renderTourPage({ title, intent, steps, keepRegionPlaceholder }) {
   const stepBlocks = steps.map((step, index) => {
     const lines = [`${index + 1}. **${step.description}**`, ''];
-    if (step.imagePath) lines.push(`   ![${step.description}](${step.imagePath})`, '');
+    const images = step.images ?? (step.imagePath ? [{ path: step.imagePath }] : []);
+    // Only label images by viewport when there's more than one — keeps
+    // single-viewport output identical to before multi-viewport support.
+    const showLabels = images.length > 1;
+    for (const image of images) {
+      const alt = showLabels ? `${step.description} (${image.viewport})` : step.description;
+      if (showLabels) lines.push(`   *${image.viewport}*`, '');
+      lines.push(`   ![${alt}](${image.path})`, '');
+    }
     lines.push(`   ${step.paragraph}`);
     return lines.join('\n');
   });
