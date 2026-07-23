@@ -27,7 +27,7 @@ told otherwise.
 ### Testing
 - Any new function, script, or component ships with unit tests in the same
   change. Test framework: **Vitest** (pairs naturally with the Vite-based
-  `demo-app` and works fine for the plain Node scripts under `scripts/`).
+  `demo-app` and works fine for the plain Node scripts under `plugin/scripts/`).
 - Run the full test suite before every commit. If something fails, fix it and
   re-run — do not commit on red. Loop fix → re-run up to a few attempts; if
   still failing after that, stop and report the failure to the user rather
@@ -110,13 +110,51 @@ told otherwise.
   report — it's the only place you can see *what* a screenshot update
   actually changed before it's pushed.
 - Tours are hand-authored (`tours/*.yaml`). Nothing crawls the app to invent
-  a full tour set on install — Playwright MCP (`.mcp.json`, project-scoped)
-  exists for *interactively* authoring a new tour with a human at the
-  keyboard, either by hand or via `/document propose` + `tour-scout` (Phase
-  7 — see below). A tour's `status` (default `confirmed`) is separate from
+  a full tour set on install — Playwright MCP (`plugin/.mcp.json`, bundled
+  with the plugin so it travels to any project it's installed into) exists
+  for *interactively* authoring a new tour with a human at the keyboard,
+  either by hand or via `/document propose` + `tour-scout` (Phase 7 — see
+  below). A tour's `status` (default `confirmed`) is separate from
   its `maturity`: `status: proposed` means a tour was suggested but not yet
   reviewed — the drift gate and `/document` both skip it, same as `maturity:
   draft`, until a human flips it to `confirmed`.
+
+## Plugin packaging conventions
+
+- **Everything the plugin needs lives under `plugin/`.** Installed plugins
+  get copied to a cache directory and can't reference files outside their
+  own tree (`../` paths silently don't work) — so `plugin/` bundles its own
+  `scripts/`, `package.json` (runtime deps), `hooks/`, and `.mcp.json`. Don't
+  reintroduce a dependency from `plugin/` on anything at the repo root;
+  `demo-app/`, `tours/`, `docs/`, `autodocs.config.yaml`, and `site/` are
+  this repo's own dogfood project, not plugin internals.
+- **The bundled scripts are ES modules, so `NODE_PATH` does not work** for
+  resolving their dependencies — verified empirically, not assumed (Node's
+  ESM loader ignores `NODE_PATH` entirely; only CommonJS `require` honors
+  it). The `SessionStart` hook in `hooks/hooks.json` instead copies
+  `scripts/` into `${CLAUDE_PLUGIN_DATA}` *next to* the `node_modules` it
+  installs there, so Node's normal ancestor-directory resolution finds them
+  — always invoke the bundled engine as
+  `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs"`, never
+  `${CLAUDE_PLUGIN_ROOT}/scripts/...` (those have no `node_modules` next to
+  them) and never `npm run ...` (the target project has no reason to have
+  AutoDocs' own npm scripts).
+- **Root `package.json`'s `npm run capture`/`drift`/`generate-docs`/
+  `review-diffs`/`test` scripts point into `plugin/scripts/`** — that's how
+  this repo dogfoods its own plugin against the bundled demo app without a
+  real install. Keep them in sync if `plugin/scripts/`'s entry points move.
+- `plugin/package.json` lists only the runtime deps the bundled scripts
+  actually import (`playwright`, `js-yaml`, `pixelmatch`, `pngjs`, `glob`) —
+  no `devDependencies`; it only ever gets `npm install`ed by the hook, never
+  developed against directly.
+- **Bump `plugin/.claude-plugin/plugin.json`'s `version`** whenever you want
+  users of an installed copy to actually receive a change — Claude Code
+  caches by version string, so new commits alone don't propagate.
+- The repo root's own `.claude-plugin/marketplace.json` makes this whole
+  repo a private marketplace with one entry (`source: "./plugin"`) — that's
+  how `claude plugin marketplace add <this-repo>` +
+  `claude plugin install autodocs@autodocs-marketplace` work without a
+  public listing.
 
 ## Reference
 - `autodocs-implementation-brief.md` — full architecture, phases, acceptance

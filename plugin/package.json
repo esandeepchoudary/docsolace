@@ -1,0 +1,13 @@
+{
+  "name": "autodocs-plugin-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Runtime dependencies for the AutoDocs plugin's bundled scripts. Installed once into the plugin's persistent data directory by hooks/hooks.json's SessionStart hook — never installed into the target project's own node_modules.",
+  "dependencies": {
+    "glob": "^13.0.6",
+    "js-yaml": "^5.2.1",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1",
+    "pngjs": "^7.0.0"
+  }
+}

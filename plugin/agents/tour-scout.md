@@ -25,8 +25,10 @@ You're given, as your task:
 
 ## What to do
 
-1. Read one or two existing files under `tours/*.yaml` to match the project's
-   conventions (title/intent phrasing, selector style).
+1. If any files exist under `tours/*.yaml`, read one or two to match the
+   project's conventions (title/intent phrasing, selector style). On a
+   brand-new project this directory may be empty — that's fine, just follow
+   the shape in `renderDraftTour` (step 5) directly.
 2. Using the Playwright MCP tools, navigate to the likely route and take an
    accessibility snapshot. Find the actual element(s) related to the
    description — a button, a panel, whatever's really there.
@@ -38,7 +40,7 @@ You're given, as your task:
 4. Build a minimal step sequence: `goto` the route, `capture` the state
    before the feature interaction, `click`/interact if there's a meaningful
    before/after, `capture` the resulting state.
-5. Write the draft using `scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
+5. Write the draft using `plugin/scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
    shape — id, title, intent (your best short summary of the human's
    description), the `code_paths` you were given, and the steps you actually
    observed. It always comes out with `maturity: draft` and `status:
