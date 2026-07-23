@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | init-site"
+description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | validate | init-site"
 allowed-tools: Bash(git diff *) Bash(git log *)
 ---
 
@@ -21,15 +21,24 @@ the first time `/document` has run here. Before anything else:
 
 1. Ask the user for the app's local base URL (e.g. `http://localhost:3000`)
    — don't guess a port.
-2. Write a minimal `autodocs.config.yaml` at the project root: that
-   `baseUrl`, a `viewports` map with one `desktop` entry (`1280x800`), and
-   `outputDir: .autodocs/artifacts`. Point them at this plugin's own
-   `autodocs.config.yaml` (in the AutoDocs repo, or `${CLAUDE_PLUGIN_ROOT}`'s
-   reference copy if bundled) as an annotated example for adding
-   `auth`/`defaultMask`/`pixelDiffThreshold` later — don't invent those
-   values now.
-3. Create an empty `tours/` directory.
-4. Tell the user plainly: there are no tours yet. The fastest way to get one
+2. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/init-project.mjs" --base-url <url>
+   ```
+   This writes a real, valid `autodocs.config.yaml` at the project root
+   (live `baseUrl`/`viewports`/`outputDir`, plus every optional section —
+   both `auth` shapes, `defaultMask`, `pixelDiffThreshold`, `seeds` — as
+   commented-out examples right there in the file, so there's no dead
+   pointer to chase down later). It also creates an empty `tours/` directory
+   with a short `tours/README.md` "what's next" pointer, and — security-
+   critical, don't skip or reimplement this by hand — merges `.autodocs/artifacts/`
+   and `.env` into the project's `.gitignore` (idempotently; safe to re-run)
+   so a live session-cookie file or scripted-login credentials can't get
+   committed by accident, plus a `.env.example` if one doesn't already
+   exist. If it reports the config already exists, this project was already
+   bootstrapped — don't overwrite it, just report that and move on to the
+   arguments below.
+3. Tell the user plainly: there are no tours yet. The fastest way to get one
    is `/document propose <slug> "<description>"` after implementing a
    feature — see Phase 7 in this plugin's design. Once at least one tour is
    `confirmed` and `/document` has generated its page, `/document init-site`
@@ -40,6 +49,7 @@ If `autodocs.config.yaml` already exists, skip straight to the arguments
 below.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
+If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
 Otherwise: run the AutoDocs pipeline — capture → drift gate → dispatch dirty
 tours to the `doc-scribe` subagent → regenerate → summarize. If a tour file
@@ -69,7 +79,29 @@ confirmed one.
    about. Tell the user plainly: review the steps/selectors, fill in
    `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
    nothing downstream (drift gate, `/document`'s normal pipeline) treats
-   this tour as real until they do.
+   this tour as real until they do. Suggest `/document validate` once
+   they've filled it in, to catch an undefined auth profile or an empty
+   `code_paths` match before the first real capture.
+
+## Validate a project
+
+Preflight-checks `autodocs.config.yaml` and every tour under `tours/` without
+launching a browser — catches problems that would otherwise only surface
+mid-run (an undefined `preconditions.auth` profile fails partway through
+`capture.mjs`, after it's already launched a browser). Run:
+
+```
+node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"
+```
+
+It reports, per tour: `ok`, or a list of `error`/`warn` findings — an
+undefined `preconditions.auth` profile is an **error** (capture would fail
+on it), while an empty `code_paths` glob match, a not-yet-recorded
+`storageStatePath` session, or a non-`role=`/`text=` interactive selector are
+**warnings** (things still run, just not as intended). Report the output
+plainly; don't silently fix a tour yourself — a human authored or confirmed
+it. Recommend running this after authoring/confirming a tour and before the
+normal pipeline, especially right after `propose` drafts one.
 
 ## Scaffold a docs site
 
