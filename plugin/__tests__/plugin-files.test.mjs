@@ -26,18 +26,28 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('$ARGUMENTS');
   });
 
-  it('only pre-approves the three npm scripts it needs, no bare Bash', () => {
+  it('only pre-approves the specific scoped commands it needs, no bare Bash', () => {
     const tools = parseToolList(frontmatter['allowed-tools']);
     expect(tools).toEqual([
       'Bash(npm run capture *)',
       'Bash(npm run drift *)',
       'Bash(npm run generate-docs *)',
+      'Bash(git diff *)',
+      'Bash(git log *)',
     ]);
+    expect(tools.every((t) => t.startsWith('Bash('))).toBe(true);
   });
 
   it('delegates prose generation to the doc-scribe subagent, not itself', () => {
     expect(body).toContain('doc-scribe');
     expect(body.toLowerCase()).toContain('never hand-write');
+  });
+
+  it('delegates tour drafting to the tour-scout subagent, and never auto-confirms', () => {
+    expect(body).toContain('tour-scout');
+    expect(body).toContain('draft the tour yourself');
+    expect(body).toContain('status');
+    expect(body).toContain('confirmed');
   });
 });
 
@@ -71,5 +81,45 @@ describe('agents/doc-scribe.md', () => {
   it("instructs grounding strictly in the a11y snapshot and never inventing UI", () => {
     expect(body.toLowerCase()).toContain('never describe');
     expect(body).toContain('a11y');
+  });
+});
+
+describe('agents/tour-scout.md', () => {
+  const markdown = fs.readFileSync(path.join(pluginRoot, 'agents/tour-scout.md'), 'utf8');
+  const { frontmatter, body } = parseFrontmatter(markdown);
+
+  it('is named "tour-scout" with a description and a model set', () => {
+    expect(frontmatter.name).toBe('tour-scout');
+    expect(frontmatter.description?.length).toBeGreaterThan(0);
+    expect(frontmatter.model).toBeTruthy();
+  });
+
+  it('has a bounded maxTurns', () => {
+    expect(typeof frontmatter.maxTurns).toBe('number');
+    expect(frontmatter.maxTurns).toBeGreaterThan(0);
+    expect(frontmatter.maxTurns).toBeLessThanOrEqual(30);
+  });
+
+  it('has no Bash access — only Read, Write, and Playwright MCP tools', () => {
+    const tools = parseToolList(frontmatter.tools);
+    expect(tools).not.toContain('Bash');
+    expect(tools).toContain('Read');
+    expect(tools).toContain('Write');
+    expect(tools.some((t) => t.startsWith('mcp__playwright'))).toBe(true);
+  });
+
+  it('does not declare mcpServers, hooks, or permissionMode (unsupported for plugin agents)', () => {
+    expect(frontmatter.mcpServers).toBeUndefined();
+    expect(frontmatter.hooks).toBeUndefined();
+    expect(frontmatter.permissionMode).toBeUndefined();
+  });
+
+  it('never sets status: confirmed itself — that is a human decision', () => {
+    expect(body).toContain('never set `status: confirmed`');
+  });
+
+  it('instructs grounding every step in what it actually observed, never guessing selectors', () => {
+    expect(body.toLowerCase()).toContain('ground every step');
+    expect(body.toLowerCase()).toContain('rather than guessing');
   });
 });

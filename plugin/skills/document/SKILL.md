@@ -1,17 +1,43 @@
 ---
 name: document
-description: Captures the app's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml.
-argument-hint: "[tour-id]"
-allowed-tools: Bash(npm run capture *) Bash(npm run drift *) Bash(npm run generate-docs *)
+description: Captures the app's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline.
+argument-hint: "[tour-id] | propose <slug> \"<description>\""
+allowed-tools: Bash(npm run capture *) Bash(npm run drift *) Bash(npm run generate-docs *) Bash(git diff *) Bash(git log *)
 ---
 
-Run the AutoDocs pipeline: capture → drift gate → dispatch dirty tours to the
-`doc-scribe` subagent → regenerate → summarize.
+Arguments: $ARGUMENTS
 
-Target tour(s): $ARGUMENTS
+If the arguments start with `propose`, follow **"Propose a new tour"** below
+instead of the normal pipeline. Otherwise: run the AutoDocs pipeline —
+capture → drift gate → dispatch dirty tours to the `doc-scribe` subagent →
+regenerate → summarize. If a tour file slug was given, operate on just
+`tours/<slug>.yaml`; with no argument, operate on every `*.yaml` file in
+`tours/`.
 
-If a tour file slug was given above, operate on just `tours/<slug>.yaml`.
-Otherwise, operate on every `*.yaml` file in `tours/`.
+## Propose a new tour
+
+Parses as `propose <slug> "<description>"` — e.g.
+`/document propose dashboard-export "the new Export CSV button on the dashboard"`.
+This is the Phase 7 "assisted tour discovery" entry point (see the brief and
+CLAUDE.md's "Tutorial-need check"): drafts a candidate tour, never a
+confirmed one.
+
+1. Confirm `tours/<slug>.yaml` doesn't already exist — if it does, stop and
+   ask rather than overwrite it.
+2. Compute candidate `code_paths`: `git diff --name-only` against the base
+   branch (or recent commits if already merged) for files that plausibly
+   back this feature — frontend source under the app's directory, not
+   config/test/build files.
+3. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
+   the candidate `code_paths` list, and the app's `baseUrl` (from
+   `autodocs.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
+   draft the tour yourself, that exploration is tour-scout's job, grounded in
+   what it actually finds by driving the app.
+4. Report what was drafted, and tour-scout's own notes on what it's unsure
+   about. Tell the user plainly: review the steps/selectors, fill in
+   `preconditions`/`mask` if needed, then flip `status` to `confirmed` — nothing
+   downstream (drift gate, `/document`'s normal pipeline) treats this tour as
+   real until they do.
 
 ## Steps
 

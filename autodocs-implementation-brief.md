@@ -260,23 +260,36 @@ since these details move; the notes below reflect the current model:
   overwriting human edits made *outside* the keep-region (`generate-docs.mjs` hashes the page's non-keep
   content at each successful generation — if it doesn't match on the next run, generation stops with an
   error unless you pass `--force`).
-- **Phase 7 — Assisted tour discovery (future, not yet scoped for build).** Today, tours are 100%
-  hand-authored (§5.1) — nothing crawls the app or invents a tour set on install. This phase would add:
-  - A **tutorial-need routine**: after a feature is implemented (in a repo with this plugin installed),
-    prompt whether it's worth documenting, rather than silently deciding either way.
-  - If yes, **draft a candidate tour** — likely via Playwright MCP driving the app interactively (the
-    role §7 already reserves it for) plus the diff that introduced the feature — and write it with
-    `status: proposed` (§5.1) and `maturity: draft`, so neither the drift gate nor `/document` treats it
-    as real yet.
-  - A human then edits/confirms the proposed tour (selectors, masking, intent) and flips it to
-    `status: confirmed` before it enters the normal capture → drift → doc-generation loop. Auto-suggest,
-    never auto-confirm — the same "gate the expensive/unreliable step behind a human check" philosophy
-    as prose generation (§5.3) and doc PRs (§7).
-  - Open questions to resolve before building this phase: what signal triggers the prompt (a hook on
-    feature-branch PRs? a manual `/document propose <slug>`?); how much of a tour stub can be inferred
-    reliably vs. left blank for the human; how this interacts with tours added mid-development-cycle
-    (should work identically to a tour added at project start, since maturity/status are independent of
-    when a tour is created).
+- **Phase 7 — Assisted tour discovery. Done.** Tours were 100% hand-authored through Phase 6; this
+  phase adds an *assisted* path without making anything auto-discovered blindly:
+  - **Trigger — resolved as manual, not a hook.** `/document propose <slug> "<description>"`. No git
+    hook heuristically guessing "a feature just landed" — matches the solo-developer, manual-first
+    stance (§1): a human (or Claude, working with them) decides when, via CLAUDE.md's "Tutorial-need
+    check" routine prompting at the natural moment (just after implementing something user-facing).
+  - **Drafting — the `tour-scout` subagent** (`plugin/agents/tour-scout.md`), given the slug, the human's
+    description, and candidate `code_paths` from `git diff` (computed by the `/document` skill, not
+    tour-scout itself — it has no Bash access). Drives the app via Playwright MCP and grounds every step
+    in what it actually observes in an accessibility snapshot — same "never invent UI" discipline as
+    doc-scribe (§5.3). Writes `tours/<slug>.yaml` via `scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`,
+    always `status: proposed` + `maturity: draft`.
+  - **What's reliably inferable, resolved**: `code_paths` (from the diff — reliable) and steps/selectors
+    (from actually driving the app — grounded, not guessed) get filled in. `preconditions.auth` is only
+    filled in when tour-scout is certain (it couldn't reach the route without an existing auth profile's
+    login flow); `preconditions.seed` and `mask` are left as explicit TODOs — not reliably inferable from
+    one exploration pass.
+  - A human then reviews/edits the proposed tour and flips `status: confirmed` before it enters the
+    normal capture → drift → doc-generation loop — never auto-confirmed.
+  - **Mid-cycle tours, resolved**: no special-casing needed. A tour proposed for a feature added long
+    after project start goes through the identical `tours/<slug>.yaml` → review → confirm → drift-gated
+    path as one written by hand on day one; `status`/`maturity` are just per-tour fields, independent of
+    when the file was created.
+  - Verified end-to-end (with the caveat that tour-scout's own live MCP exploration couldn't be executed
+    in the building session — same category of limitation as doc-scribe in Phase 4): added a real
+    "Export CSV" feature to the demo app, hand-simulated tour-scout's expected output (a
+    `status: proposed` tour correctly naming the `standard-user` auth profile it would have needed to
+    reach `/dashboard`), confirmed the drift gate and `/document` both skip it, then simulated the human
+    review/confirm step and confirmed the tour flows through the full pipeline — capture, drift,
+    grounded prose, multi-viewport screenshots, Docusaurus build — identically to a hand-authored tour.
 
 ## 9. Acceptance criteria (definition of done, per phase)
 
