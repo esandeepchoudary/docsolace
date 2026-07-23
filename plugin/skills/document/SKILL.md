@@ -70,12 +70,19 @@ confirmed one.
    branch (or recent commits if already merged) for files that plausibly
    back this feature — frontend source under the app's directory, not
    config/test/build files.
-3. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
-   the candidate `code_paths` list, and the app's `baseUrl` (from
-   `autodocs.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
-   draft the tour yourself, that exploration is tour-scout's job, grounded in
-   what it actually finds by driving the app.
-4. Report what was drafted, and tour-scout's own notes on what it's unsure
+3. List existing tour files (`tours/*.yaml`, excluding the target slug —
+   there may be none on a brand-new project). tour-scout has no directory-
+   listing tool of its own (only `Read`/`Write`/Playwright MCP, kept
+   minimal on purpose) — pass this filename list to it directly rather than
+   letting it guess, so it can actually read one or two for
+   title/intent/selector conventions instead of silently skipping that step.
+4. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
+   the candidate `code_paths` list, the existing tour filenames from step 3,
+   and the app's `baseUrl` (from `autodocs.config.yaml`). Wait for it to
+   write `tours/<slug>.yaml` — don't draft the tour yourself, that
+   exploration is tour-scout's job, grounded in what it actually finds by
+   driving the app.
+5. Report what was drafted, and tour-scout's own notes on what it's unsure
    about. Tell the user plainly: review the steps/selectors, fill in
    `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
    nothing downstream (drift gate, `/document`'s normal pipeline) treats

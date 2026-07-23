@@ -215,7 +215,14 @@ describe('agents/tour-scout.md', () => {
     expect(tools).not.toContain('Bash');
     expect(tools).toContain('Read');
     expect(tools).toContain('Write');
-    expect(tools.some((t) => t.startsWith('mcp__playwright'))).toBe(true);
+    // Tools from a plugin-bundled MCP server are namespaced
+    // mcp__plugin_<plugin-name>_<server-key>__<tool-name> at runtime — a
+    // bare `mcp__playwright__*` (the un-namespaced form used for a
+    // user/project-level .mcp.json entry) silently resolves to nothing for
+    // a plugin-bundled server, verified live: tour-scout reported having
+    // only Read/Write with that pattern. See
+    // https://code.claude.com/docs/en/mcp.md#plugin-mcp-tool-names.
+    expect(tools).toContain('mcp__plugin_autodocs_playwright__*');
   });
 
   it('does not declare mcpServers, hooks, or permissionMode (unsupported for plugin agents)', () => {
