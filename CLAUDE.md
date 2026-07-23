@@ -36,6 +36,11 @@ told otherwise.
   keeps `main` as the reviewed, shipped line per the brief's own "never
   auto-merge" principle for generated docs.
 
+### Documentation
+- Keep `README.md` updated as you go, each time repo structure, setup steps,
+  or usage changes. Keep it simple and to the point — no fluff, no marketing
+  language, just what's here and how to run it.
+
 ### Dependencies
 - Only add reputable, actively maintained packages: real download volume,
   recent releases/commits, no known critical CVEs (`npm audit` clean).

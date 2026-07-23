@@ -1,0 +1,25 @@
+id: dashboard-overview
+title: "Dashboard overview"
+intent: "Show a new user what the main dashboard displays and how to read it."
+maturity: stable
+preconditions:
+  auth: standard-user
+  seed: demo-baseline
+steps:
+  - action: goto
+    path: /dashboard
+  - capture: dashboard-full
+    description: "Full dashboard after login"
+    mask:
+      - ".timestamp"
+      - ".user-avatar"
+  - action: click
+    selector: "role=button[name='Filters']"
+  - capture: dashboard-filters
+    description: "Filter panel expanded"
+    mask:
+      - ".timestamp"
+      - ".user-avatar"
+code_paths:
+  - demo-app/src/pages/Dashboard.jsx
+  - demo-app/src/pages/Dashboard.css
