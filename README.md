@@ -18,9 +18,9 @@ build order, and `CLAUDE.md` for project conventions.
   project-level Playwright MCP for interactive tour authoring): done.
 - **Phase 5** — publish (Docusaurus site serving `docs/` directly) + CI
   (`.github/workflows/docs.yml` opens a docs PR on merge to main): done.
-- **Phase 6** — hardening (stretch): multi-viewport capture + config-wide
-  default masks done; visual-diff review UI and out-of-keep-region edit
-  warnings still open.
+- **Phase 6** — hardening (stretch): done. Multi-viewport capture,
+  config-wide default masks, a visual-diff review report, and a guard
+  against overwriting human edits made outside the keep-region.
 - **Phase 7** — assisted tour discovery: scoped in the brief, not built —
   tours stay hand-authored for now.
 
@@ -32,6 +32,7 @@ tours/*.yaml               Declarative feature walks (steps, preconditions, mask
 scripts/capture.mjs        Playwright runner: tour -> screenshots + a11y snapshots + manifest
 scripts/generate-docs.mjs  Assembles docs/<tour-id>.md from a tour's captures, gated by drift + pixel-diff
 scripts/drift.mjs          Reports which tours are dirty, without changing anything
+scripts/review-diffs.mjs   Renders a before/after/diff HTML report for pending screenshot changes
 scripts/lib/               Unit-tested helpers (config/tour loading, hashing, manifest,
                            doc templating, drift/state, pixel-diff)
 autodocs.config.yaml       Base URL, viewport, auth profiles, seed fixtures, pixel-diff threshold
@@ -93,6 +94,18 @@ anything:
 ```bash
 npm run drift
 ```
+
+Before pushing a docs change, review exactly what screenshots would be
+replaced:
+
+```bash
+npm run review-diffs   # writes .autodocs/artifacts/diff-report.html
+```
+
+If someone hand-edits a page outside its `<!-- autodocs:keep -->` region,
+the next `generate-docs` run stops with an error instead of silently
+overwriting it — move the edit into the keep-region, or re-run with
+`--force` to overwrite deliberately.
 
 ## Test
 

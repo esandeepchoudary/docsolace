@@ -7,6 +7,13 @@ export function extractKeepRegion(markdown) {
   return match ? match[1].trim() : null;
 }
 
+// Everything except the keep-region — the basis for detecting whether a
+// human edited a page outside the one region generation is allowed to
+// clobber (see generate-docs.mjs's out-of-keep-region check).
+export function nonKeepContent(markdown) {
+  return markdown.replace(KEEP_REGION_RE, '');
+}
+
 // Preserves the human-authored keep-region from `previousMarkdown` (if any)
 // by splicing it into `newMarkdown`'s keep-region, so regeneration never
 // clobbers human edits. `newMarkdown` must already contain one keep-region

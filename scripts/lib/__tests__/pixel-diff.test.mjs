@@ -3,9 +3,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { PNG } from 'pngjs';
 import { afterEach, describe, expect, it } from 'vitest';
-import { pixelDiffRatio } from '../pixel-diff.mjs';
+import { pixelDiffRatio, writeDiffImage } from '../pixel-diff.mjs';
 
 const tmpFiles = [];
+const tmpDirs = [];
 
 function writeSolidPng(width, height, [r, g, b, a]) {
   const png = new PNG({ width, height });
@@ -23,6 +24,7 @@ function writeSolidPng(width, height, [r, g, b, a]) {
 
 afterEach(() => {
   while (tmpFiles.length) fs.rmSync(tmpFiles.pop(), { force: true });
+  while (tmpDirs.length) fs.rmSync(tmpDirs.pop(), { recursive: true, force: true });
 });
 
 describe('pixelDiffRatio', () => {
@@ -48,5 +50,36 @@ describe('pixelDiffRatio', () => {
     const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
     expect(pixelDiffRatio(a, '/nonexistent/path.png')).toBe(1);
     expect(pixelDiffRatio('/nonexistent/path.png', a)).toBe(1);
+  });
+});
+
+describe('writeDiffImage', () => {
+  function tmpDiffPath() {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-diff-test-'));
+    tmpDirs.push(dir);
+    return path.join(dir, 'nested', 'diff.png');
+  }
+
+  it('writes a valid PNG and returns the ratio for two different images', () => {
+    const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
+    const b = writeSolidPng(10, 10, [0, 0, 255, 255]);
+    const diffPath = tmpDiffPath();
+    const ratio = writeDiffImage(a, b, diffPath);
+    expect(ratio).toBe(1);
+    expect(fs.existsSync(diffPath)).toBe(true);
+    expect(() => PNG.sync.read(fs.readFileSync(diffPath))).not.toThrow();
+  });
+
+  it('returns null and writes nothing when dimensions differ', () => {
+    const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
+    const b = writeSolidPng(20, 20, [255, 0, 0, 255]);
+    const diffPath = tmpDiffPath();
+    expect(writeDiffImage(a, b, diffPath)).toBeNull();
+    expect(fs.existsSync(diffPath)).toBe(false);
+  });
+
+  it('returns null when either image is missing', () => {
+    const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
+    expect(writeDiffImage(a, '/nonexistent/path.png', tmpDiffPath())).toBeNull();
   });
 });
