@@ -111,4 +111,20 @@ describe('ensureGitignoreEntries', () => {
     const already = '# AutoDocs (added automatically by /autodocs:document)\n.autodocs/artifacts/\n.env\n';
     expect(ensureGitignoreEntries(already, ['.autodocs/artifacts/', '.env'])).toBe(already);
   });
+
+  it("includes .playwright-mcp/ — init-project.mjs's real GITIGNORE_ENTRIES list", () => {
+    // Mirrors the literal entry set in plugin/scripts/init-project.mjs
+    // (not imported directly — that module runs its CLI main() on import).
+    // tour-scout's Playwright MCP driving drops a .playwright-mcp/ scratch
+    // dir (page snapshots, console logs) into the project root the first
+    // time /document propose runs; a freshly bootstrapped project must
+    // gitignore it, same as .autodocs/artifacts/ and .env, or it can get
+    // committed by accident.
+    const realEntries = ['.autodocs/artifacts/', '.env', '.playwright-mcp/'];
+    const result = ensureGitignoreEntries('', realEntries);
+    expect(result).toContain('.playwright-mcp/');
+    for (const entry of realEntries) {
+      expect(result).toContain(entry);
+    }
+  });
 });

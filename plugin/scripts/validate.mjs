@@ -29,7 +29,19 @@ function main() {
   let hasError = false;
 
   for (const fileId of tourIds) {
-    const tour = loadTour('tours', fileId);
+    // Isolated per tour: a single malformed tour file (bad slug, invalid
+    // YAML, missing required field) shouldn't abort the whole report and
+    // leave every other tour unvalidated — report it as one finding and
+    // keep going, same as any other error this loop already reports.
+    let tour;
+    try {
+      tour = loadTour('tours', fileId);
+    } catch (err) {
+      hasError = true;
+      console.log(`  error   ${fileId}: ${err.message}`);
+      continue;
+    }
+
     const findings = validateTour(config, tour);
 
     if (findings.length === 0) {
