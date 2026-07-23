@@ -5,11 +5,17 @@
 AutoDocs is a Claude Code–native pipeline that drives a running web app in a
 headless browser, captures feature screenshots, generates tutorial-style
 Markdown documentation, and keeps it in sync as the app ships — packaged as a
-reusable Claude Code plugin. Full architecture, component specs, and phased
-build order live in `autodocs-implementation-brief.md`; the locked decisions
-from the Open Questions (target app, publisher, capture driver, run trigger,
-screenshot storage, scribe model) are recorded in the approved implementation
-plan for this project.
+reusable Claude Code plugin **for solo developers building their own
+projects**. The primary workflow is one person running `/document`
+themselves whenever a feature is worth documenting — not a team-scale
+pipeline that auto-regenerates docs on every merge. That's why CI
+(`.github/workflows/docs.yml`) is built but deliberately parked on manual
+dispatch rather than treated as core — see the brief's §1 and §7. Full
+architecture, component specs, and phased build order live in
+`autodocs-implementation-brief.md`; the locked decisions from the Open
+Questions (target app, publisher, capture driver, run trigger, screenshot
+storage, scribe model) are recorded in the approved implementation plan for
+this project.
 
 **Branding note:** this is an independent personal project, unrelated to any
 other brand. Do not apply Mirai (or any other) brand styling here even if a

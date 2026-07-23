@@ -24,9 +24,12 @@ defaultMask:
 
 # Intended cadence for the docs pipeline (informational — GitHub Actions
 # triggers are static YAML, so .github/workflows/docs.yml's `on:` block must
-# be kept in sync by hand if you change this). Options: merge-to-main
-# (default — main is the "shipped" line), release-tag, manual-only.
-runTrigger: merge-to-main
+# be kept in sync by hand if you change this). Options: manual-only
+# (default — this is a solo-developer tool: run /document or
+# `npm run generate-docs` yourself, when you want it), merge-to-main,
+# release-tag. .github/workflows/docs.yml exists but is parked on
+# workflow_dispatch (manual) until there's an actual reason to automate it.
+runTrigger: manual-only
 
 # A recaptured screenshot only replaces the committed one in docs/images/
 # when the fraction of changed pixels exceeds this threshold — keeps binary
