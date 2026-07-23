@@ -76,8 +76,15 @@ Open Claude Code in whatever project you want tutorials for and run
 this is the full command (plain `/document` may also resolve if it's
 unambiguous, but `/autodocs:document` always works). **The first time**, it
 notices there's no `autodocs.config.yaml` yet, asks for your app's local base
-URL, and scaffolds a starter config plus an empty `tours/` directory — then
-tells you there's nothing to generate until a tour exists. From there:
+URL, and bootstraps the project: a real, annotated `autodocs.config.yaml`
+(every optional section — `auth`, `defaultMask`, `seeds`, etc. — included as
+commented-out examples right in the file), an empty `tours/` directory with
+a short "what's next" `tours/README.md`, a `.env.example`, and — worth
+calling out since it's easy to get wrong by hand — your project's
+`.gitignore` gets `.autodocs/artifacts/` and `.env` added automatically, so
+the session cookies and credentials those can hold never end up committed.
+Then it tells you there's nothing to generate until a tour exists. From
+there:
 
 - **`/autodocs:document`** — run the full pipeline over every tour.
 - **`/autodocs:document <tour-id>`** — just that one tour.
@@ -91,6 +98,13 @@ tells you there's nothing to generate until a tour exists. From there:
   a worked example, start to finish (this repo also happens to be its own
   best demo project — it's both the plugin source and a working AutoDocs
   project).
+- **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
+  and every tour, without launching a browser: an undefined
+  `preconditions.auth` profile is an error, an empty `code_paths` match, an
+  unrecorded `storageStatePath` session, or a non-`role=`/`text=` selector
+  are warnings. Worth running right after authoring or confirming a tour, so
+  a typo in an auth profile name surfaces immediately instead of partway
+  through a real capture.
 - **`/autodocs:document init-site`** — once you've got at least one
   confirmed, generated tour, scaffolds a Docusaurus site in your project
   reading its `docs/` folder directly. Prompt-driven, not a bundled script,
@@ -312,6 +326,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 
 | Command | What it does |
 |---|---|
+| `npm run validate` | Preflight-check config/tours (undefined auth profiles, empty `code_paths` matches, non-role selectors) without launching a browser |
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
