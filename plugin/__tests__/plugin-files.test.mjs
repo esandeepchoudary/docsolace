@@ -38,6 +38,14 @@ describe('hooks/hooks.json', () => {
   const hooks = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'hooks/hooks.json'), 'utf8'));
   const command = hooks.hooks.SessionStart[0].hooks[0].command;
 
+  it('has a second SessionStart entry that emits the standing session-guidance context', () => {
+    const guidanceCommand = hooks.hooks.SessionStart[1].hooks[0].command;
+    expect(guidanceCommand).toContain('${CLAUDE_PLUGIN_ROOT}/scripts/session-guidance.mjs');
+    // Runs from PLUGIN_ROOT, not PLUGIN_DATA — it has no third-party deps, so
+    // it must not depend on the first hook's npm install having finished.
+    expect(guidanceCommand).not.toContain('CLAUDE_PLUGIN_DATA');
+  });
+
   it('installs bundled deps into CLAUDE_PLUGIN_DATA, never CLAUDE_PLUGIN_ROOT', () => {
     expect(command).toContain('${CLAUDE_PLUGIN_DATA}');
     expect(command).toContain('npm install');
