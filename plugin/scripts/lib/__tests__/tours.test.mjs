@@ -88,4 +88,20 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/site-relative/);
   });
+
+  it('throws when a capture step name contains path-traversal characters', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - capture: "../../../../tmp/pwned"\n    description: "x"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/kebab-case/);
+  });
+
+  it('throws when a capture step name is not a safe slug', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - capture: "Not Kebab Case!"\n    description: "x"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/kebab-case/);
+  });
 });

@@ -28,3 +28,43 @@ export function readJsonFile(filePath, fallback) {
     );
   }
 }
+
+// Runs `fn` (a synchronous load-mutate-writeFileAtomic sequence) while
+// holding an exclusive lock on a sibling `<filePath>.lock` file, so two
+// concurrent updates to the same JSON file (e.g. two tours' manifest/state
+// entries saved at once) can't race: the second writer's read has to wait
+// for the first writer's read-modify-write to finish, instead of loading a
+// stale copy and clobbering the first writer's update on its own write.
+// `fs.openSync(..., 'wx')` fails with EEXIST if the lock is already held,
+// which is what the retry loop polls on.
+export function withFileLock(filePath, fn, { retries = 200, retryDelayMs = 20 } = {}) {
+  const dir = path.dirname(filePath);
+  fs.mkdirSync(dir, { recursive: true });
+  const lockPath = path.join(dir, `.${path.basename(filePath)}.lock`);
+
+  let fd;
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fd = fs.openSync(lockPath, 'wx');
+      break;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      if (attempt >= retries) {
+        throw new Error(
+          `Timed out waiting for lock on "${filePath}" (held by another AutoDocs process?). ` +
+            `Delete "${lockPath}" if you're sure nothing else is running.`,
+        );
+      }
+      // Node has no synchronous sleep; Atomics.wait on a throwaway buffer is
+      // the standard portable way to block the main thread briefly.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, retryDelayMs);
+    }
+  }
+
+  try {
+    return fn();
+  } finally {
+    fs.closeSync(fd);
+    fs.rmSync(lockPath, { force: true });
+  }
+}

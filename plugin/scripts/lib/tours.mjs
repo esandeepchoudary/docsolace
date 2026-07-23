@@ -47,6 +47,12 @@ export function loadTour(toursDir, tourId) {
         `Tour "${tourId}" step ${index} is invalid: expected a goto/click action or a capture`,
       );
     }
+    // capture.mjs and generate-docs.mjs both join this straight into
+    // filesystem paths (screenshot/a11y/docs-image files) — same untrusted-
+    // YAML trust boundary as tour.id above, so it needs the same guard.
+    if (isCapture) {
+      assertSafeSlug(step.capture, `Tour "${tourId}" step ${index}'s "capture" field`);
+    }
     // goto targets are appended directly to config.baseUrl — must be
     // site-relative ("/foo"), never an absolute or protocol-relative URL
     // ("https://evil.example", "//evil.example"), or a tour step could

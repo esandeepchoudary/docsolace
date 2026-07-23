@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readJsonFile, writeFileAtomic } from './fs-atomic.mjs';
+import { readJsonFile, withFileLock, writeFileAtomic } from './fs-atomic.mjs';
 
 export function sha256Buffer(buffer) {
   return createHash('sha256').update(buffer).digest('hex');
@@ -13,10 +13,12 @@ export function loadManifest(manifestPath) {
 }
 
 export function saveManifestEntry(manifestPath, manifest) {
-  const existing = loadManifest(manifestPath);
-  existing[manifest.tourId] = manifest;
-  writeFileAtomic(manifestPath, JSON.stringify(existing, null, 2));
-  return existing;
+  return withFileLock(manifestPath, () => {
+    const existing = loadManifest(manifestPath);
+    existing[manifest.tourId] = manifest;
+    writeFileAtomic(manifestPath, JSON.stringify(existing, null, 2));
+    return existing;
+  });
 }
 
 export function buildManifest(tourId, captures, generatedAt = new Date().toISOString()) {
