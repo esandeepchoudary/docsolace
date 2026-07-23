@@ -67,30 +67,47 @@ git diff since last run  ──────────────────�
 
 Five components: **tour spec**, **capture runner**, **doc generator**, **drift gate**, **publisher**.
 
-## 4. Repository layout (proposed)
+## 4. Repository layout
+
+As actually built (revised from the original proposal once hardening — see
+§8's plugin-packaging note — required the engine to move *into* `plugin/`
+so the plugin is self-contained and installable into any project):
 
 ```
 autodocs/
-  autodocs.config.{ts,yaml}     # base URL, auth profiles, seed fixtures, viewports, output paths, run trigger
-  tours/                        # one YAML per feature/flow (the durable, human-edited artifact)
+  .claude-plugin/marketplace.json  # this repo is its own private marketplace; one entry: ./plugin
+  plugin/                          # the self-contained, installable Claude Code plugin
+    .claude-plugin/plugin.json     # name, version — bump to ship updates to installed copies
+    package.json                   # runtime deps, installed into CLAUDE_PLUGIN_DATA on first use
+    hooks/hooks.json                # SessionStart: install deps + Playwright's browser once
+    .mcp.json                      # Playwright MCP — bundled, travels with the plugin
+    skills/document/SKILL.md        # /document: bootstraps config/tours in any project, runs the pipeline
+    agents/doc-scribe.md            # writes grounded prose for one dirty tour
+    agents/tour-scout.md            # drafts a candidate tour via Playwright MCP (§8 Phase 7)
+    scripts/                       # the engine
+      capture.mjs                   # Playwright runner: tour → screenshots + a11y json + manifest
+      drift.mjs                     # hashing + dirty-tour computation
+      generate-docs.mjs             # assembles docs/<tour-id>.md
+      review-diffs.mjs              # before/after/diff report for pending screenshot changes
+      lib/                         # unit-tested helpers
+  autodocs.config.{ts,yaml}        # this repo's own config: base URL, auth, viewports, masks, threshold
+  tours/                           # this repo's own tours (the durable, human-edited artifact)
     dashboard.yaml
-  scripts/
-    capture.mjs                 # Playwright runner: tour → screenshots + a11y json + manifest
-    drift.mjs                   # hashing + dirty-tour computation
   .autodocs/
-    state.json                  # lockfile: tour-id → {screenshotHashes, codePathsHash}
+    state.json                     # lockfile: tour-id → {screenshotHashes, codePathsHash, bodyHash}
     artifacts/
-      screenshots/<tour-id>/<capture>.png
-      snapshots/<tour-id>/<capture>.a11y.json
+      screenshots/<tour-id>/<capture>@<viewport>.png
+      snapshots/<tour-id>/<capture>@<viewport>.a11y.json
       manifest.json
-  docs/                         # generated Markdown (human edits preserved in marked regions)
-  plugin/                       # Claude Code plugin (see §7)
-    skills/document/SKILL.md
-    agents/doc-scribe.md
-  CLAUDE.md                     # project constitution / conventions
+  docs/                            # generated Markdown (human edits preserved in marked regions)
+  demo-app/                        # dogfood target — a tiny app this repo documents with its own plugin
+  CLAUDE.md                        # project constitution / conventions
 ```
 
-The tool itself: **TypeScript + Node + Playwright**. The target app it documents can be anything.
+The tool itself: **Node (ES modules) + Playwright**. The target app it
+documents can be anything. Everything outside `plugin/` in this specific
+repo is AutoDocs' own dogfood project — a real target app, config, and
+tours exercising the plugin — not part of what installs elsewhere.
 
 ## 5. Component specs
 
@@ -209,17 +226,42 @@ since these details move; the notes below reflect the current model:
   `description`. It orchestrates the pipeline: capture → drift gate → (dispatch dirty tours to the
   subagent) → summarize. Use `${CLAUDE_SKILL_DIR}` for skill-relative paths and `$ARGUMENTS` to let
   me pass a single tour id.
-- **Subagent** — `plugin/agents/doc-scribe.md`. Runs the prose generation for one tour in an
-  **isolated context** so it doesn't pollute the main session. Reasonable frontmatter: a mid-tier
-  `model`, bounded `maxTurns`, and `disallowedTools` to keep it from editing source. Note the
-  constraint: **plugin-shipped agents cannot declare `mcpServers`, `hooks`, or `permissionMode` in
-  their own frontmatter** — so configure Playwright MCP at the project level, not in the agent file.
-- **MCP (browser driver)** — Playwright MCP, added at the project level:
-  ```
-  claude mcp add playwright -- npx @playwright/mcp@latest   # confirm current flag syntax
-  ```
-  This lets the agent drive a real browser via the accessibility tree. (You may instead call
-  Playwright directly from `capture.mjs` and reserve MCP for interactive authoring — decide in §8.)
+- **Subagents** — `plugin/agents/doc-scribe.md` (prose for one dirty tour) and `plugin/agents/
+  tour-scout.md` (drafts a candidate tour, §8 Phase 7), each in an **isolated context** so they don't
+  pollute the main session. Reasonable frontmatter: a mid-tier `model`, bounded `maxTurns`, and an
+  explicit `tools` allowlist (`Read, Write` for doc-scribe; add the Playwright MCP tools for
+  tour-scout) rather than editing source. Confirmed constraint: **plugin-shipped agents cannot
+  declare `mcpServers`, `hooks`, or `permissionMode` in their own frontmatter** — configure those at
+  the plugin level instead (below), not in the agent file.
+- **MCP (browser driver)** — Playwright MCP, bundled in `plugin/.mcp.json` (not a project-level
+  `.mcp.json` — a plugin can ship its own MCP config, which then travels with it into whatever
+  project it's installed into, confirmed against the live plugins reference). This lets `tour-scout`
+  drive a real browser via the accessibility tree for interactive tour authoring. `capture.mjs` calls
+  Playwright directly and never goes through MCP — MCP is reserved for interactive authoring only.
+- **Self-contained plugin, hardened for real installs** — installed plugins are copied to a cache
+  directory and can't reference files outside their own tree, so the whole engine
+  (`scripts/`, its `lib/`) lives *inside* `plugin/`, not at the repo root. Its runtime dependencies
+  (Playwright, js-yaml, pixelmatch, pngjs, glob) are declared in `plugin/package.json` and installed
+  into `${CLAUDE_PLUGIN_DATA}` (the plugin's persistent data directory, survives updates) by a
+  `SessionStart` hook — never into the target project's own `node_modules`. One non-obvious, verified
+  (not assumed) detail: the bundled scripts are ES modules, and Node's ESM loader does **not** honor
+  `NODE_PATH` the way CommonJS `require` does — confirmed empirically before relying on it. The hook
+  instead copies `scripts/` into `${CLAUDE_PLUGIN_DATA}` *next to* the `node_modules` it installs
+  there, so plain Node module resolution (walking up from the importing file) finds them. Scripts are
+  invoked as `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs"`, never via `npm run` (the target
+  project has no reason to have AutoDocs' own npm scripts).
+- **Bootstrapping a new project** — `/document`'s first run in a project with no
+  `autodocs.config.yaml` asks for the app's base URL, scaffolds a minimal config and an empty
+  `tours/`, and stops (nothing to generate until a tour exists via `/document propose` or by hand).
+  This is what makes "install once, works in any repo Claude Code is running in" true rather than
+  just "works in the repo it was built against."
+- **Private distribution** — this repo's own `.claude-plugin/marketplace.json` makes it a private
+  marketplace with one plugin (`source: "./plugin"`). `claude plugin marketplace add <this-repo>` +
+  `claude plugin install autodocs@autodocs-marketplace` installs it without any public listing.
+  Verified for real in this environment (not just structurally): added the marketplace, installed
+  the plugin, found it cached correctly, ran the hook's install command against the real cache, and
+  ran the real installed `capture.mjs`/`drift.mjs`/`generate-docs.mjs` against a throwaway project
+  directory with no relationship to this repo — full loop worked end to end.
 - **Run trigger (configurable, not hardcoded)** — the capture → gate → generate engine is identical
   regardless of when it fires, so the trigger is just wiring set in `autodocs.config`. **Default:
   `manual-only`** — this is a solo-developer tool, and the primary path is running `/document` (or
@@ -247,8 +289,11 @@ since these details move; the notes below reflect the current model:
   for a single tour. Human review of quality and hallucination-resistance.
 - **Phase 3 — Drift gate.** `state.json` lockfile; only dirty tours regenerate; screenshots commit
   only past a pixel-diff threshold.
-- **Phase 4 — Plugin packaging.** `/document` skill + `doc-scribe` subagent + project MCP config +
-  CLAUDE.md conventions. One-command install into a fresh repo.
+- **Phase 4 — Plugin packaging. Done, then hardened.** `/document` skill + `doc-scribe` subagent +
+  CLAUDE.md conventions shipped here; the plugin wasn't yet genuinely installable elsewhere (its
+  engine lived at the repo root, not inside `plugin/`, and there was no dependency/bootstrap story
+  for a project that isn't this one). See §7's hardening bullets and the updated P4 below — that gap
+  is closed.
 - **Phase 5 — Publish (done) + CI (parked, nice-to-have).** Docusaurus site wired up and serving
   `docs/` directly — done, core deliverable. The `claude-code-action` job that opens a docs PR on a
   cadence is *built* (`.github/workflows/docs.yml`) but deliberately parked on manual dispatch — see §7
@@ -301,8 +346,13 @@ since these details move; the notes below reflect the current model:
   fake element is **not** described. Human-marked keep-regions survive regeneration.
 - **P3:** Editing code under one tour's `code_paths` marks only that tour dirty; unrelated pages are
   untouched and their prose is not rewritten.
-- **P4:** Fresh repo → install plugin → `/document` runs the full loop with no manual glue beyond
-  `autodocs.config` and tours.
+- **P4: verified for real.** `claude plugin marketplace add` + `claude plugin install` from this
+  repo; confirmed the correct component inventory (1 skill, 2 agents, 1 hook, 1 MCP server); ran the
+  installed `SessionStart` hook against the real cached plugin (installs deps + Playwright's browser,
+  skips reinstall when the manifest is unchanged — both paths tested); ran the real installed
+  `capture.mjs`/`drift.mjs`/`generate-docs.mjs` against a throwaway project directory with no
+  relationship to this repo, using its own `autodocs.config.yaml` and `tours/` — full loop worked,
+  output landed in that project, not this one.
 - **P5:** Docs site builds (core, verified). The CI docs-PR path (merge to main → updated pages +
   screenshots + change summary) is built and would satisfy this if ever enabled — parked on manual
   dispatch, not exercised as part of core acceptance.

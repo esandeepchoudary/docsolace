@@ -121,35 +121,64 @@ conversation.
 `plugin/` packages AutoDocs as exactly that: a `/document` skill that runs
 capture → drift check → hands each changed tour to the `doc-scribe`
 subagent (which writes the grounded prose, in its own isolated context) →
-assembles the final page.
+assembles the final page. It's **self-contained** — the pipeline scripts,
+their dependencies, and the Playwright MCP config all live inside `plugin/`,
+so it works in *any* project, not just this one.
 
-To try it in this repo without a full marketplace install:
+### Install it once, privately
+
+This repo is itself a private plugin marketplace with one plugin in it.
+From anywhere:
 
 ```bash
-claude plugin validate ./plugin --strict   # structural check
-claude plugin init autodocs-dev            # scaffolds ~/.claude/skills/autodocs-dev/
-# then copy plugin/skills, plugin/agents, and plugin/.claude-plugin into it,
-# or symlink them, and restart Claude Code — /document becomes available.
+claude plugin marketplace add /path/to/this/repo   # or its git URL
+claude plugin install autodocs@autodocs-marketplace
 ```
 
-Then, inside a Claude Code session:
+The first time Claude Code starts a session afterward, a `SessionStart` hook
+installs the plugin's own dependencies (Playwright, js-yaml, etc.) and the
+Playwright browser into a private data directory — this can take a minute
+the very first time (browser download), and is instant on every session
+after. Nothing is installed into your projects' own `node_modules` or
+`package.json`.
+
+### Use it in any project
+
+Open Claude Code in whatever project you want tutorials for and run
+`/document`. **The first time**, it notices there's no `autodocs.config.yaml`
+yet, asks for your app's local base URL, and scaffolds a starter config plus
+an empty `tours/` directory — then tells you there's nothing to generate
+until a tour exists. From there:
 
 - **`/document`** — run the full pipeline over every tour.
-- **`/document dashboard`** — just that one tour.
+- **`/document <tour-id>`** — just that one tour.
 - **`/document propose <slug> "<description>"`** — just implemented a
   feature and think it's worth a tutorial? This drafts a *candidate* tour
   instead: the `tour-scout` subagent drives your app via Playwright MCP and
   writes `tours/<slug>.yaml` grounded in what it actually finds, marked
   `status: proposed` — nothing downstream treats it as real until you review
   the steps/selectors, fill in anything left as a TODO, and flip it to
-  `confirmed` yourself. See `tours/dashboard-export.yaml` in this repo for a
-  worked example, start to finish.
+  `confirmed` yourself. See `tours/dashboard-export.yaml` in *this* repo for
+  a worked example, start to finish (this repo also happens to be its own
+  best demo project — it's both the plugin source and a working AutoDocs
+  project).
 
 Tours are always hand-authored or human-confirmed — nothing here crawls
-your app and invents a tour set on its own. `.mcp.json` wires up Playwright
-MCP at the project level for this interactive authoring; the automated
+your app and invents a tour set on its own. Playwright MCP (bundled in the
+plugin) is for `tour-scout`'s interactive authoring only; the automated
 pipeline (capture/drift/generate) drives Playwright directly and never goes
 through MCP.
+
+### Developing on the plugin itself
+
+```bash
+claude plugin validate ./plugin --strict   # structural check
+```
+
+Root `package.json`'s `npm run capture`/`drift`/`generate-docs` scripts
+(used throughout this README's Quickstart) call the exact same code under
+`plugin/scripts/` — they're how this repo dogfoods its own plugin against
+the bundled demo app, without needing a real install.
 
 ## Everyday commands
 
@@ -204,24 +233,31 @@ automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
 ## Project layout
 
 ```
-demo-app/                  React + Vite app used to exercise the pipeline (login + dashboard)
-tours/*.yaml               Declarative feature walks (steps, preconditions, masking)
-scripts/capture.mjs        Playwright runner: tour -> screenshots + a11y snapshots + manifest
-scripts/generate-docs.mjs  Assembles docs/<tour-id>.md from a tour's captures, gated by drift + pixel-diff
-scripts/drift.mjs          Reports which tours are dirty, without changing anything
-scripts/review-diffs.mjs   Renders a before/after/diff HTML report for pending screenshot changes
-scripts/lib/               Unit-tested helpers (config/tour loading, hashing, manifest,
-                           doc templating, drift/state, pixel-diff)
-autodocs.config.yaml       Base URL, viewports, auth profiles, seed fixtures, pixel-diff threshold
-docs/                      Generated tutorials (images + markdown); edits inside
+.claude-plugin/marketplace.json  This repo doubles as a private plugin marketplace (one entry: ./plugin)
+plugin/                    The self-contained, installable Claude Code plugin — see below
+  .claude-plugin/plugin.json   Plugin manifest (name, version — bump it to ship updates)
+  package.json                 Runtime deps (playwright, js-yaml, ...), installed into
+                                CLAUDE_PLUGIN_DATA on first use, never into a target project
+  hooks/hooks.json              SessionStart: installs deps + Playwright's browser once
+  .mcp.json                    Playwright MCP — bundled, travels with the plugin to any project
+  skills/document/SKILL.md      /document — bootstraps config/tours, runs the pipeline
+  agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
+  agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (/document propose)
+  scripts/                     The engine: capture.mjs, drift.mjs, generate-docs.mjs,
+                                review-diffs.mjs, lib/ (unit-tested helpers)
+demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
+tours/*.yaml               This repo's own tours — declarative feature walks
+autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold
+docs/                      This repo's own generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
-plugin/                    Claude Code plugin: /document skill + doc-scribe + tour-scout subagents
-.mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
-                           (capture.mjs drives Playwright directly, not through MCP)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
 .github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" above
 ```
+
+Everything under `plugin/` is what gets installed elsewhere; everything else
+in this list is this repo's own dogfood project (same relationship as any
+app that happens to use its own product).
 
 ## Project status
 

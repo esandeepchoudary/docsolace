@@ -36,7 +36,7 @@ tour. You are given a tour's file slug (e.g. `dashboard`) as your task input.
 - Do not touch `docs/*.md` directly, and do not use any tool besides Read and
   Write. The surgical merge (preserving human-edited
   `<!-- autodocs:keep -->` regions, assembling the final page) is handled
-  deterministically by `scripts/generate-docs.mjs` after you're done —
+  deterministically by `plugin/scripts/generate-docs.mjs` after you're done —
   your only job is grounded prose.
 
 ## Output

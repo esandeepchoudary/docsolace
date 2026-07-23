@@ -1,11 +1,41 @@
 ---
 name: document
-description: Captures the app's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline.
+description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
 argument-hint: "[tour-id] | propose <slug> \"<description>\""
-allowed-tools: Bash(npm run capture *) Bash(npm run drift *) Bash(npm run generate-docs *) Bash(git diff *) Bash(git log *)
+allowed-tools: Bash(git diff *) Bash(git log *)
 ---
 
 Arguments: $ARGUMENTS
+
+All commands below run against `${CLAUDE_PROJECT_DIR}` (the project you're
+in) using the AutoDocs engine bundled with this plugin, copied to
+`${CLAUDE_PLUGIN_DATA}/scripts/` on session start (see `hooks/hooks.json`) —
+run every script as `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs" ...`,
+never `npm run ...`; the project you're documenting has no reason to have
+AutoDocs' own npm scripts.
+
+## Step 0 — first run in this project: bootstrap
+
+If `${CLAUDE_PROJECT_DIR}/autodocs.config.yaml` doesn't exist yet, this is
+the first time `/document` has run here. Before anything else:
+
+1. Ask the user for the app's local base URL (e.g. `http://localhost:3000`)
+   — don't guess a port.
+2. Write a minimal `autodocs.config.yaml` at the project root: that
+   `baseUrl`, a `viewports` map with one `desktop` entry (`1280x800`), and
+   `outputDir: .autodocs/artifacts`. Point them at this plugin's own
+   `autodocs.config.yaml` (in the AutoDocs repo, or `${CLAUDE_PLUGIN_ROOT}`'s
+   reference copy if bundled) as an annotated example for adding
+   `auth`/`defaultMask`/`pixelDiffThreshold` later — don't invent those
+   values now.
+3. Create an empty `tours/` directory.
+4. Tell the user plainly: there are no tours yet. The fastest way to get one
+   is `/document propose <slug> "<description>"` after implementing a
+   feature — see Phase 7 in this plugin's design. Then stop; there's nothing
+   to capture/generate until a tour exists.
+
+If `autodocs.config.yaml` already exists, skip straight to the arguments
+below.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below
 instead of the normal pipeline. Otherwise: run the AutoDocs pipeline —
@@ -35,21 +65,25 @@ confirmed one.
    what it actually finds by driving the app.
 4. Report what was drafted, and tour-scout's own notes on what it's unsure
    about. Tell the user plainly: review the steps/selectors, fill in
-   `preconditions`/`mask` if needed, then flip `status` to `confirmed` — nothing
-   downstream (drift gate, `/document`'s normal pipeline) treats this tour as
-   real until they do.
+   `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
+   nothing downstream (drift gate, `/document`'s normal pipeline) treats
+   this tour as real until they do.
 
 ## Steps
 
 1. **Capture.** For each target tour, run:
    ```
-   npm run capture -- --tour <slug>
+   node "${CLAUDE_PLUGIN_DATA}/scripts/capture.mjs" --tour <slug>
    ```
 
-2. **Check drift.** Run `npm run drift` to see which tours are dirty, clean,
-   or draft (skipped entirely). Only dirty tours need regeneration — this is
-   the whole point of the gate: don't waste a subagent call or rewrite a page
-   that hasn't actually changed.
+2. **Check drift.** Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
+   ```
+   to see which tours are dirty, clean, or draft/proposed (skipped
+   entirely). Only dirty tours need regeneration — this is the whole point
+   of the gate: don't waste a subagent call or rewrite a page that hasn't
+   actually changed.
 
 3. **Generate prose for dirty tours.** For each tour the drift check reports
    as dirty, invoke the `doc-scribe` subagent with that tour's file slug as
@@ -60,7 +94,7 @@ confirmed one.
 
 4. **Assemble.** For each dirty tour, once its prose file exists, run:
    ```
-   npm run generate-docs -- --tour <slug>
+   node "${CLAUDE_PLUGIN_DATA}/scripts/generate-docs.mjs" --tour <slug>
    ```
    This reads the prose the subagent wrote, applies the pixel-diff gate to
    screenshots, preserves any human-edited `<!-- autodocs:keep -->` regions,
@@ -79,4 +113,7 @@ Never hand-write or hand-edit anything under `docs/` yourself in this
 skill — every page in `docs/` is either subagent-authored prose assembled by
 `generate-docs.mjs`, or a human edit inside a `<!-- autodocs:keep -->`
 region. If a step above fails, stop and report it rather than working around
-it.
+it. If a script fails with a missing-dependency or missing-browser error,
+the `SessionStart` hook that installs them may not have finished yet or may
+have failed — check `${CLAUDE_PLUGIN_DATA}/package.json` exists and suggest
+restarting the session before troubleshooting further.
