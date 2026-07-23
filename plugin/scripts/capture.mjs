@@ -45,9 +45,12 @@ async function ensureAuthState(browser, config, authProfileId) {
     if (!fs.existsSync(profile.storageStatePath)) {
       throw new Error(
         `Auth profile "${authProfileId}" has storageStatePath "${profile.storageStatePath}" ` +
-          `but that file doesn't exist yet. Run ` +
+          `but that file doesn't exist yet. In your own terminal (it opens a real, visible browser ` +
+          `window — this can't run headless), run ` +
           `\`node "\${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile ${authProfileId}\` ` +
-          `(or the equivalent local path to save-auth-state.mjs) to log in once and record it.`,
+          `(or the equivalent local path to save-auth-state.mjs) to log in once and record it. Pass ` +
+          `--wait-for "<url-pattern>" to have it detect you're done automatically instead of waiting ` +
+          `for you to press Enter.`,
       );
     }
     return profile.storageStatePath;

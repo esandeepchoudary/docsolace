@@ -213,23 +213,33 @@ auth:
 ```
 
 Then record a session for it once — this opens a real, visible browser
-window so you can log in however the app actually requires. Ask Claude to
-run:
+window, so it needs to run **in your own terminal**, not handed to Claude to
+run: Claude's Bash tool has no display to show that browser window in, and
+often no interactive stdin either — which matters for the next part. Ask
+Claude what `${CLAUDE_PLUGIN_DATA}` resolves to for this session (it can
+tell you without running the command itself), then run it yourself:
 
 ```bash
-node "${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile oauth-user
+node "<the resolved path>/scripts/save-auth-state.mjs" --profile oauth-user
 ```
 
-(`${CLAUDE_PLUGIN_DATA}` only resolves inside the plugin's own runtime — let
-Claude run this rather than pasting it into your own shell. Running the
-pipeline standalone instead? Use `node plugin/scripts/save-auth-state.mjs
---profile oauth-user`.)
+(Running the pipeline standalone instead? Use `node
+plugin/scripts/save-auth-state.mjs --profile oauth-user`.)
 
-Log in, come back to the terminal, press Enter. Every tour whose
-`preconditions.auth` points at that profile reuses the saved session
-directly — no scripted login is ever attempted for it. Verified this really
-skips the scripted path, not just that it doesn't error: ran it against a
-profile with none of the username/password fields set at all.
+By default it waits for you to log in and press Enter once you're done —
+fine from your own terminal, since it's a real TTY. If you'd rather it
+detect completion on its own (or you're running it somewhere without a
+reliable stdin), pass `--wait-for "<url-pattern>"` — e.g. `--wait-for
+"**/dashboard"` — and it saves the session automatically the moment the
+browser navigates to a matching URL, no Enter needed. Without a real
+terminal *and* without `--wait-for`, it refuses up front with a clear
+message instead of hanging forever waiting for input that will never come.
+
+Every tour whose `preconditions.auth` points at that profile reuses the
+saved session directly — no scripted login is ever attempted for it.
+Verified this really skips the scripted path, not just that it doesn't
+error: ran it against a profile with none of the username/password fields
+set at all.
 
 ## Publishing a docs site
 
