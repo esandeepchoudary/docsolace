@@ -16,7 +16,11 @@ build order, and `CLAUDE.md` for project conventions.
   screenshot commits: done.
 - **Phase 4** — plugin packaging (`/document` skill, `doc-scribe` subagent,
   project-level Playwright MCP for interactive tour authoring): done.
-- **Phase 5+** — publishing, CI: not started.
+- **Phase 5** — publish (Docusaurus site serving `docs/` directly) + CI
+  (`.github/workflows/docs.yml` opens a docs PR on merge to main): done.
+- **Phase 6** — hardening (stretch): not started.
+- **Phase 7** — assisted tour discovery: scoped in the brief, not built —
+  tours stay hand-authored for now.
 
 ## Layout
 
@@ -35,6 +39,8 @@ docs/                      Generated tutorials (images + markdown); edits inside
 plugin/                    Claude Code plugin: /document skill + doc-scribe subagent
 .mcp.json                  Playwright MCP, project-scoped — interactive tour authoring only
                            (capture.mjs drives Playwright directly, not through MCP)
+site/                      Docusaurus site serving docs/ directly (no content duplication)
+.github/workflows/docs.yml CI: on merge to main, regenerates dirty tours and opens a docs PR
 ```
 
 ## Setup
@@ -88,6 +94,34 @@ npm run drift
 ```bash
 npm test
 ```
+
+## Docs site
+
+`site/` is a Docusaurus site configured to read the repo's `docs/` folder
+directly (`path: '../docs'` in `docusaurus.config.js`) — no copying, no
+second source of truth. It treats docs as plain CommonMark
+(`markdown.format: 'md'`), since the `<!-- autodocs:keep -->` comments
+`generate-docs.mjs` writes aren't valid MDX (Docusaurus's default parser).
+
+```bash
+cd site && npm install
+npm start           # dev server with live reload
+npm run build       # static build into site/build/
+```
+
+## CI
+
+`.github/workflows/docs.yml` runs on every push to `main`: captures all
+tours, checks drift, and — only if something's actually dirty — runs the
+same procedure as the `/document` skill (Claude Code headlessly dispatching
+`doc-scribe` per dirty tour, then `generate-docs.mjs`) and opens a PR with
+the result via `peter-evans/create-pull-request`. Requires an
+`ANTHROPIC_API_KEY` repo secret. Never auto-merges — review the PR like any
+other docs change.
+
+The intended cadence is recorded in `autodocs.config.yaml`'s `runTrigger`
+(default `merge-to-main`); GitHub Actions triggers are static YAML, so
+changing that value means updating the workflow's `on:` block to match.
 
 ## Plugin
 
