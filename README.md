@@ -110,6 +110,32 @@ Two things to set up, both by example in this repo:
   false "changed" results. Prefer role-based selectors
   (`role=button[name='...']`) over CSS — they're far less flaky.
 
+### If your app doesn't use a plain username/password login
+
+The `auth` profile shape shown in `autodocs.config.yaml` — fill a username
+field, fill a password field, click submit — only covers that one flow. For
+OAuth, SSO, a magic link, 2FA, or anything else too varied to script
+reliably, give the profile a `storageStatePath` instead:
+
+```yaml
+auth:
+  oauth-user:
+    storageStatePath: .autodocs/artifacts/.auth/oauth-user.manual.json
+```
+
+Then record a session for it once — this opens a real, visible browser
+window so you can log in however the app actually requires:
+
+```bash
+node "${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile oauth-user
+```
+
+Log in, come back to the terminal, press Enter. Every tour whose
+`preconditions.auth` points at that profile reuses the saved session
+directly — no scripted login is ever attempted for it. Verified this really
+skips the scripted path, not just that it doesn't error: ran it against a
+profile with none of the username/password fields set at all.
+
 ## Using the Claude Code plugin
 
 Two Claude Code concepts, in one sentence each, if you haven't met them
@@ -162,6 +188,12 @@ until a tour exists. From there:
   a worked example, start to finish (this repo also happens to be its own
   best demo project — it's both the plugin source and a working AutoDocs
   project).
+- **`/document init-site`** — once you've got at least one confirmed,
+  generated tour, scaffolds a Docusaurus site in your project reading its
+  `docs/` folder directly. Prompt-driven, not a bundled script, so it
+  adapts to scaffolding-tool changes instead of breaking — but it follows a
+  proven recipe, this repo's own `site/`. See "Deploying your docs" below
+  for publishing it.
 
 Tours are always hand-authored or human-confirmed — nothing here crawls
 your app and invents a tour set on its own. Playwright MCP (bundled in the
@@ -200,6 +232,35 @@ cd site && npm install
 npm start           # dev server with live reload
 npm run build        # static build into site/build/
 ```
+
+On your own project, `/document init-site` scaffolds an equivalent `site/`
+for you — see "Using the Claude Code plugin" above.
+
+## Deploying your docs
+
+`npm run build` only produces static files in `site/build/` — it doesn't
+publish them anywhere. Three common targets:
+
+**GitHub Pages** (free, scriptable, no dashboard needed). In
+`site/docusaurus.config.js`, set `url` to your Pages URL, `baseUrl` to `/`
+(or `/<repo-name>/` for a project page), and `organizationName`/
+`projectName` to your GitHub org/repo. Then:
+
+```bash
+cd site
+GIT_USER=<your-github-username> npm run deploy   # or USE_SSH=true npm run deploy
+```
+
+This is Docusaurus's built-in `deploy` command — it builds and pushes
+straight to the repo's `gh-pages` branch.
+
+**Netlify / Vercel** (dashboard-driven, no CLI recipe needed): connect the
+repo, set the build command to `cd site && npm install && npm run build`
+and the publish directory to `site/build`. Both auto-deploy on every push
+once connected.
+
+Whichever you use, the docs site itself is a plain static build — nothing
+about it is AutoDocs-specific once it's built.
 
 ## CI (optional, off by default)
 

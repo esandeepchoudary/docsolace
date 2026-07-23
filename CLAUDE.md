@@ -155,6 +155,28 @@ told otherwise.
   how `claude plugin marketplace add <this-repo>` +
   `claude plugin install autodocs@autodocs-marketplace` work without a
   public listing.
+- **Two auth-profile shapes, not one.** The scripted-login fields
+  (`usernameSelector`/`passwordSelector`/`submitSelector`/etc.) only cover a
+  plain username+password form. A profile with `storageStatePath` instead
+  means "reuse a pre-exported session" — `capture.mjs`'s `ensureAuthState`
+  checks that field first and, when set, never touches the scripted-login
+  fields at all. This is what makes OAuth/SSO/magic-link/2FA apps
+  supportable without automating any of those flows:
+  `save-auth-state.mjs` opens a real (headed) browser, a human logs in
+  however the app requires, and the resulting session gets saved once and
+  reused. When adding a new auth-related feature, check which shape a given
+  profile uses before assuming the scripted fields exist.
+- **`/document init-site` is prompt-driven, not a bundled script, on
+  purpose** — Docusaurus scaffolding/template details drift across
+  versions, and adapting to that is exactly what an instructed Claude
+  should do rather than a script that breaks on the next `create-docusaurus`
+  release. Its instructions in `SKILL.md` encode two non-obvious, verified
+  requirements: `markdown.format: 'md'` (Docusaurus's default MDX parser
+  fails on the `<!-- autodocs:keep -->` comments `generate-docs.mjs`
+  writes), and fixing `src/pages/index.js`'s default `/docs/intro` link
+  (which 404s/build-fails once `docs.path` points at the project's real
+  `docs/`) — confirmed by actually running the recipe end-to-end in a
+  scratch project, not just by reading it back.
 
 ## Reference
 - `autodocs-implementation-brief.md` — full architecture, phases, acceptance
