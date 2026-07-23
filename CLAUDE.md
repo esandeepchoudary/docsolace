@@ -1,0 +1,66 @@
+# CLAUDE.md — AutoDocs
+
+## Project goal
+
+AutoDocs is a Claude Code–native pipeline that drives a running web app in a
+headless browser, captures feature screenshots, generates tutorial-style
+Markdown documentation, and keeps it in sync as the app ships — packaged as a
+reusable Claude Code plugin. Full architecture, component specs, and phased
+build order live in `autodocs-implementation-brief.md`; the locked decisions
+from the Open Questions (target app, publisher, capture driver, run trigger,
+screenshot storage, scribe model) are recorded in the approved implementation
+plan for this project.
+
+**Branding note:** this is an independent personal project, unrelated to any
+other brand. Do not apply Mirai (or any other) brand styling here even if a
+parent-directory `CLAUDE.md` suggests it — use plain, generic styling unless
+told otherwise.
+
+## Working routines
+
+### Testing
+- Any new function, script, or component ships with unit tests in the same
+  change. Test framework: **Vitest** (pairs naturally with the Vite-based
+  `demo-app` and works fine for the plain Node scripts under `scripts/`).
+- Run the full test suite before every commit. If something fails, fix it and
+  re-run — do not commit on red. Loop fix → re-run up to a few attempts; if
+  still failing after that, stop and report the failure to the user rather
+  than looping indefinitely or committing anyway.
+
+### Git workflow
+- **Branch per change type:** new features on `feat/<short-name>`, bug fixes
+  on `fix/<short-name>`. Never commit directly to `main`.
+- Once tests pass on a branch, commit and push it automatically (no need to
+  ask each time), then open a PR against `main` with `gh pr create`.
+- Merging a PR into `main` still requires your explicit go-ahead — this
+  keeps `main` as the reviewed, shipped line per the brief's own "never
+  auto-merge" principle for generated docs.
+
+### Dependencies
+- Only add reputable, actively maintained packages: real download volume,
+  recent releases/commits, no known critical CVEs (`npm audit` clean).
+  Prefer a mainstream option over a fringe/single-maintainer one when both
+  solve the problem. Keep lockfiles committed.
+
+### Security review (SSDLC)
+- Before merging any feature/fix branch, and periodically otherwise, run a
+  secure code review (`/security-review` or equivalent manual pass) covering
+  injection, secrets handling, unsafe deserialization, path traversal, SSRF,
+  XSS, and dependency CVEs.
+- Loop: find issues → fix → re-review → repeat until clean. If a finding
+  needs a judgment call only you can make (architecture/scope trade-off),
+  stop and ask instead of guessing.
+- Extra scrutiny where it matters most here: `capture.mjs` drives a real
+  browser against a real app with real auth — treat tour YAML and config as
+  untrusted input, never hardcode credentials (reference auth profiles by
+  name only), and validate/sandbox anything that shells out or reads
+  arbitrary paths. Give Phase 4 (plugin packaging, new execution surface)
+  and Phase 5 (CI/CD) a security pass before considering them done.
+
+## Reference
+- `autodocs-implementation-brief.md` — full architecture, phases, acceptance
+  criteria, and open questions.
+- Locked decisions (from this project's approved plan): demo React/Vite app
+  as first target, direct Playwright (not MCP) for capture, Docusaurus as
+  publisher, merge-to-main as the doc-PR trigger, git-committed
+  pixel-diff-gated screenshots, Sonnet as the doc-scribe model.
