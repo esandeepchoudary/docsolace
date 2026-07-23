@@ -34,6 +34,37 @@ describe('loadConfig', () => {
     expect(() => loadConfig(filePath)).toThrow(/baseUrl/);
   });
 
+  it('throws a path-including error (not a bare parser message) when the file is empty', () => {
+    // js-yaml itself throws "expected a document, but the input is empty"
+    // for a fully empty file — rewrapped so it includes the config path and
+    // matches this file's error-message convention.
+    const filePath = writeTmpYaml('');
+    expect(() => loadConfig(filePath)).toThrow(`autodocs config at "${filePath}"`);
+    expect(() => loadConfig(filePath)).toThrow(/not valid YAML/);
+  });
+
+  it('throws the same path-including error when the file is whitespace-only', () => {
+    const filePath = writeTmpYaml('   \n\n  ');
+    expect(() => loadConfig(filePath)).toThrow(/not valid YAML/);
+  });
+
+  it('throws a clear error (not a bare TypeError) when the document is null', () => {
+    // A file containing just "null" (or "~") parses to JS null without
+    // throwing — config.baseUrl on null would otherwise be a raw TypeError.
+    const filePath = writeTmpYaml('null\n');
+    expect(() => loadConfig(filePath)).toThrow(/empty or not a valid YAML object/);
+  });
+
+  it('throws a clear error when the document is a scalar, not a mapping', () => {
+    const filePath = writeTmpYaml('just a string\n');
+    expect(() => loadConfig(filePath)).toThrow(/empty or not a valid YAML object/);
+  });
+
+  it('throws a clear error when the document is a list, not a mapping', () => {
+    const filePath = writeTmpYaml('- one\n- two\n');
+    expect(() => loadConfig(filePath)).toThrow(/empty or not a valid YAML object/);
+  });
+
   it('throws when outputDir is missing', () => {
     const filePath = writeTmpYaml('baseUrl: http://localhost:5173\n' + VALID_VIEWPORTS);
     expect(() => loadConfig(filePath)).toThrow(/outputDir/);

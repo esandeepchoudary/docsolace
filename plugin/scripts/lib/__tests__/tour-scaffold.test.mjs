@@ -70,4 +70,39 @@ describe('renderDraftTour', () => {
     expect(parsed.preconditions).toEqual({ auth: 'standard-user' });
     expect(yaml).not.toContain('TODO: add preconditions');
   });
+
+  it('produces loadable YAML for a double-quote-bearing role locator', () => {
+    // The exact selector style lib/validate.mjs recommends —
+    // role=button[name="..."] — contains a literal `"`. Naive
+    // `"${selector}"` interpolation breaks the surrounding YAML string; this
+    // must round-trip through loadTour without error.
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({
+      ...BASE,
+      steps: [
+        { action: 'goto', path: '/dashboard' },
+        { action: 'click', selector: 'role=button[name="Save"]' },
+      ],
+    });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.steps[1].selector).toBe('role=button[name="Save"]');
+  });
+
+  it('produces loadable YAML for a title/intent/description containing a double quote', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({
+      ...BASE,
+      title: 'The "Export CSV" button',
+      intent: 'Shows the "Export CSV" flow.',
+      steps: [{ capture: 'shot', description: 'The "Export CSV" button, visible' }],
+    });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.title).toBe('The "Export CSV" button');
+    expect(tour.intent).toBe('Shows the "Export CSV" flow.');
+    expect(tour.steps[0].description).toBe('The "Export CSV" button, visible');
+  });
 });

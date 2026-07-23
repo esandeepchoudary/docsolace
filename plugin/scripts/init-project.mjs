@@ -12,7 +12,13 @@ import { writeFileAtomic } from './lib/fs-atomic.mjs';
 // Matches the outputDir this same bootstrap writes into the config below —
 // if a user later changes outputDir by hand, they're responsible for
 // updating .gitignore to match (documented in the config's own comments).
-const GITIGNORE_ENTRIES = ['.autodocs/artifacts/', '.env'];
+// .playwright-mcp/ is the Playwright MCP server's own scratch directory
+// (page snapshots, console logs) that the tour-scout subagent's browser
+// driving drops into the project root the first time `/document propose`
+// runs — confirmed by actually running it; without this it's un-ignored and
+// can get committed by accident, the exact thing this bootstrap step exists
+// to prevent.
+const GITIGNORE_ENTRIES = ['.autodocs/artifacts/', '.env', '.playwright-mcp/'];
 
 const TOURS_README = `# tours/
 
@@ -98,8 +104,8 @@ function main() {
   console.log(`  - autodocs.config.yaml (baseUrl: ${baseUrl})`);
   console.log(
     gitignoreChanged
-      ? '  - .gitignore now excludes .autodocs/artifacts/ and .env'
-      : '  - .gitignore already excluded .autodocs/artifacts/ and .env',
+      ? '  - .gitignore now excludes .autodocs/artifacts/, .env, and .playwright-mcp/'
+      : '  - .gitignore already excluded .autodocs/artifacts/, .env, and .playwright-mcp/',
   );
   console.log('  - tours/ (empty — see tours/README.md for next steps)');
   console.log(envExampleWritten ? '  - .env.example' : '  - .env.example already existed, left untouched');

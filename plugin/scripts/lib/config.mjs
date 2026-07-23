@@ -37,7 +37,26 @@ function assertValidAuthProfile(configPath, profileId, profile) {
 }
 
 export function loadConfig(configPath) {
-  const config = parseYaml(fs.readFileSync(configPath, 'utf8'));
+  const raw = fs.readFileSync(configPath, 'utf8');
+  let config;
+  try {
+    config = parseYaml(raw);
+  } catch (err) {
+    // js-yaml throws its own YAMLException for a syntactically broken or
+    // fully empty/whitespace-only file — rewrap so every config-loading
+    // failure follows this file's `autodocs config at "<path>": ...`
+    // convention instead of a bare, path-less parser message.
+    throw new Error(`autodocs config at "${configPath}" is not valid YAML (${err.message})`);
+  }
+  // A `null` document (e.g. a file containing just "null"/"~") or a
+  // scalar/array document (valid YAML, just not a mapping) parses without
+  // throwing — the field checks below would then throw a raw "Cannot read
+  // properties of null/undefined" TypeError instead of the actionable
+  // message they're meant to give. tours.mjs's loadTour has the parallel
+  // guard for the same reason.
+  if (!config || typeof config !== 'object' || Array.isArray(config)) {
+    throw new Error(`autodocs config at "${configPath}" is empty or not a valid YAML object`);
+  }
   if (!config.baseUrl) {
     throw new Error(`autodocs config at "${configPath}" is missing required "baseUrl"`);
   }
