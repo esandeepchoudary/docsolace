@@ -1,9 +1,28 @@
 const KEEP_START = '<!-- autodocs:keep -->';
 const KEEP_END = '<!-- /autodocs:keep -->';
-const KEEP_REGION_RE = /<!-- autodocs:keep -->([\s\S]*?)<!-- \/autodocs:keep -->/;
+const KEEP_REGION_SOURCE = '<!-- autodocs:keep -->([\\s\\S]*?)<!-- /autodocs:keep -->';
+const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE);
+
+// renderTourPage emits exactly one keep-region block. A second one (e.g. a
+// human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
+// shape — every helper below only sees the first match, so a second block
+// would either get silently dropped or leak its markers into what's hashed
+// as "generated" content. Fail loudly instead, same as the out-of-keep-
+// region edit check in generate-docs.mjs does for other ambiguous edits.
+function assertAtMostOneKeepRegion(markdown) {
+  const matches = markdown.match(new RegExp(KEEP_REGION_SOURCE, 'g'));
+  if (matches && matches.length > 1) {
+    throw new Error(
+      `Found ${matches.length} "autodocs:keep" regions — only one is supported per page. ` +
+        `Merge your notes into the single existing region before the next regeneration.`,
+    );
+  }
+}
 
 export function extractKeepRegion(markdown) {
-  const match = markdown?.match(KEEP_REGION_RE);
+  if (!markdown) return null;
+  assertAtMostOneKeepRegion(markdown);
+  const match = markdown.match(KEEP_REGION_RE);
   return match ? match[1].trim() : null;
 }
 
@@ -11,6 +30,7 @@ export function extractKeepRegion(markdown) {
 // human edited a page outside the one region generation is allowed to
 // clobber (see generate-docs.mjs's out-of-keep-region check).
 export function nonKeepContent(markdown) {
+  assertAtMostOneKeepRegion(markdown);
   return markdown.replace(KEEP_REGION_RE, '');
 }
 
