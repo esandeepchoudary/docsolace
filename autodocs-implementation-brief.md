@@ -122,7 +122,13 @@ Design rules:
 - Selectors use **role/accessibility locators** first (`role=button[name=...]`), CSS only as fallback.
   Accessibility-tree targeting is far less flaky than pixel/CSS targeting.
 - `mask` is mandatory tooling for any volatile region (clocks, avatars, live counts) — masked areas
-  are excluded from the screenshot **and** from its hash, so they don't create false drift.
+  are excluded from the screenshot **and** from its hash, so they don't create false drift. A
+  config-wide `defaultMask` (in `autodocs.config`) applies to every capture in every tour, merged with
+  a step's own `mask` — keeps common volatile selectors (timestamps, avatars) from being repeated in
+  every tour file.
+- Every capture point is shot at each viewport in `autodocs.config`'s `viewports` map (same page/session
+  — only the viewport size changes between shots). One image per viewport is inlined in the generated
+  page; images are labeled by viewport name when there's more than one configured.
 - `code_paths` is what lets the drift gate know which git changes could affect this tour.
 - `maturity` throttles churn on fast-moving UI: `draft` tours are skipped by the gate entirely, so a
   feature that's changing daily generates no doc noise until you flip it to `stable`. This is the lever
@@ -229,8 +235,11 @@ since these details move; the notes below reflect the current model:
   CLAUDE.md conventions. One-command install into a fresh repo.
 - **Phase 5 — Publish + CI.** Wire Docusaurus (or chosen site) and the `claude-code-action` job that
   opens a docs PR, with the trigger cadence read from `autodocs.config` (default: merge to main).
-- **Phase 6 — Hardening (stretch).** Multi-viewport capture, richer masking, human-edited-region
-  preservation, visual-diff review UI.
+- **Phase 6 — Hardening (stretch).** Multi-viewport capture (done) and config-wide default masks
+  (done, a "richer masking" sub-item). Still open: a visual-diff review UI (pixelmatch already produces
+  a diff buffer when the pixel-diff gate fires — not yet surfaced anywhere reviewable) and warning on
+  human edits made *outside* the keep-region before a regeneration silently overwrites them (today only
+  the keep-region itself is protected).
 - **Phase 7 — Assisted tour discovery (future, not yet scoped for build).** Today, tours are 100%
   hand-authored (§5.1) — nothing crawls the app or invents a tour set on install. This phase would add:
   - A **tutorial-need routine**: after a feature is implemented (in a repo with this plugin installed),

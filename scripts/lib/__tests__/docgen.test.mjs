@@ -36,6 +36,45 @@ describe('renderTourPage', () => {
   });
 });
 
+describe('renderTourPage with the images array (multi-viewport)', () => {
+  it('renders a single-viewport images array with no viewport label', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [{ viewport: 'desktop', path: 'a@desktop.png' }],
+          paragraph: 'Paragraph.',
+        },
+      ],
+    });
+    expect(page).toContain('![Step one](a@desktop.png)');
+    expect(page).not.toContain('*desktop*');
+  });
+
+  it('labels each image by viewport when there is more than one', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+    });
+    expect(page).toContain('*desktop*');
+    expect(page).toContain('![Step one (desktop)](a@desktop.png)');
+    expect(page).toContain('*mobile*');
+    expect(page).toContain('![Step one (mobile)](a@mobile.png)');
+  });
+});
+
 describe('extractKeepRegion', () => {
   it('returns null when there is no keep-region', () => {
     expect(extractKeepRegion('# No keep region here')).toBeNull();

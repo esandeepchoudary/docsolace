@@ -1,13 +1,15 @@
-// Phase 1: tour-driven capture runner. Reads a tour YAML, applies its
-// preconditions (auth via storage-state reuse), executes its steps in
-// order, and writes <capture>.png + <capture>.a11y.json per capture plus a
-// manifest.json entry with a SHA-256 computed on the masked screenshot.
+// Tour-driven capture runner. Reads a tour YAML, applies its preconditions
+// (auth via storage-state reuse), executes its steps in order, and at each
+// capture point shoots every configured viewport, writing
+// <capture>@<viewport>.png + .a11y.json plus a manifest.json entry with a
+// SHA-256 per viewport, computed on the masked screenshot.
 import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { sha256Buffer, buildManifest } from './lib/manifest.mjs';
+import { mergeMasks } from './lib/masking.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
@@ -23,6 +25,10 @@ function parseArgs(argv) {
     process.exit(1);
   }
   return args;
+}
+
+function primaryViewport(config) {
+  return Object.values(config.viewports)[0];
 }
 
 async function ensureAuthState(browser, config, authProfileId) {
@@ -45,7 +51,7 @@ async function ensureAuthState(browser, config, authProfileId) {
     );
   }
 
-  const context = await browser.newContext({ viewport: config.viewport });
+  const context = await browser.newContext({ viewport: primaryViewport(config) });
   const page = await context.newPage();
   await page.goto(`${config.baseUrl}${profile.loginUrl}`, { waitUntil: 'networkidle' });
   await page.fill(profile.usernameSelector, username);
@@ -69,7 +75,7 @@ async function runTour(browser, config, tour) {
     storageState = await ensureAuthState(browser, config, tour.preconditions.auth);
   }
 
-  const context = await browser.newContext({ viewport: config.viewport, storageState });
+  const context = await browser.newContext({ viewport: primaryViewport(config), storageState });
   const page = await context.newPage();
   await page.emulateMedia({ reducedMotion: 'reduce' });
 
@@ -82,23 +88,42 @@ async function runTour(browser, config, tour) {
       await page.locator(step.selector).click();
       await page.waitForLoadState('networkidle');
     } else if (step.capture) {
-      const maskLocators = (step.mask ?? []).map((selector) => page.locator(selector));
-      const pngPath = path.join(screenshotsDir, `${step.capture}.png`);
-      await page.screenshot({ path: pngPath, mask: maskLocators, maskColor: MASK_COLOR });
+      const maskSelectors = mergeMasks(config.defaultMask, step.mask);
+      const viewportShots = {};
 
-      const ariaSnapshot = await page.locator('body').ariaSnapshot();
-      const a11yPath = path.join(snapshotsDir, `${step.capture}.a11y.json`);
-      fs.writeFileSync(
-        a11yPath,
-        JSON.stringify({ capture: step.capture, description: step.description ?? null, ariaSnapshot }, null, 2),
-      );
+      for (const [viewportName, viewportSize] of Object.entries(config.viewports)) {
+        await page.setViewportSize(viewportSize);
+
+        const maskLocators = maskSelectors.map((selector) => page.locator(selector));
+        const pngPath = path.join(screenshotsDir, `${step.capture}@${viewportName}.png`);
+        await page.screenshot({ path: pngPath, mask: maskLocators, maskColor: MASK_COLOR });
+
+        const ariaSnapshot = await page.locator('body').ariaSnapshot();
+        const a11yPath = path.join(snapshotsDir, `${step.capture}@${viewportName}.a11y.json`);
+        fs.writeFileSync(
+          a11yPath,
+          JSON.stringify(
+            { capture: step.capture, viewport: viewportName, description: step.description ?? null, ariaSnapshot },
+            null,
+            2,
+          ),
+        );
+
+        viewportShots[viewportName] = {
+          png: path.relative(config.outputDir, pngPath),
+          a11y: path.relative(config.outputDir, a11yPath),
+          sha256: sha256Buffer(fs.readFileSync(pngPath)),
+        };
+      }
+
+      // Restore the primary viewport so subsequent goto/click steps interact
+      // with the layout the tour was authored against.
+      await page.setViewportSize(primaryViewport(config));
 
       captures.push({
         name: step.capture,
         description: step.description ?? null,
-        png: path.relative(config.outputDir, pngPath),
-        a11y: path.relative(config.outputDir, a11yPath),
-        sha256: sha256Buffer(fs.readFileSync(pngPath)),
+        viewports: viewportShots,
       });
     } else {
       throw new Error(`Tour "${tour.id}" step ${index} is neither a goto/click action nor a capture`);
@@ -127,7 +152,10 @@ try {
   writeManifestEntry(config, manifest);
   console.log(`Captured ${tour.id}: ${manifest.captures.length} capture(s).`);
   for (const c of manifest.captures) {
-    console.log(`  - ${c.name}: ${c.png} (sha256 ${c.sha256.slice(0, 12)}...)`);
+    const shots = Object.entries(c.viewports)
+      .map(([name, v]) => `${name}=${v.sha256.slice(0, 8)}...`)
+      .join(', ');
+    console.log(`  - ${c.name}: ${shots}`);
   }
 } finally {
   await browser.close();
