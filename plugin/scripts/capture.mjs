@@ -37,6 +37,22 @@ async function ensureAuthState(browser, config, authProfileId) {
     throw new Error(`Auth profile "${authProfileId}" not found in autodocs.config.yaml`);
   }
 
+  // Apps that can't be logged into with a scripted username/password fill —
+  // OAuth, SSO, magic links, 2FA — use a pre-exported session instead: a
+  // human logs in once, manually, via `save-auth-state.mjs`, and that
+  // recorded session is reused directly. No scripted login is attempted.
+  if (profile.storageStatePath) {
+    if (!fs.existsSync(profile.storageStatePath)) {
+      throw new Error(
+        `Auth profile "${authProfileId}" has storageStatePath "${profile.storageStatePath}" ` +
+          `but that file doesn't exist yet. Run ` +
+          `\`node "\${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile ${authProfileId}\` ` +
+          `(or the equivalent local path to save-auth-state.mjs) to log in once and record it.`,
+      );
+    }
+    return profile.storageStatePath;
+  }
+
   const authDir = path.join(config.outputDir, '.auth');
   fs.mkdirSync(authDir, { recursive: true });
   const statePath = path.join(authDir, `${authProfileId}.json`);

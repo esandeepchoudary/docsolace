@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] | propose <slug> \"<description>\""
+description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | init-site"
 allowed-tools: Bash(git diff *) Bash(git log *)
 ---
 
@@ -31,18 +31,20 @@ the first time `/document` has run here. Before anything else:
 3. Create an empty `tours/` directory.
 4. Tell the user plainly: there are no tours yet. The fastest way to get one
    is `/document propose <slug> "<description>"` after implementing a
-   feature — see Phase 7 in this plugin's design. Then stop; there's nothing
-   to capture/generate until a tour exists.
+   feature — see Phase 7 in this plugin's design. Once at least one tour is
+   `confirmed` and `/document` has generated its page, `/document init-site`
+   scaffolds a browsable docs site for `docs/`. Then stop; there's nothing to
+   capture/generate until a tour exists.
 
 If `autodocs.config.yaml` already exists, skip straight to the arguments
 below.
 
-If the arguments start with `propose`, follow **"Propose a new tour"** below
-instead of the normal pipeline. Otherwise: run the AutoDocs pipeline —
-capture → drift gate → dispatch dirty tours to the `doc-scribe` subagent →
-regenerate → summarize. If a tour file slug was given, operate on just
-`tours/<slug>.yaml`; with no argument, operate on every `*.yaml` file in
-`tours/`.
+If the arguments start with `propose`, follow **"Propose a new tour"** below.
+If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
+Otherwise: run the AutoDocs pipeline — capture → drift gate → dispatch dirty
+tours to the `doc-scribe` subagent → regenerate → summarize. If a tour file
+slug was given, operate on just `tours/<slug>.yaml`; with no argument,
+operate on every `*.yaml` file in `tours/`.
 
 ## Propose a new tour
 
@@ -68,6 +70,50 @@ confirmed one.
    `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
    nothing downstream (drift gate, `/document`'s normal pipeline) treats
    this tour as real until they do.
+
+## Scaffold a docs site
+
+`init-site` sets up a [Docusaurus](https://docusaurus.io/) site in this
+project that serves its `docs/` folder directly — no separate content
+duplication. This is prompt-driven rather than a bundled script on purpose:
+scaffolding tool versions and templates drift, and adapting to that is
+exactly the kind of thing you're better suited for than a brittle script.
+Follow the exact recipe below — it's proven, not a guess (this plugin's own
+repo runs it):
+
+1. If `${CLAUDE_PROJECT_DIR}/site/` already exists, stop and ask rather than
+   overwrite it.
+2. Scaffold: `npx create-docusaurus@latest site classic --javascript --skip-install`.
+3. Remove the sample content you don't want: `site/blog/`, `site/docs/`
+   (the site reads the project's real `docs/` instead — see step 4), and any
+   unused sample images under `site/static/img/` (check
+   `site/docusaurus.config.js` for what's actually referenced — usually just
+   `favicon.ico` — before deleting the rest).
+4. Edit `site/docusaurus.config.js`:
+   - `title`/`tagline` — infer from the project (ask if genuinely unclear).
+   - `docs.path: '../docs'` in the classic preset's options — serves the
+     real `docs/` folder, not a copy.
+   - `blog: false` in the same preset options.
+   - **`markdown: { format: 'md' }` at the top level of the config, sibling
+     to `presets`/`themeConfig` — not optional.** Docusaurus's default
+     parser treats `.md` files as MDX, and MDX fails to compile the
+     `<!-- autodocs:keep -->` HTML comments `generate-docs.mjs` writes (it
+     parses `<!--` as JSX and errors). This is a real, verified bug, not a
+     hypothetical — confirm by running a build before and after this line
+     if you want to see it yourself.
+5. **Fix `site/src/pages/index.js` — required, not optional, even with no
+   tours yet.** The scaffolded homepage links to `/docs/intro`, a sample
+   page that no longer exists once `docs.path` points at the real `docs/`
+   (step 4) — the build fails on that broken link otherwise (verified: it
+   does, with exactly this error). Link to one of the project's actual
+   generated tour pages if any exist (e.g. `/docs/<some-tour-id>`); if none
+   exist yet, remove the link/button entirely rather than pointing it
+   anywhere.
+6. `cd site && npm install && npm run build` — confirm it actually succeeds,
+   don't just assume the edits were correct.
+7. Report what was created and how to preview it (`cd site && npm start`),
+   and point at this plugin's own README section "Deploying your docs" for
+   publishing it somewhere.
 
 ## Steps
 
