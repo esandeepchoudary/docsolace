@@ -1,0 +1,13 @@
+# Phase 0 hardcoded tour: proves deterministic capture of a public page.
+# Phase 1 will add preconditions (auth/seed) and multi-step execution.
+id: login
+title: "Login page"
+maturity: draft
+steps:
+  - action: goto
+    path: /login
+  - capture: login-full
+    description: "Login form, signed out"
+code_paths:
+  - demo-app/src/pages/Login.jsx
+  - demo-app/src/pages/Login.css

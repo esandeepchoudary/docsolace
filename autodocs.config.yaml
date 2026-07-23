@@ -1,0 +1,6 @@
+# AutoDocs configuration (Phase 0 — minimal)
+baseUrl: http://localhost:5173
+viewport:
+  width: 1280
+  height: 800
+outputDir: .autodocs/artifacts

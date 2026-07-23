@@ -1,0 +1,27 @@
+{
+  "name": "autodocs",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "capture": "node scripts/capture.mjs",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/esandeepchoudary/autodocs.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/esandeepchoudary/autodocs/issues"
+  },
+  "homepage": "https://github.com/esandeepchoudary/autodocs#readme",
+  "devDependencies": {
+    "js-yaml": "^5.2.1",
+    "pixelmatch": "^7.2.0",
+    "playwright": "^1.61.1",
+    "pngjs": "^7.0.0"
+  }
+}
