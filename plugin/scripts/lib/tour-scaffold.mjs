@@ -70,8 +70,12 @@ intent: ${yamlString(intent)}
 maturity: draft
 # Drafted by tour-scout, not yet reviewed — the drift gate and /document both
 # skip proposed tours entirely (see CLAUDE.md's "Tour and doc-generation
-# conventions"). Review the steps/selectors below, fill in preconditions and
-# mask if this flow needs them, then flip status to confirmed.
+# conventions"). By default, /document propose and /document map carry this
+# straight through validation, confirmation (flipping status/maturity below),
+# capture, and generation once tour-scout finishes — review the
+# steps/selectors and any synthetic values it flagged in its report. Run
+# /document propose|map with --review instead if you'd rather review and
+# flip status to confirmed yourself before anything else runs.
 status: proposed
 ${preconditions}steps:
 ${stepsYaml}

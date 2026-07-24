@@ -38,8 +38,12 @@ describe('buildSessionGuidance', () => {
     expect(guidance).toContain('/document propose <slug>');
     expect(guidance).toContain('tour-scout');
     expect(guidance.toLowerCase()).toContain("don't silently decide");
-    expect(guidance).toContain('Never set `status: confirmed` yourself');
-    expect(guidance.toLowerCase()).toContain('suggestion');
+    // The tour-need suggestion itself is still a suggestion — but once the
+    // human runs it, it now carries through to an opened PR by default
+    // instead of stopping for a manual status: confirmed flip.
+    expect(guidance).toContain('--review');
+    expect(guidance.toLowerCase()).toContain('never auto-merged');
+    expect(guidance.toLowerCase()).toContain('hard stop');
   });
 
   it('does not treat a directory named autodocs.config.yaml as initiated indicators are file-based only', () => {

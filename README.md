@@ -86,30 +86,38 @@ the session cookies and credentials those can hold never end up committed.
 Then it tells you there's nothing to generate until a tour exists. From
 there:
 
-- **`/autodocs:document`** — run the full pipeline over every tour.
-- **`/autodocs:document <tour-id>`** — just that one tour.
+- **`/autodocs:document`** — run the full pipeline over every tour, then ship
+  a docs PR (see "It ships a docs PR for you" below).
+- **`/autodocs:document <tour-id>`** — just that one tour, same shipping at
+  the end.
 - **`/autodocs:document propose <slug> "<description>"`** — just implemented
-  a feature and think it's worth a tutorial? This drafts a *candidate* tour
-  instead: the `tour-scout` subagent drives your app via Playwright MCP and
-  writes `tours/<slug>.yaml` grounded in what it actually finds, marked
-  `status: proposed` — nothing downstream treats it as real until you review
-  the steps/selectors, fill in anything left as a TODO, and flip it to
-  `confirmed` yourself. See `tours/dashboard-export.yaml` in *this* repo for
-  a worked example, start to finish (this repo also happens to be its own
-  best demo project — it's both the plugin source and a working AutoDocs
-  project).
+  a feature and think it's worth a tutorial? This drafts a *candidate* tour:
+  the `tour-scout` subagent drives your app via Playwright MCP and writes
+  `tours/<slug>.yaml` grounded in what it actually finds. **By default**, once
+  tour-scout is done, Claude carries it the rest of the way itself —
+  validating, flipping it to `status: confirmed`, capturing, generating, and
+  opening a PR — unless tour-scout flags something it couldn't ground (a
+  missing fixture, an unverified voice flow, a sensitive field it refused to
+  fill), in which case it stops and reports instead. Append `--review` to get
+  the old behavior back: stop right after the draft so you can review the
+  steps/selectors and flip `status` to `confirmed` yourself. See
+  `tours/dashboard-export.yaml` in *this* repo for a worked example, start to
+  finish (this repo also happens to be its own best demo project — it's both
+  the plugin source and a working AutoDocs project).
 - **`/autodocs:document map`** — don't want to name features one at a time?
   This discovers them: a bounded crawl of the running app plus a read of its
   source reconcile into a proposed feature list and doc structure
-  (`.autodocs/artifacts/doc-plan.md`), which you then pick from before
-  anything gets drafted. See "Mapping a whole app automatically" below.
+  (`.autodocs/artifacts/doc-plan.md`). **By default**, it drafts and ships a
+  tour for every discovered gap automatically; append `--review` to get the
+  old "pick what to draft" behavior instead. See "Mapping a whole app
+  automatically" below.
 - **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
   and every tour, without launching a browser: an undefined
   `preconditions.auth` profile is an error, an empty `code_paths` match, an
   unrecorded `storageStatePath` session, or a non-`role=`/`text=` selector
-  are warnings. Worth running right after authoring or confirming a tour, so
-  a typo in an auth profile name surfaces immediately instead of partway
-  through a real capture.
+  are warnings. An `error` finding is one of the things that stops the
+  autonomous flow above short — worth understanding even though you won't
+  usually need to run it by hand anymore.
 - **`/autodocs:document init-site`** — once you've got at least one
   confirmed, generated tour, scaffolds a Docusaurus site in your project
   reading its `docs/` folder directly. Prompt-driven, not a bundled script,
@@ -117,15 +125,29 @@ there:
   follows a proven recipe, this repo's own `site/`. See "Publishing a docs
   site" below for details and deployment.
 
-Tours are always hand-authored or human-confirmed — nothing runs on its own
-in the background and invents a tour set for you. `/autodocs:document map`
-is the one explicit, human-invoked exception: you ask it to survey the app,
-it proposes what it found, and you still choose what actually gets drafted
-and still confirm every tour yourself — same review gate as `propose`, just
-covering more ground per invocation. Playwright MCP (bundled in the plugin)
-is for `tour-scout`'s interactive authoring only; the automated pipeline
+By default, all of this runs autonomously to an opened PR without stopping
+for review at each step — that PR is the one review point, and it's **never
+auto-merged**; merging `main` is always your call. A short list of hard stops
+still halts a run and asks rather than pushing through: tour-scout couldn't
+ground the feature, a voice/microphone flow (always reported `unverified`), a
+`validate` error, an auth session that needs a real human at a headed
+browser, or a hand-edited docs page outside its keep-region. Append
+`--review` anywhere above to fall back to the original stop-and-ask-at-every-
+step behavior instead. Playwright MCP (bundled in the plugin) is for
+`tour-scout`'s interactive authoring only; the automated pipeline
 (capture/drift/generate/crawl) drives Playwright directly and never goes
 through MCP.
+
+### It ships a docs PR for you
+
+Once a run has something to commit, it opens (or updates) a PR itself: it
+runs `review-diffs` first and folds that report into the commit/PR body (the
+only place a screenshot change is visible before it's pushed), stages just
+`docs/` and `tours/*.yaml`, and commits **onto whatever branch you're already
+on** if it's a `feat/*` or `fix/*` branch — docs land in the same PR as the
+feature they document. From `main`/`master` it creates a fresh `docs/<slug>`
+branch instead; it never commits generated docs straight to `main`. It never
+merges anything — opening or updating the PR is the end of its job.
 
 ### It nudges you when a feature looks worth documenting
 
@@ -137,8 +159,10 @@ a bit more: whenever Claude finishes a user-facing feature or flow, it's
 instructed to ask you whether it's worth a tutorial — suggesting
 `/autodocs:document propose <slug> "<description>"` for something new, or
 `/autodocs:document <tour-id>` to resync a flow an existing confirmed tour
-already covers. It only ever *suggests*; nothing runs or gets marked
-`confirmed` without you saying so. See
+already covers. Running the suggested command is still your call — but once
+you run it, it no longer stops to wait on you at every step: it carries the
+draft through to an opened PR by default (see "It ships a docs PR for you"
+above), unless it hits one of that section's hard stops. See
 `plugin/scripts/lib/session-guidance.mjs` for the exact wording.
 
 ## Keeping the plugin updated
@@ -482,10 +506,13 @@ non-deterministic even when it's working correctly.
 `/autodocs:document map` discovers what to document instead of you naming
 one feature at a time: it crawls the running app and separately reads its
 source, reconciles the two into a proposed feature list and doc structure,
-and asks which features you want drafted before dispatching `tour-scout`
-for any of them. Nothing gets `confirmed` on its own — same review gate as
-`propose`, just covering the whole app per invocation instead of one
-feature.
+then dispatches `tour-scout` for every discovered gap. **By default** it
+drafts, validates, confirms, generates, and ships all of them — same
+autonomous behavior and hard stops as `propose` (see "It ships a docs PR for
+you" above), just covering the whole app per invocation instead of one
+feature. Append `--review` to get the previous behavior back: it asks which
+features you want drafted before dispatching `tour-scout` for any of them,
+and stops after each draft instead of confirming it.
 
 ```
 node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs"
@@ -525,8 +552,9 @@ crawl:
 After the crawl, `/document map` reads the app's own routing/source to name
 each feature and its backing files, cross-checks that against
 `site-map.json`, and writes `.autodocs/artifacts/doc-plan.md` — the
-reconciled list plus a suggested section structure — for you to review
-before picking what gets drafted.
+reconciled list plus a suggested section structure, and the audit trail for
+what gets drafted next (all of it, by default; whatever you pick, under
+`--review`).
 
 ## Publishing a docs site
 

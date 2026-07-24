@@ -1,8 +1,8 @@
 ---
 name: document
-description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover an app's features via a dynamic crawl plus a code review, propose a doc structure, and draft tours for whichever discovered features you choose. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | validate | init-site"
-allowed-tools: Bash(git diff *) Bash(git log *)
+description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover an app's features via a dynamic crawl plus a code review, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+argument-hint: "[tour-id] [--review] | propose <slug> \"<description>\" [--review] | map [--interactive] [--review] | validate | init-site"
+allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit
 ---
 
 Arguments: $ARGUMENTS
@@ -13,6 +13,44 @@ in) using the AutoDocs engine bundled with this plugin, copied to
 run every script as `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs" ...`,
 never `npm run ...`; the project you're documenting has no reason to have
 AutoDocs' own npm scripts.
+
+## Autonomy
+
+By default, every mode below (the normal pipeline, `propose`, and `map`) runs
+end-to-end to an opened docs PR without stopping for review at each
+intermediate step — that single PR (never auto-merged) is the review point.
+This applies everywhere except the **hard stops** below, where a run always
+stops and reports instead of pushing through:
+
+- `tour-scout` reports it couldn't ground the feature (not found on the page,
+  an upload/voice fixture it needed but wasn't given and couldn't
+  self-author, a CAPTCHA, a real third-party OAuth/consent screen, or a
+  sensitive field it refused to fill).
+- The drafted tour includes a **voice/microphone** step — tour-scout always
+  flags these `unverified`, since its session may not have the fake-microphone
+  wiring active; that needs a real capture run to confirm before it's trusted.
+- `validate.mjs` reports an **`error`** finding for the tour in question (e.g.
+  an undefined `preconditions.auth` profile) — `warn` findings don't block.
+- `capture.mjs` needs a `storageStatePath` auth session that hasn't been
+  recorded yet — this genuinely needs a human at a headed browser (see Step 1
+  under "Steps" below); relay the exact `save-auth-state.mjs` command and
+  stop.
+- `generate-docs.mjs` refuses because a page was hand-edited outside a
+  `<!-- autodocs:keep -->` region (hash mismatch) — never `--force` past this;
+  a human needs to look.
+- `map --interactive` still requires the out-loud dev-environment
+  confirmation in its own preflight step before crawling with synthetic form
+  submission — required in both autonomous and `--review` mode, never
+  skipped.
+
+**`--review`**, appended to the normal run, `propose`, or `map`, restores the
+previous stop-and-ask-at-each-step behavior for anyone who wants to stay
+hands-on: draft or capture, report, and wait — rather than auto-validating,
+auto-confirming, generating, and shipping.
+
+Whichever mode you're in, **never auto-merge** a docs PR into `main` —
+opening (or updating) it is as far as autonomy goes; merging stays the
+human's explicit call.
 
 ## Step 0 — first run in this project: bootstrap
 
@@ -40,30 +78,41 @@ the first time `/document` has run here. Before anything else:
    arguments below.
 3. Tell the user plainly: there are no tours yet. The fastest way to get one
    is `/document propose <slug> "<description>"` after implementing a
-   feature — see Phase 7 in this plugin's design. Once at least one tour is
-   `confirmed` and `/document` has generated its page, `/document init-site`
-   scaffolds a browsable docs site for `docs/`. Then stop; there's nothing to
-   capture/generate until a tour exists.
+   feature — by default this runs all the way through to an opened docs PR
+   (see "Autonomy" above); append `--review` if you'd rather review the
+   draft yourself before it's confirmed and shipped. Once at least one tour
+   is `confirmed` and `/document` has generated its page, `/document
+   init-site` scaffolds a browsable docs site for `docs/`. Then stop; there's
+   nothing to capture/generate until a tour exists.
 
 If `autodocs.config.yaml` already exists, skip straight to the arguments
 below.
+
+Parse `--review` out of the arguments wherever it appears (it's a flag, not
+positional) before matching what's left against the modes below — its
+presence puts this run in review mode (stop-and-ask, matching every behavior
+before autonomy existed); its absence means autonomous mode, the default
+described in "Autonomy" above. This applies to every mode below, not just the
+normal pipeline.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
 If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
 Otherwise: run the AutoDocs pipeline — capture → drift gate → dispatch dirty
-tours to the `doc-scribe` subagent → regenerate → summarize. If a tour file
-slug was given, operate on just `tours/<slug>.yaml`; with no argument,
+tours to the `doc-scribe` subagent → regenerate → summarize → ship. If a tour
+file slug was given, operate on just `tours/<slug>.yaml`; with no argument,
 operate on every `*.yaml` file in `tours/`.
 
 ## Propose a new tour
 
-Parses as `propose <slug> "<description>"` — e.g.
+Parses as `propose <slug> "<description>" [--review]` — e.g.
 `/document propose dashboard-export "the new Export CSV button on the dashboard"`.
 This is the Phase 7 "assisted tour discovery" entry point (see the brief and
-CLAUDE.md's "Tutorial-need check"): drafts a candidate tour, never a
-confirmed one.
+CLAUDE.md's "Tutorial-need check"): drafts a candidate tour via tour-scout,
+then — in the default autonomous mode — carries it through validation,
+confirmation, capture, generation, and shipping in the same invocation,
+stopping early only at a hard stop (see "Autonomy" above).
 
 1. Confirm `tours/<slug>.yaml` doesn't already exist — if it does, stop and
    ask rather than overwrite it.
@@ -88,29 +137,57 @@ confirmed one.
    `autodocs.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
    draft the tour yourself, that exploration is tour-scout's job, grounded in
    what it actually finds by driving the app.
-5. Report what was drafted, and tour-scout's own notes on what it's unsure
-   about. Tell the user plainly: review the steps/selectors, fill in
-   `preconditions`/`mask` if needed, review any form values or upload
-   fixtures tour-scout filled in with synthetic placeholder data (it flags
-   these explicitly — swap in something more representative if you want
-   less obviously-fake data in the generated docs). If the tour includes a
-   voice/microphone flow, relay tour-scout's own caveat that it's
-   **unverified** — its session may not have been able to exercise the
-   fake-microphone flow live, so that part specifically needs a real
-   capture run to confirm before trusting it. Then flip `status` to
-   `confirmed` — nothing downstream (drift gate, `/document`'s normal
-   pipeline) treats this tour as real until they do. Suggest `/document
-   validate` once they've filled it in, to catch an undefined auth profile
-   or an empty `code_paths` match before the first real capture.
+5. **Check for a hard stop.** Read tour-scout's own report. Any of these
+   means this run stops here, same as `--review` mode — report what was
+   drafted and why it's not going further, and skip straight to step 7:
+   - it couldn't ground the feature at all, or skipped a step it couldn't
+     find
+   - it flagged an upload/voice fixture it needed but wasn't given and
+     couldn't self-author
+   - the tour includes a voice/microphone step (always `unverified`)
+   - it flagged a sensitive field (SSN/payment/etc.) it refused to fill
+6. **In `--review` mode, or after a hard stop above:** report what was
+   drafted, and tour-scout's own notes on what it's unsure about. Tell the
+   user plainly: review the steps/selectors, fill in `preconditions`/`mask`
+   if needed, review any form values or upload fixtures tour-scout filled in
+   with synthetic placeholder data (it flags these explicitly — swap in
+   something more representative if you want less obviously-fake data in the
+   generated docs). If the tour includes a voice/microphone flow, relay
+   tour-scout's own caveat that it's **unverified** — its session may not
+   have been able to exercise the fake-microphone flow live, so that part
+   specifically needs a real capture run to confirm before trusting it. Then
+   flip `status` to `confirmed` yourself once you're satisfied — nothing
+   downstream (drift gate, `/document`'s normal pipeline) treats this tour as
+   real until it is. Suggest `/document validate` once it's filled in, to
+   catch an undefined auth profile or an empty `code_paths` match before the
+   first real capture.
+
+   **In autonomous mode with no hard stop, instead:**
+   1. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"`. An `error`
+      finding for this tour is a hard stop too — report it and stop here,
+      same as step 5, rather than confirming a tour that would fail partway
+      through capture. A `warn` finding doesn't block.
+   2. `Edit` `tours/<slug>.yaml` with two targeted line replacements —
+      `maturity: draft` → `maturity: stable` and `status: proposed` →
+      `status: confirmed` — not a full YAML rewrite, so `tour-scaffold.mjs`'s
+      explanatory comments survive untouched.
+   3. Fall straight into **Steps 1–5** under "Steps" below for this one slug
+      (capture → drift → doc-scribe → generate). Then run **Step 6 (Ship)**
+      to commit, push, and open or update the PR.
+7. Report what happened: what was drafted, tour-scout's uncertainties, and
+   either what was shipped (branch/PR link) or why the run stopped short
+   (which hard stop was hit, or `--review` mode).
 
 ## Map the whole app
 
-Parses as `map` (optionally `map --interactive` to also enable the
-crawler's opt-in mutating exploration — see the safety note in step 1
-below). This is the "map all features automatically" entry point: it
+Parses as `map [--interactive] [--review]` (add `--interactive` to also
+enable the crawler's opt-in mutating exploration — see the safety note in
+step 1 below). This is the "map all features automatically" entry point: it
 combines a dynamic crawl of the running app with your own reading of its
-source code, then proposes a feature list and a doc structure — but drafts
-nothing without asking first. Same "propose, never confirm" discipline as
+source code, then proposes a feature list and a doc structure — and, in the
+default autonomous mode, drafts and ships tours for every discovered gap
+without asking which ones first (see "Autonomy" above for the hard stops that
+still apply, per feature). Same "propose, then carry through" discipline as
 **"Propose a new tour"** above, just applied across many candidate features
 at once instead of one you were told about.
 
@@ -118,7 +195,8 @@ at once instead of one you were told about.
    `--interactive` was requested, this crawl fills in and submits
    safe-looking forms with synthetic data on the real running app —
    **confirm out loud with the user that `baseUrl` points at a throwaway or
-   dev environment, not anything with real data**, before proceeding.
+   dev environment, not anything with real data**, before proceeding (in both
+   autonomous and `--review` mode — this confirmation is never skipped).
    `crawl.mjs` itself refuses to run interactively unless
    `crawl.allowInteractive: true` is also set in `autodocs.config.yaml` (see
    the README's "Mapping a whole app automatically") — if it reports that,
@@ -151,23 +229,37 @@ at once instead of one you were told about.
    `tours/*.yaml` already covers it — grouped into a suggested doc structure
    (an ordered list of sections, e.g. Getting Started → core features →
    settings/admin). This is the "structure the documentation properly"
-   deliverable, meant for a human to read before anything gets drafted.
-5. **Present and ask.** Show the user the discovered feature list (already
-   covered vs. gaps) and the proposed structure. Ask which gap features to
-   draft tours for now — **don't draft all of them automatically**; picking
-   what's worth documenting is the same human call `propose` already
-   defers, just made once across a list instead of one feature at a time.
-6. **Draft the selected ones.** For each feature the user picked, dispatch
-   the `tour-scout` subagent exactly as in "Propose a new tour" (slug,
-   description, candidate `code_paths`, existing tour/fixture filenames),
-   additionally passing that route's affordances from `site-map.json` as a
-   hint — tour-scout still verifies everything live via Playwright MCP
-   itself; the site map only points at where to look first. One dispatch
-   per feature. Every draft lands `status: proposed`, same as `propose`.
+   deliverable, and doubles as the audit trail for what got drafted below.
+5. **Autonomous mode: draft every gap feature.** For each feature in the doc
+   plan not already covered by an existing tour, dispatch the `tour-scout`
+   subagent exactly as in "Propose a new tour" step 4 (slug, description,
+   candidate `code_paths`, existing tour/fixture filenames), additionally
+   passing that route's affordances from `site-map.json` as a hint —
+   tour-scout still verifies everything live via Playwright MCP itself; the
+   site map only points at where to look first. One dispatch per feature.
+   Every draft lands `status: proposed`, same as `propose`. Then, per drafted
+   tour, apply "Propose a new tour" steps 5–6 (hard-stop check, then
+   validate → auto-confirm → Steps 1–5 capture/generate) — but skip that
+   tour's own Step 6 Ship; a hard stop on one feature doesn't stop the
+   others, just note it and move on. Shipping for every feature drafted this
+   run happens once, together, in step 6 below.
+
+   **`--review` mode: present and ask instead.** Show the user the
+   discovered feature list (already covered vs. gaps) and the proposed
+   structure. Ask which gap features to draft tours for now — don't draft
+   all of them; for each one picked, dispatch `tour-scout` the same way, but
+   stop after the draft (the review path in "Propose a new tour" step 6)
+   rather than auto-confirming.
+6. **Ship.** Autonomous mode only, once every feature's dispatch this run has
+   completed Steps 1–5: run **Step 6 (Ship)** under "Steps" below a single
+   time, covering every tour confirmed and generated this run together — one
+   commit, one PR, rather than one per tour.
 7. **Report.** What was discovered, what's already covered, the proposed
    structure, what was drafted this run (and tour-scout's own uncertainties
-   for each), and the same reminder as `propose`: review and flip `status:
-   confirmed` per tour, then `/document validate` and the normal pipeline.
+   for each), which ones hit a hard stop and why, and — in autonomous mode —
+   the branch/PR that was shipped, or — in `--review` mode — the reminder to
+   review, flip `status: confirmed`, then `/document validate` and the
+   normal pipeline.
 
 ## Validate a project
 
@@ -235,6 +327,11 @@ repo runs it):
 
 ## Steps
 
+Runs against whichever tour(s) were resolved above (one slug, or every
+`tours/*.yaml`). In `--review` mode, stop after Step 5's summary — the same
+behavior as before autonomy existed. Otherwise (the default), continue into
+Step 6 and ship a PR.
+
 1. **Capture.** For each target tour, run:
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/capture.mjs" --tour <slug>
@@ -244,9 +341,10 @@ repo runs it):
    command to run — **resolve `${CLAUDE_PLUGIN_DATA}` to its real path
    before relaying that command**, so the user can copy it straight into
    their own terminal (it opens a real, visible browser window — this has to
-   run somewhere with a display, not from this Bash tool). Mention the
-   `--wait-for "<url-pattern>"` flag if they'd rather it detect completion
-   automatically than wait for them to press Enter.
+   run somewhere with a display, not from this Bash tool). This is a hard
+   stop (see "Autonomy" above): report it and wait, don't attempt to work
+   around it. Mention the `--wait-for "<url-pattern>"` flag if they'd rather
+   it detect completion automatically than wait for them to press Enter.
 
 2. **Check drift.** Run:
    ```
@@ -270,7 +368,9 @@ repo runs it):
    ```
    This reads the prose the subagent wrote, applies the pixel-diff gate to
    screenshots, preserves any human-edited `<!-- autodocs:keep -->` regions,
-   and advances that tour's entry in `.autodocs/artifacts/state.json`.
+   and advances that tour's entry in `.autodocs/artifacts/state.json`. A
+   hash-mismatch refusal here (a human edited a page outside its
+   `autodocs:keep` region) is a hard stop — never `--force` past it.
 
 5. **Summarize.** Report, for this run:
    - which tours were regenerated (and a one-line reason: code changed
@@ -280,6 +380,32 @@ repo runs it):
 
    This summary is meant to double as the body of the docs PR — keep it
    short and factual, no filler.
+
+6. **Ship.** Skipped entirely if nothing was regenerated in step 4 (nothing
+   to commit), or if this run stopped at a hard stop above. Otherwise:
+   1. Run `git rev-parse --abbrev-ref HEAD`. If the current branch matches
+      `feat/*` or `fix/*`, commit onto it directly — docs follow the feature
+      they document, landing in the same PR as the code. If it's
+      `main`/`master` (or anything else that isn't a feature/fix branch),
+      create and switch to a new `docs/<slug>` branch first (or a name
+      summarizing the run, for a no-slug or `map` run) — never commit
+      generated docs directly to `main`/`master`.
+   2. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/review-diffs.mjs"` and keep
+      its report — it's the only place a screenshot change is visible
+      before it's pushed, and it becomes part of the commit/PR body.
+   3. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
+      and any `tours/*.yaml` this run wrote or confirmed. Never stage
+      `.autodocs/artifacts/` (gitignored; it's local working state, not a
+      deliverable) or anything else in the working tree unrelated to this
+      run.
+   4. Commit (message: which tour(s) changed and why — code or
+      screenshots), then push. If the branch has no open PR yet, `gh pr
+      create` against `main` with the step 5 summary plus the review-diffs
+      report as the body; if one already exists for this branch, the push
+      alone updates it — don't open a second PR.
+   5. **Never merge the PR.** Opening or updating it is the end of this
+      skill's job — merging into `main` stays the human's explicit call,
+      same as the brief's own "never auto-merge generated docs" principle.
 
 Never hand-write or hand-edit anything under `docs/` yourself in this
 skill — every page in `docs/` is either subagent-authored prose assembled by
