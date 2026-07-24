@@ -58,6 +58,26 @@ describe('renderDraftTour', () => {
     expect(yaml).not.toContain('selector:');
   });
 
+  it('renders an upload step and round-trips it through loadTour', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({
+      ...BASE,
+      steps: [
+        { action: 'goto', path: '/analyze' },
+        { action: 'upload', selector: "input[type='file']", file: 'fixtures/sample.pcap' },
+        { capture: 'ai-analysis', description: 'AI analysis view after uploading a sample capture' },
+      ],
+    });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.steps[1]).toEqual({
+      action: 'upload',
+      selector: "input[type='file']",
+      file: 'fixtures/sample.pcap',
+    });
+  });
+
   it('leaves a TODO instead of preconditions when auth is not given', () => {
     const yaml = renderDraftTour(BASE);
     expect(yaml).toContain('TODO: add preconditions');

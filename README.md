@@ -213,6 +213,31 @@ Two things to set up, both by example in this repo:
   false "changed" results. Prefer role-based selectors
   (`role=button[name='...']`) over CSS — they're far less flaky.
 
+### Uploading a file
+
+If a flow requires uploading a file — a CSV importer, an image, a sample
+data file — before anything interesting shows up, use an `upload` step:
+
+```yaml
+steps:
+  - action: goto
+    path: /analyze
+  - capture: upload-form
+    description: "Empty upload form"
+  - action: upload
+    selector: "input[type='file']"
+    file: fixtures/sample.csv
+  - capture: analysis-result
+    description: "Result view after uploading a sample file"
+```
+
+`file` must point at a project-committed file under `fixtures/<name>` (not
+a secret — a small, deterministic sample the app can process the same way
+every run); anything outside `fixtures/` is rejected. Unlike every other
+selector in a tour, target the real `<input type="file">` element with a
+CSS selector rather than a role locator — file inputs have no meaningful
+accessible role for this, so CSS is the documented exception here.
+
 ### If your app doesn't use a plain username/password login
 
 The `auth` profile shape shown in `autodocs.config.yaml` — fill a username

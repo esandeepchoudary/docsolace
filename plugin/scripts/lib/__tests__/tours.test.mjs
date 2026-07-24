@@ -104,4 +104,58 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/kebab-case/);
   });
+
+  it('loads a valid upload step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    selector: "input[type=\'file\']"\n    file: fixtures/sample.pcap\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({
+      action: 'upload',
+      selector: "input[type='file']",
+      file: 'fixtures/sample.pcap',
+    });
+  });
+
+  it('accepts a nested fixture path', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    selector: "input[type=\'file\']"\n    file: fixtures/pcap/sample.pcap\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0].file).toBe('fixtures/pcap/sample.pcap');
+  });
+
+  it('throws when an upload step\'s file does not start with "fixtures/"', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    selector: "input[type=\'file\']"\n    file: sample.pcap\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/must be a path starting with "fixtures\//);
+  });
+
+  it('throws when an upload step\'s file contains a ".." traversal segment', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    selector: "input[type=\'file\']"\n    file: "fixtures/../../../../etc/passwd"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/no "\." or "\.\." segments/);
+  });
+
+  it('throws when an upload step\'s file contains a "." segment', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    selector: "input[type=\'file\']"\n    file: "fixtures/./sample.pcap"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/no "\." or "\.\." segments/);
+  });
+
+  it('throws when an upload step is missing a selector', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: upload\n    file: fixtures/sample.pcap\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
 });

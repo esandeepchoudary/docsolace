@@ -8,6 +8,7 @@
 // gate can never fire from a code change. Running this first turns those
 // into a single fast report instead of a mid-capture failure.
 import fs from 'node:fs';
+import path from 'node:path';
 import { resolveCodePathFiles } from './drift.mjs';
 
 const LOCATOR_PREFIXES = ['role=', 'text='];
@@ -55,11 +56,24 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
   }
 
   for (const [index, step] of tour.steps.entries()) {
+    // Deliberately not checked for `upload` steps: a real <input type="file">
+    // has no meaningful accessible role for this purpose, so CSS (e.g.
+    // "input[type='file']") is the correct, documented choice there — see
+    // CLAUDE.md's selector convention ("CSS only as a fallback for things
+    // with no meaningful role"). Warning on it here would be a false
+    // positive on the one case where CSS is right.
     if (step.action === 'click' && !isLocatorStyle(step.selector)) {
       push(
         'warn',
         `step ${index}: selector "${step.selector}" isn't a role=/text= locator — prefer accessibility ` +
           `locators over CSS, which is far more flaky.`,
+      );
+    }
+    if (step.action === 'upload' && !fs.existsSync(path.join(cwd, step.file))) {
+      push(
+        'error',
+        `step ${index}: upload fixture "${step.file}" does not exist — capture would fail on this exact ` +
+          `error, but only after already launching a browser.`,
       );
     }
   }

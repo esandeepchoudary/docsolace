@@ -23,6 +23,7 @@ export function renderDraftTour({ id, title, intent, codePaths, steps, auth }) {
         const lines = [`  - action: ${step.action}`];
         if (step.path) lines.push(`    path: ${yamlString(step.path)}`);
         if (step.selector) lines.push(`    selector: ${yamlString(step.selector)}`);
+        if (step.file) lines.push(`    file: ${yamlString(step.file)}`);
         return lines.join('\n');
       }
       return [`  - capture: ${yamlString(step.capture)}`, `    description: ${yamlString(step.description)}`].join(
