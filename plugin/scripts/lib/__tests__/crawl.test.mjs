@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { crawl, isLogoutLink, isSameOrigin, planSafeInteractions } from '../crawl.mjs';
+import { assertSiteRelativePath, crawl, isLogoutLink, isSameOrigin, mergeSiteMaps, planSafeInteractions } from '../crawl.mjs';
 
 describe('isSameOrigin', () => {
   const baseOrigin = 'http://localhost:3000';
@@ -37,6 +37,115 @@ describe('isLogoutLink', () => {
 
   it('does not flag an unrelated link', () => {
     expect(isLogoutLink('/about', 'About')).toBe(false);
+  });
+});
+
+describe('assertSiteRelativePath', () => {
+  it('accepts a site-relative path', () => {
+    expect(() => assertSiteRelativePath('/admin/users', 'label')).not.toThrow();
+  });
+
+  it('rejects an absolute external URL', () => {
+    expect(() => assertSiteRelativePath('https://evil.example', 'label')).toThrow(/site-relative/);
+  });
+
+  it('rejects a protocol-relative path', () => {
+    expect(() => assertSiteRelativePath('//evil.example', 'label')).toThrow(/site-relative/);
+  });
+
+  it('rejects a non-string or empty value', () => {
+    expect(() => assertSiteRelativePath(undefined, 'label')).toThrow(/site-relative/);
+    expect(() => assertSiteRelativePath('', 'label')).toThrow(/site-relative/);
+    expect(() => assertSiteRelativePath('no-leading-slash', 'label')).toThrow(/site-relative/);
+  });
+
+  it('includes the given label in the error so the source is traceable', () => {
+    expect(() => assertSiteRelativePath('bad', 'crawl startPath')).toThrow(/crawl startPath/);
+  });
+});
+
+describe('mergeSiteMaps', () => {
+  it('unions pages by route, merging reachedBy and affordances', () => {
+    const anonymous = [
+      {
+        route: '/login',
+        title: 'Login',
+        depth: 0,
+        affordances: { forms: [{ inputCount: 2, submitText: 'Log in' }], buttons: [], links: ['Sign up'] },
+        reachedBy: ['anonymous'],
+      },
+    ];
+    const admin = [
+      {
+        route: '/dashboard',
+        title: 'Dashboard',
+        depth: 0,
+        affordances: { forms: [], buttons: ['Delete user'], links: [] },
+        reachedBy: ['admin'],
+      },
+    ];
+    const standardUser = [
+      {
+        route: '/dashboard',
+        title: 'Dashboard',
+        depth: 1,
+        affordances: { forms: [], buttons: ['Export CSV'], links: ['Settings'] },
+        reachedBy: ['standard-user'],
+      },
+    ];
+
+    const merged = mergeSiteMaps([anonymous, admin, standardUser]);
+    const dashboard = merged.find((p) => p.route === '/dashboard');
+    const login = merged.find((p) => p.route === '/login');
+
+    expect(merged).toHaveLength(2);
+    expect(login.reachedBy).toEqual(['anonymous']);
+    // Roles from every pass that reached this route are unioned...
+    expect(dashboard.reachedBy.sort()).toEqual(['admin', 'standard-user']);
+    // ...as are the affordances a different role's view revealed...
+    expect(dashboard.affordances.buttons.sort()).toEqual(['Delete user', 'Export CSV']);
+    expect(dashboard.affordances.links).toEqual(['Settings']);
+    // ...and the shallowest depth any pass found this route at wins.
+    expect(dashboard.depth).toBe(0);
+  });
+
+  it('de-dupes an identical form seen by more than one pass, keeping distinct ones', () => {
+    const passA = [
+      {
+        route: '/search',
+        title: 'Search',
+        depth: 0,
+        affordances: { forms: [{ inputCount: 1, submitText: 'Search' }], buttons: [], links: [] },
+        reachedBy: ['anonymous'],
+      },
+    ];
+    const passB = [
+      {
+        route: '/search',
+        title: 'Search',
+        depth: 0,
+        affordances: {
+          forms: [
+            { inputCount: 1, submitText: 'Search' },
+            { inputCount: 3, submitText: 'Advanced search' },
+          ],
+          buttons: [],
+          links: [],
+        },
+        reachedBy: ['standard-user'],
+      },
+    ];
+
+    const merged = mergeSiteMaps([passA, passB]);
+    expect(merged[0].affordances.forms).toEqual([
+      { inputCount: 1, submitText: 'Search' },
+      { inputCount: 3, submitText: 'Advanced search' },
+    ]);
+  });
+
+  it('returns an empty array for no input', () => {
+    expect(mergeSiteMaps([])).toEqual([]);
+    expect(mergeSiteMaps(undefined)).toEqual([]);
   });
 });
 
@@ -140,6 +249,32 @@ describe('crawl', () => {
     const siteMap = await crawl(page, { baseUrl });
     const routes = siteMap.map((p) => p.route).sort();
     expect(routes).toEqual(['/', '/about']);
+  });
+
+  it('tags every recorded page with reachedBy when a pass id is given', async () => {
+    const { page } = makeFakePage({
+      '/': { title: 'Home', links: [{ href: '/about', text: 'About' }], forms: [], buttons: [] },
+      '/about': { title: 'About', links: [], forms: [], buttons: [] },
+    });
+
+    const siteMap = await crawl(page, { baseUrl, reachedBy: 'standard-user' });
+    expect(siteMap.every((p) => p.reachedBy)).toBe(true);
+    expect(siteMap.map((p) => p.reachedBy)).toEqual([['standard-user'], ['standard-user']]);
+  });
+
+  it('omits reachedBy entirely when no pass id is given (back-compat)', async () => {
+    const { page } = makeFakePage({
+      '/': { title: 'Home', links: [], forms: [], buttons: [] },
+    });
+
+    const siteMap = await crawl(page, { baseUrl });
+    expect(siteMap[0].reachedBy).toBeUndefined();
+  });
+
+  it('rejects an absolute or protocol-relative startPath instead of navigating to it', async () => {
+    const { page } = makeFakePage({});
+    await expect(crawl(page, { baseUrl, startPaths: ['https://evil.example'] })).rejects.toThrow(/site-relative/);
+    await expect(crawl(page, { baseUrl, startPaths: ['//evil.example'] })).rejects.toThrow(/site-relative/);
   });
 
   it('respects maxPages', async () => {

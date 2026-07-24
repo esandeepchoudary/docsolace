@@ -1,6 +1,6 @@
 ---
 name: document
-description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover an app's features via a dynamic crawl plus a code review, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover every feature of an app via an authenticated dynamic crawl (every configured auth profile, plus a signed-out pass) combined with a code review and a direct visit of every source-declared route, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
 argument-hint: "[tour-id] [--review] | propose <slug> \"<description>\" [--review] | map [--interactive] [--review] | validate | init-site"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit
 ---
@@ -42,6 +42,12 @@ stops and reports instead of pushing through:
   confirmation in its own preflight step before crawling with synthetic form
   submission — required in both autonomous and `--review` mode, never
   skipped.
+
+**Not a hard stop:** `map`'s crawl skipping one auth profile whose session
+isn't recorded yet (see "Map the whole app" steps 2/4). That's a per-profile,
+non-blocking skip — the crawl maps everything reachable under every other
+profile and reports the gap, rather than the whole run stalling on one
+missing role's session the way a *tour's own* `capture.mjs` run does above.
 
 **`--review`**, appended to the normal run, `propose`, or `map`, restores the
 previous stop-and-ask-at-each-step behavior for anyone who wants to stay
@@ -183,34 +189,45 @@ stopping early only at a hard stop (see "Autonomy" above).
 Parses as `map [--interactive] [--review]` (add `--interactive` to also
 enable the crawler's opt-in mutating exploration — see the safety note in
 step 1 below). This is the "map all features automatically" entry point: it
-combines a dynamic crawl of the running app with your own reading of its
-source code, then proposes a feature list and a doc structure — and, in the
-default autonomous mode, drafts and ships tours for every discovered gap
-without asking which ones first (see "Autonomy" above for the hard stops that
-still apply, per feature). Same "propose, then carry through" discipline as
-**"Propose a new tour"** above, just applied across many candidate features
-at once instead of one you were told about.
+combines an **authenticated** dynamic crawl of the running app — every
+configured auth profile, plus one signed-out pass, so role-gated features
+aren't invisible — with your own reading of its source code and a direct
+visit of every route source declares, then proposes a feature list and a doc
+structure — and, in the default autonomous mode, drafts and ships tours for
+every discovered gap without asking which ones first (see "Autonomy" above
+for the hard stops that still apply, per feature). Same "propose, then carry
+through" discipline as **"Propose a new tour"** above, just applied across
+many candidate features at once instead of one you were told about.
 
-1. **Preflight.** Config must exist (Step 0 above bootstraps it if not). If
-   `--interactive` was requested, this crawl fills in and submits
-   safe-looking forms with synthetic data on the real running app —
-   **confirm out loud with the user that `baseUrl` points at a throwaway or
-   dev environment, not anything with real data**, before proceeding (in both
-   autonomous and `--review` mode — this confirmation is never skipped).
-   `crawl.mjs` itself refuses to run interactively unless
-   `crawl.allowInteractive: true` is also set in `autodocs.config.yaml` (see
-   the README's "Mapping a whole app automatically") — if it reports that,
-   that config flag still needs to be turned on deliberately; don't work
-   around it by any other means.
-2. **Crawl.** Run:
+1. **Preflight.** Config must exist (Step 0 above bootstraps it if not). Note
+   every profile under `autodocs.config.yaml`'s `auth` — each one gets its own
+   crawl pass below, so a feature gated behind any configured role gets
+   found, not just what an anonymous visitor can reach. If `--interactive`
+   was requested, this crawl fills in and submits safe-looking forms with
+   synthetic data on the real running app — **confirm out loud with the user
+   that `baseUrl` points at a throwaway or dev environment, not anything with
+   real data**, before proceeding (in both autonomous and `--review` mode —
+   this confirmation is never skipped). `crawl.mjs` itself refuses to run
+   interactively unless `crawl.allowInteractive: true` is also set in
+   `autodocs.config.yaml` (see the README's "Mapping a whole app
+   automatically") — if it reports that, that config flag still needs to be
+   turned on deliberately; don't work around it by any other means.
+2. **Discovery crawl.** Run:
    ```
-   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" [--interactive]
+   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth [--interactive]
    ```
-   Writes `.autodocs/artifacts/site-map.json` — every same-origin route it
-   reached, with the buttons/forms/links found there. This proves
-   *reachability*; it doesn't replace reading the code (next step), since a
-   route can exist without being linked from anywhere the crawl's auth
-   profile could reach (e.g. gated behind a role it doesn't have).
+   Crawls once per configured auth profile plus one signed-out (anonymous)
+   pass, merging every pass into one site map — each page tagged with which
+   role(s) reached it (`reachedBy`). A profile whose session hasn't been
+   recorded yet (`storageStatePath` not saved, or missing credentials) is
+   skipped with a clear reason and doesn't abort the run — the report at the
+   end calls out anything skipped so you know that role's features may be
+   under-covered this run, without blocking discovery of everything else.
+   Writes `.autodocs/artifacts/site-map.json`. This proves *reachability*; it
+   doesn't replace reading the code (next step), since a route can exist
+   without being linked from anywhere any configured profile can reach (e.g.
+   gated behind a role nobody's configured, or only reachable via in-app
+   JS/button navigation rather than a real `<a href>`).
 3. **Code review.** Read the app's routing/pages source — adapt to whatever
    the project actually uses (React Router config, Next.js/SvelteKit
    file-based routing, a Vue Router table, etc.), there's no one bundled
@@ -218,48 +235,70 @@ at once instead of one you were told about.
    this is exactly the kind of judgment call you're better suited for than
    a brittle script — same reasoning as `init-site` below). Enumerate real
    features: each one's route, a short description, and its backing
-   `code_paths`. Reconcile against `site-map.json`: a route the crawl
-   reached confirms real UI is there; a route only found in code (no crawl
-   entry) gets flagged as possibly unreachable/gated, not silently dropped
+   `code_paths`. Write every route found this way, site-relative
+   (`/foo/bar`, not absolute), to `.autodocs/artifacts/source-routes.json` as
+   a plain JSON array — the input for the confirmation crawl next.
+4. **Confirmation crawl.** Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth --routes-file .autodocs/artifacts/source-routes.json --max-depth 0
+   ```
+   Directly visits every route the code review just found, under every auth
+   profile plus anonymous, instead of relying on the discovery crawl having
+   linked to it — this is what actually gets "every feature", not just every
+   *linked* one. `crawl.mjs` merges this into the same `site-map.json` (it
+   reads/writes the same file the discovery crawl did, so run step 2 first).
+   A route that redirects to a login/error page for a given profile is
+   recorded landing there — a real signal that it's gated for that role, not
+   silently missing. Reconcile the merged site map against the source
+   feature list: a route reached (by either crawl, under any profile)
+   confirms real UI is there; a route no pass ever reached under any profile
+   gets flagged as possibly unreachable/misconfigured, not silently dropped
    or silently assumed real.
-4. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
+5. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
    reconciled feature list — slug (run each through the same
    lowercase-kebab-case rule `tours.mjs`'s `assertSafeSlug` enforces),
-   route, one-line description, `code_paths`, and whether an existing
-   `tours/*.yaml` already covers it — grouped into a suggested doc structure
-   (an ordered list of sections, e.g. Getting Started → core features →
-   settings/admin). This is the "structure the documentation properly"
-   deliverable, and doubles as the audit trail for what got drafted below.
-5. **Autonomous mode: draft every gap feature.** For each feature in the doc
+   route, one-line description, `code_paths`, which role(s) (`reachedBy`)
+   actually reached it or "unreached by any profile" if none did, and
+   whether an existing `tours/*.yaml` already covers it — grouped into a
+   suggested doc structure (an ordered list of sections, e.g. Getting
+   Started → core features → settings/admin). This coverage manifest is what
+   makes "every feature" checkable, not best-effort, and doubles as the audit
+   trail for what got drafted below.
+6. **Autonomous mode: draft every gap feature.** For each feature in the doc
    plan not already covered by an existing tour, dispatch the `tour-scout`
    subagent exactly as in "Propose a new tour" step 4 (slug, description,
    candidate `code_paths`, existing tour/fixture filenames), additionally
-   passing that route's affordances from `site-map.json` as a hint —
-   tour-scout still verifies everything live via Playwright MCP itself; the
-   site map only points at where to look first. One dispatch per feature.
-   Every draft lands `status: proposed`, same as `propose`. Then, per drafted
-   tour, apply "Propose a new tour" steps 5–6 (hard-stop check, then
-   validate → auto-confirm → Steps 1–5 capture/generate) — but skip that
+   passing that route's affordances from `site-map.json` **and which auth
+   profile (if any) reached it** as hints — tour-scout still verifies
+   everything live via Playwright MCP itself, signing in as that role via the
+   existing `preconditions.auth` mechanism when one applies; the site map
+   only points at where to look first and as whom. A feature no crawl pass
+   reached under any profile still gets drafted (tour-scout verifies live),
+   but flagged in the report as unconfirmed reachability. One dispatch per
+   feature. Every draft lands `status: proposed`, same as `propose`. Then,
+   per drafted tour, apply "Propose a new tour" steps 5–6 (hard-stop check,
+   then validate → auto-confirm → Steps 1–5 capture/generate) — but skip that
    tour's own Step 6 Ship; a hard stop on one feature doesn't stop the
    others, just note it and move on. Shipping for every feature drafted this
-   run happens once, together, in step 6 below.
+   run happens once, together, in step 7 below.
 
    **`--review` mode: present and ask instead.** Show the user the
-   discovered feature list (already covered vs. gaps) and the proposed
-   structure. Ask which gap features to draft tours for now — don't draft
-   all of them; for each one picked, dispatch `tour-scout` the same way, but
-   stop after the draft (the review path in "Propose a new tour" step 6)
-   rather than auto-confirming.
-6. **Ship.** Autonomous mode only, once every feature's dispatch this run has
+   discovered feature list (already covered vs. gaps, with reachability per
+   role) and the proposed structure. Ask which gap features to draft tours
+   for now — don't draft all of them; for each one picked, dispatch
+   `tour-scout` the same way, but stop after the draft (the review path in
+   "Propose a new tour" step 6) rather than auto-confirming.
+7. **Ship.** Autonomous mode only, once every feature's dispatch this run has
    completed Steps 1–5: run **Step 6 (Ship)** under "Steps" below a single
    time, covering every tour confirmed and generated this run together — one
    commit, one PR, rather than one per tour.
-7. **Report.** What was discovered, what's already covered, the proposed
-   structure, what was drafted this run (and tour-scout's own uncertainties
-   for each), which ones hit a hard stop and why, and — in autonomous mode —
-   the branch/PR that was shipped, or — in `--review` mode — the reminder to
-   review, flip `status: confirmed`, then `/document validate` and the
-   normal pipeline.
+8. **Report.** What was discovered, the coverage manifest (which role reached
+   which feature, and anything no profile reached), which auth profiles were
+   skipped and why, what's already covered, the proposed structure, what was
+   drafted this run (and tour-scout's own uncertainties for each), which ones
+   hit a hard stop and why, and — in autonomous mode — the branch/PR that was
+   shipped, or — in `--review` mode — the reminder to review, flip `status:
+   confirmed`, then `/document validate` and the normal pipeline.
 
 ## Validate a project
 

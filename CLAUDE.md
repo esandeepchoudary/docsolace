@@ -135,8 +135,17 @@ told otherwise.
   report — it's the only place you can see *what* a screenshot update
   actually changed before it's pushed.
 - Tours are hand-authored (`tours/*.yaml`) or drafted by `tour-scout` via
-  `/document propose`/`map` (Phase 7 — see below). Nothing crawls the app to
-  invent a full tour set on install — Playwright MCP (`plugin/.mcp.json`,
+  `/document propose`/`map` (Phase 7 — see below). `/document map`'s crawl
+  (`plugin/scripts/crawl.mjs`) is **authenticated by default** (`--all-auth`:
+  once per configured `auth` profile, plus a signed-out pass, merged and
+  tagged with `reachedBy`) and directly visits every route the code-review
+  step finds in source (`--routes-file`, the "confirmation crawl") — a route
+  reachable only behind a role or only via in-app navigation still gets
+  found, not just what an anonymous link-crawl happens to reach. A profile
+  whose session isn't recorded yet is skipped per-pass, not fatal — the rest
+  of the crawl still runs, and the report says which role's coverage may be
+  incomplete. Nothing crawls the app to invent a full tour set on install —
+  Playwright MCP (`plugin/.mcp.json`,
   bundled with the plugin so it travels to any project it's installed into)
   exists for *interactively* authoring a new tour with a human at the
   keyboard, whether by hand or via tour-scout. A tour's `status` (default
