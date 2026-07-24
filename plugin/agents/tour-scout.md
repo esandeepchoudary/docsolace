@@ -33,7 +33,7 @@ You're given, as your task:
 1. If you were given any existing tour filenames, `Read` one or two of them
    to match the project's conventions (title/intent phrasing, selector
    style). An empty list means a brand-new project — that's fine, just
-   follow the shape in `renderDraftTour` (step 5) directly. Don't try to
+   follow the shape in `renderDraftTour` (step 9) directly. Don't try to
    guess filenames yourself; you have no way to confirm a guess is right.
 2. Using the Playwright MCP tools, navigate to the likely route and take an
    accessibility snapshot. Find the actual element(s) related to the
@@ -53,7 +53,7 @@ You're given, as your task:
        table's headers, instruction text, an example/template link) —
        `Write` a header row plus one or two example rows to
        `fixtures/<name>.csv`, using the synthetic-value conventions in step
-       4 for the example data.
+       5 for the example data.
      - **JSON**: same rule — only when a shape is actually visible (an
        example payload, documented fields). No visible shape means this
        format doesn't qualify; fall through to stopping (below).

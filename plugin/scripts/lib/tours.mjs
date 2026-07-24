@@ -70,9 +70,24 @@ export function loadTour(toursDir, tourId) {
     throw new Error(`Tour "${tourId}" is missing required non-empty "steps" array`);
   }
   for (const [index, step] of tour.steps.entries()) {
+    // A step is either an action or a capture, never both — capture.mjs's
+    // step-execution loop is a plain if/else if chain ending in `else if
+    // (step.capture)`, so a step with both would either silently never
+    // reach the capture branch (the action "wins", capture is dropped with
+    // no error) or, if the action's own fields were malformed, let
+    // `isCapture` alone (the only isX check that doesn't look at
+    // step.action) mask that malformed step past every other check. Reject
+    // this combination explicitly, with a clear reason, rather than let it
+    // surface as a confusing runtime crash or a silently-missing screenshot.
+    if (step.action !== undefined && step.capture !== undefined) {
+      throw new Error(
+        `Tour "${tourId}" step ${index} is invalid: has both an "action" and a "capture" field — a step ` +
+          `is always one or the other, never both.`,
+      );
+    }
     const isGoto = step.action === 'goto' && typeof step.path === 'string';
     const isClick = step.action === 'click' && typeof step.selector === 'string';
-    const isCapture = typeof step.capture === 'string';
+    const isCapture = typeof step.capture === 'string' && step.action === undefined;
     const isUpload =
       step.action === 'upload' && typeof step.selector === 'string' && typeof step.file === 'string';
     // These five are all typed values handed straight to a Playwright
@@ -133,8 +148,12 @@ export function loadTour(toursDir, tourId) {
 
   // preconditions.voice is a fixture path read into the browser at launch
   // time (see capture.mjs's fake-microphone wiring) — same trust boundary
-  // as an upload step's "file", so it gets the same guard.
-  if (tour.preconditions?.voice) {
+  // as an upload step's "file", so it gets the same guard. !== undefined
+  // (not truthy) so an explicit empty string still gets validated —
+  // assertSafeFixturePath rejects it anyway (it doesn't start with
+  // "fixtures/"), but the point is to never silently skip the check just
+  // because the value happens to be falsy.
+  if (tour.preconditions?.voice !== undefined) {
     assertSafeFixturePath(tour.preconditions.voice, `Tour "${tourId}"'s "preconditions.voice" field`);
   }
 
