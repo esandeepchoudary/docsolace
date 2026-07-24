@@ -105,8 +105,11 @@ there:
   finish (this repo also happens to be its own best demo project — it's both
   the plugin source and a working AutoDocs project).
 - **`/autodocs:document map`** — don't want to name features one at a time?
-  This discovers them: a bounded crawl of the running app plus a read of its
-  source reconcile into a proposed feature list and doc structure
+  This discovers them: an **authenticated** bounded crawl of the running
+  app — once per configured `auth` profile, plus a signed-out pass, so
+  role-gated features aren't invisible — plus a read of its source, plus a
+  direct visit of every route the source declares (not just linked ones),
+  reconcile into a proposed feature list and doc structure
   (`.autodocs/artifacts/doc-plan.md`). **By default**, it drafts and ships a
   tour for every discovered gap automatically; append `--review` to get the
   old "pick what to draft" behavior instead. See "Mapping a whole app
@@ -504,28 +507,67 @@ non-deterministic even when it's working correctly.
 ### Mapping a whole app automatically
 
 `/autodocs:document map` discovers what to document instead of you naming
-one feature at a time: it crawls the running app and separately reads its
-source, reconciles the two into a proposed feature list and doc structure,
-then dispatches `tour-scout` for every discovered gap. **By default** it
-drafts, validates, confirms, generates, and ships all of them — same
-autonomous behavior and hard stops as `propose` (see "It ships a docs PR for
-you" above), just covering the whole app per invocation instead of one
-feature. Append `--review` to get the previous behavior back: it asks which
-features you want drafted before dispatching `tour-scout` for any of them,
-and stops after each draft instead of confirming it.
+one feature at a time, via three complementary passes designed to actually
+reach *every* feature, not just whatever's linked from the homepage:
+
+1. an **authenticated discovery crawl** — once per configured `auth`
+   profile, plus one signed-out pass — so admin-only and user-only features
+   are both found, not just what an anonymous visitor can reach;
+2. a **code review** of the app's own routing/source, which names every
+   feature and its backing files, including ones no crawl pass happened to
+   link to;
+3. a **confirmation crawl** that directly visits every route the code review
+   found, again under every profile, so a feature reachable only via
+   in-app JS/button navigation (never a real `<a href>`) still gets probed.
+
+These reconcile into a proposed feature list and doc structure, each entry
+tagged with which role(s) actually reached it (or flagged if none did), then
+dispatches `tour-scout` for every discovered gap. **By default** it drafts,
+validates, confirms, generates, and ships all of them — same autonomous
+behavior and hard stops as `propose` (see "It ships a docs PR for you"
+above), just covering the whole app per invocation instead of one feature.
+Append `--review` to get the previous behavior back: it asks which features
+you want drafted before dispatching `tour-scout` for any of them, and stops
+after each draft instead of confirming it.
 
 ```
-node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs"
+node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth
 ```
 
-By **default the crawl is read-only**: it navigates same-origin links
-(reusing whatever `preconditions.auth`-style profile you point it at) and
+By **default the crawl is read-only**: it navigates same-origin links and
 records what it finds — page titles, and the buttons/forms/links present —
-into `.autodocs/artifacts/site-map.json`. It never submits a form or clicks
-an action button in this mode. Bounded by `crawl.maxPages` / `crawl.maxDepth`
-in config (defaults: 50 pages, depth 4) so it can't run away on a large app,
-and it never follows a logout/sign-out link (that would kill its own
-session mid-crawl) or leave the app's origin.
+into `.autodocs/artifacts/site-map.json`, tagging each page with
+`reachedBy: [...]` (which profile(s), or `"anonymous"`, reached it). It never
+submits a form or clicks an action button in this mode. Bounded by
+`crawl.maxPages` / `crawl.maxDepth` in config (defaults: 50 pages, depth 4)
+so it can't run away on a large app, and it never follows a logout/sign-out
+link (that would kill its own session mid-crawl) or leave the app's origin.
+
+`--all-auth` runs one crawl pass per profile under `autodocs.config.yaml`'s
+`auth` map, plus one signed-out pass, and merges them (unioning
+`reachedBy`/affordances per route, keeping the shallowest depth any pass
+found it at) — pass a single `--auth <profile>` instead for just one role, or
+neither for the old signed-out-only default. **A profile whose session
+hasn't been recorded yet is skipped, not fatal**: `crawl.mjs` reports exactly
+which profile and why (missing credentials, or an unrecorded
+`storageStatePath` — with the same `save-auth-state.mjs` hint capture.mjs
+gives), and keeps crawling under every other profile so one missing role
+never blocks mapping the rest of the app.
+
+`--routes-file <path>` runs the **confirmation crawl**: instead of a
+link-following BFS, it directly visits every site-relative route listed in
+the given JSON array (one per line, e.g.
+`["/", "/dashboard", "/admin/users"]`) — the route list `/document map`
+writes to `.autodocs/artifacts/source-routes.json` after reading the app's
+source. Combine it with `--max-depth 0` (no following links out from these
+routes) and `--all-auth` to probe every source-declared route under every
+role in one pass. A route that redirects to a login/error page under a given
+profile is recorded landing there — the "gated for this role" signal, not a
+crash. Every entry is validated as a site-relative path (`/foo`, never an
+absolute or protocol-relative URL) before it's navigated to, the same guard a
+tour's own `goto` step gets — this file is `/document map`-generated, not
+hand-authored, so it's treated as untrusted input per this project's own
+security conventions.
 
 **Interactive mode** (`crawl.mjs --interactive`) additionally fills in and
 submits forms with synthetic data, and clicks buttons, to reach states a
@@ -549,12 +591,13 @@ crawl:
   allowInteractive: false # only set true against a throwaway/dev environment
 ```
 
-After the crawl, `/document map` reads the app's own routing/source to name
-each feature and its backing files, cross-checks that against
+After both crawls, `/document map` reads the app's own routing/source to name
+each feature and its backing files, cross-checks that against the merged
 `site-map.json`, and writes `.autodocs/artifacts/doc-plan.md` — the
-reconciled list plus a suggested section structure, and the audit trail for
-what gets drafted next (all of it, by default; whatever you pick, under
-`--review`).
+reconciled list (each feature's route, description, `code_paths`, and which
+role(s) reached it, or a flag if none did) plus a suggested section
+structure, and the audit trail for what gets drafted next (all of it, by
+default; whatever you pick, under `--review`).
 
 ## Publishing a docs site
 

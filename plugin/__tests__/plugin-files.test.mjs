@@ -193,6 +193,17 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('--review');
   });
 
+  it('crawls authenticated (every configured profile plus anonymous) and confirms every source-declared route', () => {
+    expect(body).toContain('--all-auth');
+    expect(body).toContain('--routes-file');
+    expect(body.toLowerCase()).toContain('confirmation crawl');
+    expect(body).toContain('source-routes.json');
+    expect(body).toContain('reachedBy');
+    // A profile with no recorded session yet is a non-blocking, per-profile
+    // skip during mapping — not one of the run-halting hard stops.
+    expect(body.toLowerCase()).toMatch(/not a hard stop/);
+  });
+
   it("map mode requires a human affirmation before interactive (mutating) crawling", () => {
     expect(body).toContain('--interactive');
     expect(body.toLowerCase()).toContain('throwaway');
@@ -200,8 +211,18 @@ describe('skills/document/SKILL.md', () => {
 });
 
 describe('scripts/crawl.mjs', () => {
+  const source = fs.readFileSync(path.join(pluginRoot, 'scripts/crawl.mjs'), 'utf8');
+
   it('is bundled alongside capture.mjs', () => {
     expect(fs.existsSync(path.join(pluginRoot, 'scripts/crawl.mjs'))).toBe(true);
+  });
+
+  it('supports --all-auth (every configured profile + anonymous) and --routes-file (confirmation crawl)', () => {
+    expect(source).toContain("'--all-auth'");
+    expect(source).toContain("'--routes-file'");
+    // A profile whose session can't be established is skipped, not fatal —
+    // the loop over passes must keep going rather than aborting the run.
+    expect(source).toMatch(/skip(ped|ping)/i);
   });
 });
 

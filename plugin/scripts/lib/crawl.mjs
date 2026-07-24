@@ -40,6 +40,76 @@ export function isLogoutLink(href, text) {
   return LOGOUT_RE.test(href ?? '') || LOGOUT_RE.test(text ?? '');
 }
 
+// A crawl startPath is script/CLI-supplied — config's crawl.startPaths, or a
+// --routes-file /document map's "confirmation crawl" writes from its own
+// source reading (see crawl.mjs) — same untrusted-input trust boundary as a
+// tour's "goto" step path (tours.mjs's loadTour applies the identical
+// single-leading-slash guard there), so it gets the same check before being
+// joined with baseUrl and navigated. Rejects an absolute or protocol-
+// relative path that could otherwise steer the (possibly authenticated)
+// crawl browser off-origin.
+export function assertSiteRelativePath(candidate, label) {
+  if (typeof candidate !== 'string' || !/^\/(?!\/)/.test(candidate)) {
+    throw new Error(
+      `${label} "${candidate}" is invalid — must be a site-relative path starting with a single "/", ` +
+        `since it's joined with baseUrl and navigated to.`,
+    );
+  }
+}
+
+// Merges the per-pass site maps produced by running crawl() once per auth
+// profile (plus one anonymous pass) — see crawl.mjs's --all-auth. Unions
+// pages by route (a route reached under two different roles is one entry,
+// not two), unions each page's reachedBy roles and affordances, and keeps
+// the smallest depth seen (the shortest path any pass found to that route).
+// Pure and unit-testable without a browser, same as planSafeInteractions.
+export function mergeSiteMaps(siteMaps) {
+  const byRoute = new Map();
+  const formKey = (f) => `${f.inputCount}::${f.submitText}`;
+
+  for (const siteMap of siteMaps ?? []) {
+    for (const page of siteMap ?? []) {
+      const existing = byRoute.get(page.route);
+      if (!existing) {
+        byRoute.set(page.route, {
+          route: page.route,
+          title: page.title,
+          depth: page.depth,
+          affordances: {
+            forms: [...(page.affordances?.forms ?? [])],
+            buttons: [...new Set(page.affordances?.buttons ?? [])],
+            links: [...new Set(page.affordances?.links ?? [])],
+          },
+          reachedBy: [...new Set(page.reachedBy ?? [])],
+          ...(page.interactions ? { interactions: page.interactions } : {}),
+        });
+        continue;
+      }
+
+      existing.depth = Math.min(existing.depth, page.depth);
+      existing.reachedBy = [...new Set([...existing.reachedBy, ...(page.reachedBy ?? [])])];
+      existing.affordances.buttons = [
+        ...new Set([...existing.affordances.buttons, ...(page.affordances?.buttons ?? [])]),
+      ];
+      existing.affordances.links = [
+        ...new Set([...existing.affordances.links, ...(page.affordances?.links ?? [])]),
+      ];
+      const existingFormKeys = new Set(existing.affordances.forms.map(formKey));
+      for (const form of page.affordances?.forms ?? []) {
+        if (!existingFormKeys.has(formKey(form))) {
+          existing.affordances.forms.push(form);
+          existingFormKeys.add(formKey(form));
+        }
+      }
+      if (!existing.interactions && page.interactions) {
+        existing.interactions = page.interactions;
+      }
+    }
+  }
+
+  return [...byRoute.values()];
+}
+
 // Runs in the page context: inventories links, forms (with per-field name/
 // type), and standalone buttons, tagging each candidate element with a
 // data-autodocs-crawl-id attribute so a later interactive pass can address
@@ -165,12 +235,21 @@ export async function crawl(page, options) {
     maxDepth = 4,
     navTimeoutMs = 15000,
     interactive = false,
+    // Tags every page this pass records with which auth profile (or
+    // 'anonymous') reached it — see crawl.mjs's --all-auth, which runs one
+    // pass per profile and merges them with mergeSiteMaps above. Optional:
+    // a caller that doesn't pass it (e.g. the existing unit tests) gets the
+    // same untagged pages as before this option existed.
+    reachedBy,
   } = options;
 
   const baseOrigin = new URL(baseUrl).origin;
   const visited = new Set();
   const siteMap = [];
-  const queue = startPaths.map((p) => ({ url: new URL(p, baseUrl).toString(), depth: 0 }));
+  const queue = startPaths.map((p) => {
+    assertSiteRelativePath(p, 'crawl startPath');
+    return { url: new URL(p, baseUrl).toString(), depth: 0 };
+  });
 
   while (queue.length > 0 && siteMap.length < maxPages) {
     const { url, depth } = queue.shift();
@@ -211,6 +290,7 @@ export async function crawl(page, options) {
         buttons: data.buttons.map((b) => b.text).filter(Boolean),
         links: data.links.map((l) => l.text).filter(Boolean),
       },
+      ...(reachedBy ? { reachedBy: [reachedBy] } : {}),
       ...(interactions ? { interactions } : {}),
     });
 
