@@ -168,4 +168,45 @@ describe('loadConfig', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'allowSeedCommands: "yes"\n');
     expect(() => loadConfig(filePath)).toThrow(/"allowSeedCommands" must be a boolean/);
   });
+
+  it('accepts a full valid crawl section', () => {
+    const crawl =
+      'crawl:\n  maxPages: 25\n  maxDepth: 3\n  startPaths:\n    - /\n    - /dashboard\n' +
+      '  excludePaths:\n    - /logout\n  allowInteractive: false\n';
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + crawl);
+    expect(loadConfig(filePath).crawl).toEqual({
+      maxPages: 25,
+      maxDepth: 3,
+      startPaths: ['/', '/dashboard'],
+      excludePaths: ['/logout'],
+      allowInteractive: false,
+    });
+  });
+
+  it('throws when crawl is not an object', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'crawl: "nope"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"crawl" must be an object/);
+  });
+
+  it('throws when crawl.maxPages is not a positive number', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'crawl:\n  maxPages: 0\n');
+    expect(() => loadConfig(filePath)).toThrow(/"crawl.maxPages" must be a positive number/);
+  });
+
+  it('throws when crawl.maxDepth is not a number', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'crawl:\n  maxDepth: "deep"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"crawl.maxDepth" must be a positive number/);
+  });
+
+  it('throws when crawl.startPaths entries are not site-relative', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'crawl:\n  startPaths:\n    - https://evil.example\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/"crawl.startPaths" must be a list of site-relative paths/);
+  });
+
+  it('throws when crawl.allowInteractive is not a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'crawl:\n  allowInteractive: "yes"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"crawl.allowInteractive" must be a boolean/);
+  });
 });

@@ -159,6 +159,24 @@ describe('skills/document/SKILL.md', () => {
   it('scaffolds the site to read docs/ directly, not a copy', () => {
     expect(body).toContain("docs.path: '../docs'");
   });
+
+  it('has a map mode that discovers features and never drafts everything automatically', () => {
+    expect(frontmatter['argument-hint']).toContain('map');
+    expect(body).toContain('Map the whole app');
+    expect(body).toContain('crawl.mjs');
+    expect(body.toLowerCase()).toContain("don't draft all of them automatically");
+  });
+
+  it("map mode requires a human affirmation before interactive (mutating) crawling", () => {
+    expect(body).toContain('--interactive');
+    expect(body.toLowerCase()).toContain('throwaway');
+  });
+});
+
+describe('scripts/crawl.mjs', () => {
+  it('is bundled alongside capture.mjs', () => {
+    expect(fs.existsSync(path.join(pluginRoot, 'scripts/crawl.mjs'))).toBe(true);
+  });
 });
 
 describe('agents/doc-scribe.md', () => {
@@ -247,5 +265,14 @@ describe('agents/tour-scout.md', () => {
 
   it('requires reporting any synthetic form value or fixture it introduced', () => {
     expect(body.toLowerCase()).toContain('synthetic placeholder data');
+  });
+
+  it('accepts an optional site-map affordance hint from /document map, but treats it as a hint only', () => {
+    expect(body).toContain('site-map.json');
+    expect(body.toLowerCase()).toContain('never substitutes for actually navigating');
+  });
+
+  it('shares its synthetic-value/sensitive-field conventions with synthetic-data.mjs', () => {
+    expect(body).toContain('synthetic-data.mjs');
   });
 });
