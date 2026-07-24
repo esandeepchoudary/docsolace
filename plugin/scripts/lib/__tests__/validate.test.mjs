@@ -117,6 +117,49 @@ describe('validateTour — selectors', () => {
   });
 });
 
+describe('validateTour — upload', () => {
+  it('errors when an upload step\'s fixture file does not exist', () => {
+    const dir = makeTmpDir();
+    const tour = baseTour({
+      steps: [{ action: 'upload', selector: "input[type='file']", file: 'fixtures/sample.pcap' }],
+    });
+
+    const findings = validateTour({}, tour, { cwd: dir });
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('fixtures/sample.pcap') }),
+    );
+  });
+
+  it('is clean when the fixture file exists', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'fixtures'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'fixtures', 'sample.pcap'), 'x');
+    const tour = baseTour({
+      steps: [{ action: 'upload', selector: "input[type='file']", file: 'fixtures/sample.pcap' }],
+    });
+
+    expect(validateTour({}, tour, { cwd: dir })).toEqual([]);
+  });
+
+  it('does not warn on an upload step\'s CSS selector, unlike a click step\'s', () => {
+    // Regression guard: a real <input type="file"> has no meaningful
+    // accessible role, so CSS is the documented-correct choice here — the
+    // locator-style warning that fires for `click` steps must not fire for
+    // `upload` steps.
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'fixtures'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'fixtures', 'sample.pcap'), 'x');
+    const tour = baseTour({
+      steps: [{ action: 'upload', selector: "input[type='file']", file: 'fixtures/sample.pcap' }],
+    });
+
+    const findings = validateTour({}, tour, { cwd: dir });
+
+    expect(findings.some((f) => f.message.includes('role=/text='))).toBe(false);
+  });
+});
+
 describe('validateTour — happy path', () => {
   it('produces no findings for a fully clean tour', () => {
     const dir = makeTmpDir();

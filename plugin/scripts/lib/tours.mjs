@@ -19,6 +19,32 @@ function assertSafeSlug(id, label) {
   }
 }
 
+// An upload step's "file" is read straight off disk and handed to
+// Playwright's setInputFiles — same untrusted-YAML trust boundary as the
+// slugs above. Constrained to a fixtures/ prefix (fixture files are
+// project-committed, per CLAUDE.md's tour conventions) with every path
+// segment required to start/end alphanumeric — this blocks "." and ".."
+// segments (which start with a dot) while still allowing normal filenames
+// like "sample.pcap" or "nested-dir/file_name.json".
+const FIXTURE_PREFIX = 'fixtures/';
+const FIXTURE_SEGMENT_RE = /^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$/;
+
+function assertSafeFixturePath(filePath, label) {
+  if (typeof filePath !== 'string' || !filePath.startsWith(FIXTURE_PREFIX)) {
+    throw new Error(
+      `${label} "${filePath}" is invalid — must be a path starting with "fixtures/", since it's read ` +
+        `from disk and uploaded into the browser.`,
+    );
+  }
+  const segments = filePath.slice(FIXTURE_PREFIX.length).split('/');
+  if (segments.length === 0 || segments.some((s) => !FIXTURE_SEGMENT_RE.test(s))) {
+    throw new Error(
+      `${label} "${filePath}" is invalid — each path segment after "fixtures/" must be letters/digits/` +
+        `dots/hyphens/underscores only, no "." or ".." segments.`,
+    );
+  }
+}
+
 export function loadTour(toursDir, tourId) {
   assertSafeSlug(tourId, 'Tour id');
   const filePath = path.join(toursDir, `${tourId}.yaml`);
@@ -42,9 +68,11 @@ export function loadTour(toursDir, tourId) {
     const isGoto = step.action === 'goto' && typeof step.path === 'string';
     const isClick = step.action === 'click' && typeof step.selector === 'string';
     const isCapture = typeof step.capture === 'string';
-    if (!isGoto && !isClick && !isCapture) {
+    const isUpload =
+      step.action === 'upload' && typeof step.selector === 'string' && typeof step.file === 'string';
+    if (!isGoto && !isClick && !isCapture && !isUpload) {
       throw new Error(
-        `Tour "${tourId}" step ${index} is invalid: expected a goto/click action or a capture`,
+        `Tour "${tourId}" step ${index} is invalid: expected a goto/click/upload action or a capture`,
       );
     }
     // capture.mjs and generate-docs.mjs both join this straight into
@@ -63,6 +91,9 @@ export function loadTour(toursDir, tourId) {
           `with a single "/" — it's appended to config.baseUrl, so an absolute or protocol-relative URL ` +
           `would navigate off-site.`,
       );
+    }
+    if (isUpload) {
+      assertSafeFixturePath(step.file, `Tour "${tourId}" step ${index}'s "file" field`);
     }
   }
 

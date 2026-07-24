@@ -76,12 +76,16 @@ confirmed one.
    minimal on purpose) — pass this filename list to it directly rather than
    letting it guess, so it can actually read one or two for
    title/intent/selector conventions instead of silently skipping that step.
+   Same reason: if `fixtures/` exists, list its files too (may not exist at
+   all on a project with no upload-gated flows yet) — a flow that needs a
+   file upload (e.g. importing a CSV or a sample data file) can only be
+   drafted for real if tour-scout knows a usable fixture is already there.
 4. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
-   the candidate `code_paths` list, the existing tour filenames from step 3,
-   and the app's `baseUrl` (from `autodocs.config.yaml`). Wait for it to
-   write `tours/<slug>.yaml` — don't draft the tour yourself, that
-   exploration is tour-scout's job, grounded in what it actually finds by
-   driving the app.
+   the candidate `code_paths` list, the existing tour filenames and fixture
+   filenames from step 3, and the app's `baseUrl` (from
+   `autodocs.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
+   draft the tour yourself, that exploration is tour-scout's job, grounded in
+   what it actually finds by driving the app.
 5. Report what was drafted, and tour-scout's own notes on what it's unsure
    about. Tell the user plainly: review the steps/selectors, fill in
    `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
