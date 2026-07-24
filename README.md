@@ -418,6 +418,38 @@ running it should never be implied just because it's declared. With the gate
 off, a tour naming a seed that has a command still captures fine — it just
 skips the command and tells you so.
 
+### Voice input
+
+For an app with a microphone-driven feature (a "press to talk" button, a
+voice command bar), a tour's `preconditions.voice` names a fixture audio
+file under `fixtures/<name>.wav`, fed to the browser as a fake microphone:
+
+```yaml
+preconditions:
+  voice: fixtures/sample-command.wav
+steps:
+  - action: goto
+    path: /assistant
+  - action: click
+    selector: "role=button[name='Start recording']"
+  - action: wait
+    selector: "role=status[name='Transcript']"
+    state: visible
+  - capture: voice-result
+    description: "Transcript shown after recording a sample voice command"
+    mask:
+      - "[data-testid='transcript-text']"
+```
+
+Unlike `upload`'s `file`, this is a **precondition**, not a per-step action
+— it's resolved once, before the browser launches, because Chromium's
+fake-microphone flags only take effect at launch time (they can't be
+applied mid-page the way a locator action can). Mask the transcript's
+actual text in the following capture, same as any AI-generated response —
+see "Waiting for async content" above for why: speech-to-text output is
+non-deterministic even when it's working correctly.
+
+
 ## Publishing a docs site
 
 The fastest path is **`/autodocs:document init-site`** (see "Use it in your
