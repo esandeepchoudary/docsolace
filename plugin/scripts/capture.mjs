@@ -157,6 +157,9 @@ async function runTour(browser, config, tour) {
         } else if (step.action === 'click') {
           await page.locator(step.selector).click();
           await page.waitForLoadState('networkidle');
+        } else if (step.action === 'upload') {
+          await page.locator(step.selector).setInputFiles(step.file);
+          await page.waitForLoadState('networkidle');
         } else if (step.capture) {
           const maskSelectors = mergeMasks(config.defaultMask, step.mask);
           const viewportShots = {};
@@ -196,7 +199,7 @@ async function runTour(browser, config, tour) {
             viewports: viewportShots,
           });
         } else {
-          throw new Error('is neither a goto/click action nor a capture');
+          throw new Error('is neither a goto/click/upload action nor a capture');
         }
       } catch (err) {
         throw new Error(`Tour "${tour.id}" step ${index}: ${err.message}`);
