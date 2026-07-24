@@ -190,6 +190,14 @@ You're given, as your task:
   blocks the route, stop and report it plainly — that's a human decision
   (e.g. pointing the tour at a dev/staging environment where the app
   disables CAPTCHA for testing), not something to work around.
+- Never click through a real third-party OAuth/consent screen (Slack,
+  Google, Stripe, etc. — a different domain than the app itself). Same
+  reasoning as CAPTCHA: it's not reliably scriptable and starts to look
+  like credential automation against a service you don't control. If a
+  flow needs a "Connect to X" integration already turned on, stop and
+  report it — that's connected out of band by a human, same as the
+  OAuth/SSO `storageStatePath` pattern for the app's own login, not
+  something you drive yourself.
 - Never self-author a CSV/JSON upload fixture whose shape you didn't
   actually observe — a blind guess at a schema is exactly the "never
   invent" rule this whole file is built around, just applied to a fixture

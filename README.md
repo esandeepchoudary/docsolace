@@ -393,6 +393,25 @@ Verified this really skips the scripted path, not just that it doesn't
 error: ran it against a profile with none of the username/password fields
 set at all.
 
+### Third-party integrations (Slack, Google, Stripe, etc.)
+
+A "Connect to Slack" button that pops open a real OAuth consent screen on
+someone else's domain isn't something AutoDocs scripts through — same call
+as CAPTCHA above, and for the same reasons: a third party's login/consent
+UI changes without notice, can add MFA at any time, and automating it
+starts to look like credential automation against a service you don't
+control. `tour-scout` will stop and report if it hits one, rather than
+attempting to click through it.
+
+The fix is the same idea as OAuth/SSO login above, just applied to the
+*integration's* connected state instead of the app's own session: connect
+it once, out of band, in whatever environment you capture against (most
+apps happily keep an integration connected indefinitely once it's set up),
+then write the tour against the already-connected UI. There's nothing
+AutoDocs-specific to configure for this — it's just making sure the
+environment your tours run against already has the integration turned on
+before you draft or capture anything that assumes it.
+
 ### Reproducible data with seeds
 
 A tour's `preconditions.seed` names a fixture — declared under
