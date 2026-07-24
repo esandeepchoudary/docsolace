@@ -24,6 +24,13 @@ export function renderDraftTour({ id, title, intent, codePaths, steps, auth }) {
         if (step.path) lines.push(`    path: ${yamlString(step.path)}`);
         if (step.selector) lines.push(`    selector: ${yamlString(step.selector)}`);
         if (step.file) lines.push(`    file: ${yamlString(step.file)}`);
+        // !== undefined (not truthy) so an intentionally empty-string fill
+        // value, or an explicit checked: false, still renders instead of
+        // being silently dropped.
+        if (step.value !== undefined) lines.push(`    value: ${yamlString(step.value)}`);
+        if (step.checked !== undefined) lines.push(`    checked: ${yamlString(step.checked)}`);
+        if (step.key) lines.push(`    key: ${yamlString(step.key)}`);
+        if (step.state) lines.push(`    state: ${yamlString(step.state)}`);
         return lines.join('\n');
       }
       return [`  - capture: ${yamlString(step.capture)}`, `    description: ${yamlString(step.description)}`].join(

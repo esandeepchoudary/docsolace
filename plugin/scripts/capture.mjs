@@ -160,6 +160,30 @@ async function runTour(browser, config, tour) {
         } else if (step.action === 'upload') {
           await page.locator(step.selector).setInputFiles(step.file);
           await page.waitForLoadState('networkidle');
+        } else if (step.action === 'fill') {
+          // No post-action networkidle wait for fill/type/select/check/
+          // hover/press (unlike goto/click/upload above): these are
+          // synchronous UI edits with nothing to wait on beyond Playwright's
+          // own per-action actionability auto-wait, and forcing a
+          // network-idle wait would actively break apps that hold an open
+          // SSE/WebSocket connection (e.g. streaming AI chat) — that never
+          // goes network-idle, so the wait would hang for the full default
+          // timeout on every step after the connection opens. Use an
+          // explicit `wait` step (below) when a step genuinely needs to
+          // pause for something async.
+          await page.locator(step.selector).fill(step.value);
+        } else if (step.action === 'type') {
+          await page.locator(step.selector).pressSequentially(step.value);
+        } else if (step.action === 'select') {
+          await page.locator(step.selector).selectOption(step.value);
+        } else if (step.action === 'check') {
+          await page.locator(step.selector).setChecked(step.checked ?? true);
+        } else if (step.action === 'press') {
+          await page.locator(step.selector).press(step.key);
+        } else if (step.action === 'hover') {
+          await page.locator(step.selector).hover();
+        } else if (step.action === 'wait') {
+          await page.locator(step.selector).waitFor({ state: step.state });
         } else if (step.capture) {
           const maskSelectors = mergeMasks(config.defaultMask, step.mask);
           const viewportShots = {};
@@ -199,7 +223,9 @@ async function runTour(browser, config, tour) {
             viewports: viewportShots,
           });
         } else {
-          throw new Error('is neither a goto/click/upload action nor a capture');
+          throw new Error(
+            'is neither a goto/click/upload/fill/type/select/check/press/hover/wait action nor a capture',
+          );
         }
       } catch (err) {
         throw new Error(`Tour "${tour.id}" step ${index}: ${err.message}`);

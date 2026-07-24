@@ -45,6 +45,11 @@ function assertSafeFixturePath(filePath, label) {
   }
 }
 
+// A wait step's "state" mirrors Playwright's own Locator#waitFor states
+// exactly — anything else can't be executed, so it's rejected at load time
+// rather than surfacing as a Playwright error mid-capture.
+const WAIT_STATES = ['visible', 'hidden', 'attached', 'detached'];
+
 export function loadTour(toursDir, tourId) {
   assertSafeSlug(tourId, 'Tour id');
   const filePath = path.join(toursDir, `${tourId}.yaml`);
@@ -70,9 +75,38 @@ export function loadTour(toursDir, tourId) {
     const isCapture = typeof step.capture === 'string';
     const isUpload =
       step.action === 'upload' && typeof step.selector === 'string' && typeof step.file === 'string';
-    if (!isGoto && !isClick && !isCapture && !isUpload) {
+    // These five are all typed values handed straight to a Playwright
+    // Locator method — unlike upload's "file", none of them get joined
+    // into a filesystem path, so a typeof check is the right and
+    // sufficient bar here (same as click's existing selector check).
+    const isFill = step.action === 'fill' && typeof step.selector === 'string' && typeof step.value === 'string';
+    const isType = step.action === 'type' && typeof step.selector === 'string' && typeof step.value === 'string';
+    const isSelect =
+      step.action === 'select' && typeof step.selector === 'string' && typeof step.value === 'string';
+    const isCheck =
+      step.action === 'check' &&
+      typeof step.selector === 'string' &&
+      (step.checked === undefined || typeof step.checked === 'boolean');
+    const isPress = step.action === 'press' && typeof step.selector === 'string' && typeof step.key === 'string';
+    const isHover = step.action === 'hover' && typeof step.selector === 'string';
+    const isWait =
+      step.action === 'wait' && typeof step.selector === 'string' && WAIT_STATES.includes(step.state);
+    if (
+      !isGoto &&
+      !isClick &&
+      !isCapture &&
+      !isUpload &&
+      !isFill &&
+      !isType &&
+      !isSelect &&
+      !isCheck &&
+      !isPress &&
+      !isHover &&
+      !isWait
+    ) {
       throw new Error(
-        `Tour "${tourId}" step ${index} is invalid: expected a goto/click/upload action or a capture`,
+        `Tour "${tourId}" step ${index} is invalid: expected a goto/click/upload/fill/type/select/check/` +
+          `press/hover/wait action or a capture`,
       );
     }
     // capture.mjs and generate-docs.mjs both join this straight into

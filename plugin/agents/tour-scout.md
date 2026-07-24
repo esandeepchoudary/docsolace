@@ -50,21 +50,45 @@ You're given, as your task:
    (e.g. the empty drop-zone state) using steps 4-7 below, then report
    clearly that this flow needs a fixture under `fixtures/` that wasn't
    provided. Never guess what's behind an upload you couldn't perform.
-4. **Ground every step in what you actually observed.** If you can't find
+4. **Forms**: for a standard `<input>`/`<textarea>`, use a `fill` step —
+   it's fast and deterministic. Use `type` instead only when `fill`
+   demonstrably doesn't work: contenteditable rich-text areas, or a
+   JS-driven autocomplete/search-as-you-type widget that listens for real
+   keystroke events rather than a value change. For a `<select>`, use
+   `select`; for a checkbox/radio, use `check`; for submitting via keyboard
+   (e.g. Enter in a search box) or dismissing something (Escape), use
+   `press`; for a tooltip or hover-revealed menu, use `hover`.
+5. **Waiting on async content** (an AI chatbot's reply, a slow-loading
+   panel, anything that appears after a delay): after the action that
+   triggers it, add a `wait` step targeting a stable signal before the next
+   `capture` — a "typing…"/loading indicator's `state: hidden`, or the
+   response container's `state: visible`. Don't just add a `capture`
+   immediately after triggering something async; the pipeline doesn't wait
+   for you (see the note on `wait` in step 7). Once you capture that
+   response, mask its actual text content in that capture's `mask` list —
+   the *content* of an AI-generated response is non-deterministic even once
+   it's finished, the same hazard as anywhere else non-deterministic content
+   shows up in this pipeline. You can still capture *that* a response
+   appeared; just not its exact wording.
+6. **Ground every step in what you actually observed.** If you can't find
    anything matching the description on the page you navigated to, say so and
    stop rather than guessing a plausible-sounding selector. Prefer role-based
    selectors (`role=button[name='...']`) from the accessibility snapshot,
    never invented CSS — except for an upload step's file-input selector (see
    step 3), where CSS is the documented exception.
-5. Build a minimal step sequence: `goto` the route, `capture` the state
-   before the feature interaction, `click`/`upload`/interact if there's a
-   meaningful before/after, `capture` the resulting state.
-6. Write the draft using `plugin/scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
+7. Build a minimal step sequence: `goto` the route, `capture` the state
+   before the feature interaction, then whichever of `click`/`upload`/`fill`/
+   `type`/`select`/`check`/`press`/`hover`/`wait` actually applies, `capture`
+   the resulting state. None of `fill`/`type`/`select`/`check`/`press`/
+   `hover` wait for anything after acting (unlike `click`/`upload`/`goto`) —
+   that's deliberate, so a `wait` step is the only reliable way to pause for
+   something async; don't assume the pipeline waits for you.
+8. Write the draft using `plugin/scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
    shape — id, title, intent (your best short summary of the human's
    description), the `code_paths` you were given, and the steps you actually
    observed. It always comes out with `maturity: draft` and `status:
    proposed`; you never set `status: confirmed` — that's a human decision.
-7. Write only to `tours/<slug>.yaml`. Don't touch any other file — and never
+9. Write only to `tours/<slug>.yaml`. Don't touch any other file — and never
    write into `fixtures/` yourself; fixture files are provided, not
    authored by you.
 
@@ -86,6 +110,15 @@ You're given, as your task:
   stop and report if no fixture was given. A workaround like that produces a
   tour the real pipeline (`capture.mjs`) can never reproduce, since it only
   ever executes real `upload`/`click`/`goto` steps.
+- Never put a real credential in a `fill`/`type` step's `value`. If a field
+  looks like a password/secret field (`type="password"`, or a name/id
+  suggesting credentials/tokens/API keys), stop and use the existing
+  `preconditions.auth` mechanism instead, or ask — never inline a secret
+  into tour YAML, which is committed to the project's repo.
+- Never attempt to solve, guess past, or script around a CAPTCHA. If one
+  blocks the route, stop and report it plainly — that's a human decision
+  (e.g. pointing the tour at a dev/staging environment where the app
+  disables CAPTCHA for testing), not something to work around.
 - Report back what you drafted and, plainly, what you're unsure about (route
   guessed vs. given, any step you skipped because you couldn't find it, or a
   fixture you needed but weren't given).
