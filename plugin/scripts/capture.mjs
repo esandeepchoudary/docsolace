@@ -249,7 +249,23 @@ async function main() {
     });
   }
 
-  const browser = await chromium.launch({ args: config.launchArgs ?? [] });
+  // preconditions.voice feeds a fixture audio file into Chromium as a fake
+  // microphone — this is set once at browser launch (not per-step, unlike
+  // every other interaction), because Chromium's fake-audio-capture flags
+  // only take effect at launch time. Both flags are required, verified
+  // empirically: --use-fake-device-for-media-stream alone throws
+  // "NotSupportedError" from getUserMedia; --use-fake-ui-for-media-stream
+  // is what actually gets it working (it also auto-accepts the permission
+  // prompt, so no extra browser-context permission grant is needed).
+  const launchArgs = [...(config.launchArgs ?? [])];
+  if (tour.preconditions?.voice) {
+    launchArgs.push(
+      '--use-fake-device-for-media-stream',
+      '--use-fake-ui-for-media-stream',
+      `--use-file-for-fake-audio-capture=${path.resolve(tour.preconditions.voice)}`,
+    );
+  }
+  const browser = await chromium.launch({ args: launchArgs });
   try {
     const manifest = await runTour(browser, config, tour);
     saveManifestEntry(path.join(config.outputDir, 'manifest.json'), manifest);

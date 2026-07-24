@@ -91,6 +91,19 @@ describe('renderDraftTour', () => {
     expect(yaml).not.toContain('TODO: add preconditions');
   });
 
+  it('includes preconditions.voice when tour-scout names a fixture it needed', () => {
+    const yaml = renderDraftTour({ ...BASE, voice: 'fixtures/sample-voice.wav' });
+    const parsed = parseYaml(yaml);
+    expect(parsed.preconditions).toEqual({ voice: 'fixtures/sample-voice.wav' });
+    expect(yaml).not.toContain('TODO: add preconditions');
+  });
+
+  it('includes both preconditions.auth and preconditions.voice when both apply', () => {
+    const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
+    const parsed = parseYaml(yaml);
+    expect(parsed.preconditions).toEqual({ auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
+  });
+
   it('produces loadable YAML for a double-quote-bearing role locator', () => {
     // The exact selector style lib/validate.mjs recommends —
     // role=button[name="..."] — contains a literal `"`. Naive
@@ -153,5 +166,14 @@ describe('renderDraftTour', () => {
       { action: 'hover', selector: "role=button[name='Info']" },
       { action: 'wait', selector: 'role=status', state: 'visible' },
     ]);
+  });
+
+  it('renders preconditions.voice and round-trips it through loadTour', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.preconditions).toEqual({ auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
   });
 });

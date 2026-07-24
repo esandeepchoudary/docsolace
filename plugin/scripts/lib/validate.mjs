@@ -44,6 +44,14 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
     }
   }
 
+  if (tour.preconditions?.voice && !fs.existsSync(path.join(cwd, tour.preconditions.voice))) {
+    push(
+      'error',
+      `preconditions.voice fixture "${tour.preconditions.voice}" does not exist — capture would fail on ` +
+        `this exact error, but only after already launching a browser.`,
+    );
+  }
+
   if (Array.isArray(tour.code_paths) && tour.code_paths.length > 0) {
     const matched = resolveCodePathFiles(tour.code_paths, cwd);
     if (matched.length === 0) {

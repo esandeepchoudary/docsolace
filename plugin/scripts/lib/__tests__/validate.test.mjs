@@ -69,6 +69,32 @@ describe('validateTour — auth', () => {
   });
 });
 
+describe('validateTour — voice', () => {
+  it('errors when preconditions.voice fixture does not exist', () => {
+    const dir = makeTmpDir();
+    const tour = baseTour({ preconditions: { voice: 'fixtures/sample-voice.wav' } });
+
+    const findings = validateTour({}, tour, { cwd: dir });
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('fixtures/sample-voice.wav') }),
+    );
+  });
+
+  it('is clean when the voice fixture exists', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'fixtures'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'fixtures', 'sample-voice.wav'), 'x');
+    const tour = baseTour({ preconditions: { voice: 'fixtures/sample-voice.wav' } });
+
+    expect(validateTour({}, tour, { cwd: dir })).toEqual([]);
+  });
+
+  it('does not require a voice fixture for a tour with no preconditions.voice', () => {
+    expect(validateTour({}, baseTour())).toEqual([]);
+  });
+});
+
 describe('validateTour — code_paths', () => {
   it('warns when code_paths matches no files under cwd', () => {
     const dir = makeTmpDir();

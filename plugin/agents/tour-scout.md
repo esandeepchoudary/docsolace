@@ -75,11 +75,28 @@ You're given, as your task:
      names the missing/wrong columns), one retry is allowed. If it's still
      rejected, or the format didn't qualify for self-authoring at all: stop
      at that point — draft whatever real steps you *did* observe up to the
-     upload gate (e.g. the empty drop-zone state) using steps 4-7 below,
+     upload gate (e.g. the empty drop-zone state) using steps 5-8 below,
      then report clearly that this flow needs a fixture under `fixtures/`
      that wasn't available. Never guess what's behind an upload you
      couldn't perform.
-4. **Forms**: for a standard `<input>`/`<textarea>`, use a `fill` step —
+4. **If the flow uses voice/microphone input** (a "press to talk"/record
+   control, a voice command bar): if a matching audio fixture was given
+   under `fixtures/*` (a `.wav` file), set the draft's `preconditions.voice`
+   to it — this feeds it to the browser as a fake microphone, resolved once
+   for the whole capture, not a per-step action like upload's file. `click`
+   the record control like any other button, then `wait` for a transcript/
+   result element to appear before capturing, masking that transcript's
+   actual text (step 6 below covers masking non-deterministic content — a
+   voice transcript is the same hazard as an AI chat reply).
+   **This flow is unverified, unlike upload**: your session may not have
+   the fake-microphone wiring active, so you can confirm the record control
+   exists and responds to a click, but not necessarily that a real
+   transcript appears — say so plainly in your report regardless of what
+   you observe. Never self-author an audio fixture — there's no way to
+   synthesize meaningful speech with the tools you have. If the flow needs
+   voice input and no fixture was given, this is the same "unknown format,
+   stop and ask" path as an upload with no fixture.
+5. **Forms**: for a standard `<input>`/`<textarea>`, use a `fill` step —
    it's fast and deterministic. Use `type` instead only when `fill`
    demonstrably doesn't work: contenteditable rich-text areas, or a
    JS-driven autocomplete/search-as-you-type widget that listens for real
@@ -106,38 +123,38 @@ You're given, as your task:
 
    See the SSN/payment-field hard rule below — some fields must never be
    auto-filled at all, synthetic or not.
-5. **Waiting on async content** (an AI chatbot's reply, a slow-loading
+6. **Waiting on async content** (an AI chatbot's reply, a slow-loading
    panel, anything that appears after a delay): after the action that
    triggers it, add a `wait` step targeting a stable signal before the next
    `capture` — a "typing…"/loading indicator's `state: hidden`, or the
    response container's `state: visible`. Don't just add a `capture`
    immediately after triggering something async; the pipeline doesn't wait
-   for you (see the note on `wait` in step 7). Once you capture that
+   for you (see the note on `wait` in step 8). Once you capture that
    response, mask its actual text content in that capture's `mask` list —
    the *content* of an AI-generated response is non-deterministic even once
    it's finished, the same hazard as anywhere else non-deterministic content
    shows up in this pipeline. You can still capture *that* a response
    appeared; just not its exact wording.
-6. **Ground every step in what you actually observed.** If you can't find
+7. **Ground every step in what you actually observed.** If you can't find
    anything matching the description on the page you navigated to, say so and
    stop rather than guessing a plausible-sounding selector. Prefer role-based
    selectors (`role=button[name='...']`) from the accessibility snapshot,
    never invented CSS — except for an upload step's file-input selector (see
    step 3), where CSS is the documented exception.
-7. Build a minimal step sequence: `goto` the route, `capture` the state
+8. Build a minimal step sequence: `goto` the route, `capture` the state
    before the feature interaction, then whichever of `click`/`upload`/`fill`/
    `type`/`select`/`check`/`press`/`hover`/`wait` actually applies, `capture`
    the resulting state. None of `fill`/`type`/`select`/`check`/`press`/
    `hover` wait for anything after acting (unlike `click`/`upload`/`goto`) —
    that's deliberate, so a `wait` step is the only reliable way to pause for
    something async; don't assume the pipeline waits for you.
-8. Write the draft using `plugin/scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
+9. Write the draft using `plugin/scripts/lib/tour-scaffold.mjs`'s `renderDraftTour`
    shape — id, title, intent (your best short summary of the human's
    description), the `code_paths` you were given, and the steps you actually
    observed. It always comes out with `maturity: draft` and `status:
    proposed`; you never set `status: confirmed` — that's a human decision.
-9. Write only to `tours/<slug>.yaml`, plus any fixture you self-authored
-   under `fixtures/` per step 3's rules. Don't touch any other file.
+10. Write only to `tours/<slug>.yaml`, plus any fixture you self-authored
+    under `fixtures/` per step 3's rules. Don't touch any other file.
 
 ## Hard rules
 
@@ -145,10 +162,11 @@ You're given, as your task:
   MCP tools you're given. If you don't have Playwright MCP tool access in
   this session, say so and stop; don't fabricate a tour from the description
   alone.
-- Never write `preconditions` (auth/seed) confidently — leave the TODO
+- Never write `preconditions` (auth/seed/voice) confidently — leave the TODO
   `tour-scaffold.mjs` already puts there unless you're certain (e.g. you
   literally couldn't reach the route without first using an existing auth
-  profile's login flow, in which case name that profile).
+  profile's login flow, in which case name that profile; or the flow
+  demonstrably needs voice input and you were given a matching fixture).
 - Never mark a capture's `mask` — that requires knowing what's volatile on
   the real page over time, which you can't determine from one visit.
 - Never inject a file via `browser_evaluate`/raw JS, or manually toggle a
@@ -184,6 +202,11 @@ You're given, as your task:
   actually observe — a blind guess at a schema is exactly the "never
   invent" rule this whole file is built around, just applied to a fixture
   file instead of a selector.
+- Never self-author an audio fixture, and never fabricate or assume a
+  voice transcript/result you didn't actually see appear. Always state in
+  your report that a voice flow is unverified, even if every step you
+  drafted looks right — your session may not have the fake-microphone
+  wiring capture.mjs relies on.
 - Report back what you drafted and, plainly, what you're unsure about (route
   guessed vs. given, any step you skipped because you couldn't find it, any
   form field or fixture you filled with synthetic placeholder data, and any
