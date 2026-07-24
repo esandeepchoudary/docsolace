@@ -239,4 +239,13 @@ describe('agents/tour-scout.md', () => {
     expect(body.toLowerCase()).toContain('ground every step');
     expect(body.toLowerCase()).toContain('rather than guessing');
   });
+
+  it('never auto-fills SSN/payment/government-ID-looking fields, even with synthetic data', () => {
+    expect(body).toContain('SSN');
+    expect(body.toLowerCase()).toContain('cvv');
+  });
+
+  it('requires reporting any synthetic form value or fixture it introduced', () => {
+    expect(body.toLowerCase()).toContain('synthetic placeholder data');
+  });
 });
