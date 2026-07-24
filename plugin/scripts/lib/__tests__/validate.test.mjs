@@ -115,6 +115,30 @@ describe('validateTour — selectors', () => {
     const tour = baseTour({ steps: [{ action: 'click', selector: "text=Submit" }] });
     expect(validateTour({}, tour)).toEqual([]);
   });
+
+  it('warns on a fill step whose selector is plain CSS — the check generalizes beyond click', () => {
+    const tour = baseTour({
+      steps: [{ action: 'fill', selector: '#search-box', value: 'hello' }],
+    });
+
+    const findings = validateTour({}, tour);
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: expect.stringContaining('#search-box') }),
+    );
+  });
+
+  it('is clean for a select step with a role= locator', () => {
+    const tour = baseTour({
+      steps: [{ action: 'select', selector: "role=combobox[name='Status']", value: 'done' }],
+    });
+    expect(validateTour({}, tour)).toEqual([]);
+  });
+
+  it('is a no-op for step types with no selector at all (goto, capture)', () => {
+    const tour = baseTour({ steps: [{ action: 'goto', path: '/' }, { capture: 'shot', description: 'x' }] });
+    expect(validateTour({}, tour)).toEqual([]);
+  });
 });
 
 describe('validateTour — upload', () => {

@@ -125,4 +125,33 @@ describe('renderDraftTour', () => {
     expect(tour.intent).toBe('Shows the "Export CSV" flow.');
     expect(tour.steps[0].description).toBe('The "Export CSV" button, visible');
   });
+
+  it('renders fill/type/select/check/press/hover/wait steps and round-trips them through loadTour', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({
+      ...BASE,
+      steps: [
+        { action: 'fill', selector: "role=textbox[name='Search']", value: 'hello' },
+        { action: 'type', selector: "[contenteditable='true']", value: 'notes' },
+        { action: 'select', selector: "role=combobox[name='Status']", value: 'done' },
+        // checked: false is the trickiest case — a falsy-but-must-render value.
+        { action: 'check', selector: "role=checkbox[name='Agree']", checked: false },
+        { action: 'press', selector: "role=textbox[name='Message']", key: 'Enter' },
+        { action: 'hover', selector: "role=button[name='Info']" },
+        { action: 'wait', selector: 'role=status', state: 'visible' },
+      ],
+    });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.steps).toEqual([
+      { action: 'fill', selector: "role=textbox[name='Search']", value: 'hello' },
+      { action: 'type', selector: "[contenteditable='true']", value: 'notes' },
+      { action: 'select', selector: "role=combobox[name='Status']", value: 'done' },
+      { action: 'check', selector: "role=checkbox[name='Agree']", checked: false },
+      { action: 'press', selector: "role=textbox[name='Message']", key: 'Enter' },
+      { action: 'hover', selector: "role=button[name='Info']" },
+      { action: 'wait', selector: 'role=status', state: 'visible' },
+    ]);
+  });
 });
