@@ -28,13 +28,16 @@ tutorial and surface that to the user — don't silently decide either way.
 
 - If it's a new feature not covered by any existing tour: suggest running \
 \`/document propose <slug> "<description>"\`. This dispatches the tour-scout subagent, which drives \
-the real app and drafts tours/<slug>.yaml grounded in what it actually finds (status: proposed, \
-maturity: draft) — don't hand-write the tour yourself.
+the real app and drafts tours/<slug>.yaml grounded in what it actually finds — then, by default, \
+carries the draft through validation, auto-confirmation, capture, generation, and an opened docs PR \
+in the same invocation (never auto-merged). Append \`--review\` to stop after the draft instead and \
+flip \`status: confirmed\` yourself once you've reviewed it.
 - If it changes a flow an existing confirmed tour already covers: suggest running \
-\`/document <slug>\` to resync that tour's screenshots and prose.
-- Never set \`status: confirmed\` yourself — that review/approval is the human's call, always.
-- This is a suggestion, not an automatic action — AutoDocs is a manual-first, solo-developer tool; \
-nothing here should run without the human asking for it.`;
+\`/document <slug>\` to resync that tour's screenshots and prose and ship the result as a PR.
+- This still isn't fully automatic — a run always stops and asks at a hard stop (tour-scout \
+couldn't ground the feature, an unverified voice flow, a validate.mjs error, an unrecorded auth \
+session, or a hand-edited page it won't silently overwrite), and it never merges the PR it opens; \
+merging \`main\` stays the human's call.`;
 
 export function buildSessionGuidance(projectDir) {
   const configPath = path.join(projectDir, CONFIG_FILENAME);
