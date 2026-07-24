@@ -16,7 +16,7 @@ function yamlString(value) {
 // Used by the tour-scout subagent (see plugin/agents/tour-scout.md) after it
 // explores the app via Playwright MCP — never invents a step; every step it
 // passes in must be grounded in something it actually observed.
-export function renderDraftTour({ id, title, intent, codePaths, steps, auth }) {
+export function renderDraftTour({ id, title, intent, codePaths, steps, auth, voice }) {
   const stepsYaml = steps
     .map((step) => {
       if (step.action) {
@@ -41,15 +41,28 @@ export function renderDraftTour({ id, title, intent, codePaths, steps, auth }) {
 
   const codePathsYaml = codePaths.map((p) => `  - ${yamlString(p)}`).join('\n');
 
-  // Only include a preconditions.auth block when tour-scout is confident
-  // (it couldn't reach the route without an existing auth profile's login
-  // flow) — otherwise leave the TODO for a human to fill in, since seed
-  // fixtures and less obvious auth needs aren't reliably inferable from one
-  // exploration pass.
-  const preconditions = auth
-    ? `preconditions:\n  auth: ${yamlString(auth)}  # tour-scout needed this profile's login flow to reach the route below\n`
-    : `# TODO: add preconditions (auth/seed) here if this flow requires being signed\n` +
-      `# in — see the auth/seeds entries in autodocs.config.yaml.\n`;
+  // Only include a preconditions.auth/voice line when tour-scout is
+  // confident about it (couldn't reach the route without an existing auth
+  // profile's login flow; the flow genuinely needed a given voice fixture)
+  // — otherwise leave the TODO for a human to fill in, since seed fixtures
+  // and less obvious preconditions aren't reliably inferable from one
+  // exploration pass. auth and voice can both apply to the same tour (e.g.
+  // a signed-in voice feature), so build the block from whichever are
+  // present rather than treating them as mutually exclusive.
+  const preconditionLines = [];
+  if (auth) {
+    preconditionLines.push(
+      `  auth: ${yamlString(auth)}  # tour-scout needed this profile's login flow to reach the route below`,
+    );
+  }
+  if (voice) {
+    preconditionLines.push(`  voice: ${yamlString(voice)}  # fixture audio fed as the fake microphone input`);
+  }
+  const preconditions =
+    preconditionLines.length > 0
+      ? `preconditions:\n${preconditionLines.join('\n')}\n`
+      : `# TODO: add preconditions (auth/seed/voice) here if this flow requires being signed\n` +
+        `# in or needs microphone input — see the auth/seeds entries in autodocs.config.yaml.\n`;
 
   return `id: ${yamlString(id)}
 title: ${yamlString(title)}
