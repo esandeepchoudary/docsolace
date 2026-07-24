@@ -88,11 +88,14 @@ confirmed one.
    what it actually finds by driving the app.
 5. Report what was drafted, and tour-scout's own notes on what it's unsure
    about. Tell the user plainly: review the steps/selectors, fill in
-   `preconditions`/`mask` if needed, then flip `status` to `confirmed` —
-   nothing downstream (drift gate, `/document`'s normal pipeline) treats
-   this tour as real until they do. Suggest `/document validate` once
-   they've filled it in, to catch an undefined auth profile or an empty
-   `code_paths` match before the first real capture.
+   `preconditions`/`mask` if needed, review any form values or upload
+   fixtures tour-scout filled in with synthetic placeholder data (it flags
+   these explicitly — swap in something more representative if you want
+   less obviously-fake data in the generated docs), then flip `status` to
+   `confirmed` — nothing downstream (drift gate, `/document`'s normal
+   pipeline) treats this tour as real until they do. Suggest `/document
+   validate` once they've filled it in, to catch an undefined auth profile
+   or an empty `code_paths` match before the first real capture.
 
 ## Validate a project
 
