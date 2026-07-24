@@ -213,6 +213,27 @@ Two things to set up, both by example in this repo:
   false "changed" results. Prefer role-based selectors
   (`role=button[name='...']`) over CSS — they're far less flaky.
 
+  Every step's `action`, in one place:
+
+  | action | fields | what it does |
+  |---|---|---|
+  | `goto` | `path` | Navigate to a site-relative path |
+  | `click` | `selector` | Click an element |
+  | `fill` | `selector`, `value` | Set a form input/textarea's value directly |
+  | `type` | `selector`, `value` | Simulate real keystrokes — for contenteditable/rich-text editors and autocomplete widgets `fill` doesn't work on |
+  | `select` | `selector`, `value` | Choose a `<select>` option |
+  | `check` | `selector`, `checked` (optional, default `true`) | Set a checkbox/radio's checked state |
+  | `press` | `selector`, `key` | Send a keyboard key (e.g. `Enter`, `Escape`) |
+  | `hover` | `selector` | Hover to reveal tooltip/menu UI |
+  | `upload` | `selector`, `file` | Upload a `fixtures/<name>` file — see below |
+  | `wait` | `selector`, `state` (`visible`\|`hidden`\|`attached`\|`detached`) | Wait for an element to reach a state before continuing — see below |
+  | *(none)* | `capture`, `description` | Take a screenshot + accessibility snapshot at this point |
+
+  `fill`/`type`/`select`/`check`/`press`/`hover` don't wait for anything
+  after acting, unlike `goto`/`click`/`upload` — add an explicit `wait` step
+  when something needs a moment to happen (see "Waiting for async content"
+  below).
+
 ### Uploading a file
 
 If a flow requires uploading a file — a CSV importer, an image, a sample
@@ -237,6 +258,81 @@ every run); anything outside `fixtures/` is rejected. Unlike every other
 selector in a tour, target the real `<input type="file">` element with a
 CSS selector rather than a role locator — file inputs have no meaningful
 accessible role for this, so CSS is the documented exception here.
+
+### Filling out forms and editing content
+
+Use `fill` for standard inputs/textareas — it sets the value directly, fast
+and deterministic:
+
+```yaml
+steps:
+  - action: fill
+    selector: "role=textbox[name='Full name']"
+    value: "Ada Lovelace"
+  - action: select
+    selector: "role=combobox[name='Country']"
+    value: "uk"
+  - action: check
+    selector: "role=checkbox[name='Subscribe to updates']"
+    checked: true
+  - action: click
+    selector: "role=button[name='Save']"
+```
+
+Use `type` instead of `fill` only when `fill` genuinely doesn't work —
+contenteditable rich-text editors, or a JS-driven autocomplete/
+search-as-you-type widget that listens for real keystroke events rather than
+a value change:
+
+```yaml
+- action: type
+  selector: "[contenteditable='true']"
+  value: "Meeting notes go here."
+```
+
+Never put a real credential in a `fill`/`type` step's `value` — for a login
+form, use the `auth` mechanism above instead; a tour's YAML is committed to
+your repo, and a hardcoded password in it is a leaked password.
+
+### Waiting for async content (e.g. an AI chat reply)
+
+`fill`/`type`/`select`/`check`/`press`/`hover` don't wait for anything after
+acting, so a `capture` placed right after one of them might run before an
+async response has appeared. Add a `wait` step targeting a stable signal —
+here, a chat UI whose "typing…" indicator disappears once the reply is
+ready:
+
+```yaml
+steps:
+  - action: fill
+    selector: "role=textbox[name='Message']"
+    value: "What's the weather like?"
+  - action: press
+    selector: "role=textbox[name='Message']"
+    key: "Enter"
+  - action: wait
+    selector: "role=status[name='Typing indicator']"
+    state: hidden
+  - capture: chat-response
+    description: "Assistant's reply to a weather question"
+    mask:
+      - "[data-testid='chat-message']"
+```
+
+Mask the response's actual text (`mask` above) — an AI-generated reply is
+non-deterministic even once it's finished, so the tour can prove *that* a
+response appeared without depending on its exact wording changing the
+drift/pixel-diff result every run.
+
+### CAPTCHA
+
+AutoDocs doesn't attempt to solve, guess past, or script around a CAPTCHA —
+that's a different kind of feature than "drive an app that trusts you," and
+not one this project builds. If a flow you want documented is
+CAPTCHA-gated, the realistic path is the same one this project already uses
+for anything else too varied to script reliably (see OAuth/SSO below):
+capture against a dev/staging environment where the app itself disables
+CAPTCHA for testing, rather than trying to defeat it.
 
 ### If your app doesn't use a plain username/password login
 

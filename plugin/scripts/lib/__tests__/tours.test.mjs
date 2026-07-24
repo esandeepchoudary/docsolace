@@ -158,4 +158,120 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
   });
+
+  it('loads a valid fill step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: fill\n    selector: "role=textbox[name=\'Search\']"\n    value: "hello"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'fill', selector: "role=textbox[name='Search']", value: 'hello' });
+  });
+
+  it('throws when a fill step is missing a value', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: fill\n    selector: "role=textbox[name=\'Search\']"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid type step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: type\n    selector: "[contenteditable=\'true\']"\n    value: "hello"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0].value).toBe('hello');
+  });
+
+  it('throws when a type step is missing a value', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - action: type\n    selector: "x"\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid select step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: select\n    selector: "role=combobox[name=\'Status\']"\n    value: "done"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'select', selector: "role=combobox[name='Status']", value: 'done' });
+  });
+
+  it('throws when a select step is missing a value', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - action: select\n    selector: "x"\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid check step with an explicit checked value', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: check\n    selector: "role=checkbox[name=\'Agree\']"\n    checked: false\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'check', selector: "role=checkbox[name='Agree']", checked: false });
+  });
+
+  it('loads a valid check step with checked omitted', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: check\n    selector: "role=checkbox[name=\'Agree\']"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0].checked).toBeUndefined();
+  });
+
+  it('throws when a check step\'s checked field is not a boolean', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: check\n    selector: "x"\n    checked: "yes"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid press step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: press\n    selector: "role=textbox[name=\'Message\']"\n    key: "Enter"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'press', selector: "role=textbox[name='Message']", key: 'Enter' });
+  });
+
+  it('throws when a press step is missing a key', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - action: press\n    selector: "x"\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid hover step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: hover\n    selector: "role=button[name=\'Info\']"\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'hover', selector: "role=button[name='Info']" });
+  });
+
+  it('throws when a hover step is missing a selector', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - action: hover\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
+
+  it('loads a valid wait step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: wait\n    selector: "role=status"\n    state: visible\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0]).toEqual({ action: 'wait', selector: 'role=status', state: 'visible' });
+  });
+
+  it('throws when a wait step\'s state is not a recognized Playwright waitFor state', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: wait\n    selector: "role=status"\n    state: "invisible"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
+  });
 });
