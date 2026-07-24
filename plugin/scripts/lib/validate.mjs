@@ -56,13 +56,16 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
   }
 
   for (const [index, step] of tour.steps.entries()) {
-    // Deliberately not checked for `upload` steps: a real <input type="file">
-    // has no meaningful accessible role for this purpose, so CSS (e.g.
-    // "input[type='file']") is the correct, documented choice there — see
-    // CLAUDE.md's selector convention ("CSS only as a fallback for things
-    // with no meaningful role"). Warning on it here would be a false
-    // positive on the one case where CSS is right.
-    if (step.action === 'click' && !isLocatorStyle(step.selector)) {
+    // Applies to every selector-bearing step except `upload`: a real
+    // <input type="file"> has no meaningful accessible role for this
+    // purpose, so CSS (e.g. "input[type='file']") is the correct,
+    // documented choice there — see CLAUDE.md's selector convention ("CSS
+    // only as a fallback for things with no meaningful role"). Every other
+    // step (click, fill, type, select, check, press, hover, wait) targets
+    // an element that generally does have a meaningful role, so the warning
+    // stays general rather than enumerating action names one by one — keeps
+    // it correct automatically for any future selector-bearing step too.
+    if (step.selector && step.action !== 'upload' && !isLocatorStyle(step.selector)) {
       push(
         'warn',
         `step ${index}: selector "${step.selector}" isn't a role=/text= locator — prefer accessibility ` +
