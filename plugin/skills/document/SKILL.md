@@ -77,9 +77,10 @@ confirmed one.
    letting it guess, so it can actually read one or two for
    title/intent/selector conventions instead of silently skipping that step.
    Same reason: if `fixtures/` exists, list its files too (may not exist at
-   all on a project with no upload-gated flows yet) — a flow that needs a
-   file upload (e.g. importing a CSV or a sample data file) can only be
-   drafted for real if tour-scout knows a usable fixture is already there.
+   all on a project with no upload- or voice-gated flows yet) — a flow that
+   needs a file upload (e.g. importing a CSV or a sample data file) or
+   voice/microphone input (a `.wav` fixture) can only be drafted for real if
+   tour-scout knows a usable fixture is already there.
 4. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
    the candidate `code_paths` list, the existing tour filenames and fixture
    filenames from step 3, and the app's `baseUrl` (from
@@ -91,7 +92,11 @@ confirmed one.
    `preconditions`/`mask` if needed, review any form values or upload
    fixtures tour-scout filled in with synthetic placeholder data (it flags
    these explicitly — swap in something more representative if you want
-   less obviously-fake data in the generated docs), then flip `status` to
+   less obviously-fake data in the generated docs). If the tour includes a
+   voice/microphone flow, relay tour-scout's own caveat that it's
+   **unverified** — its session may not have been able to exercise the
+   fake-microphone flow live, so that part specifically needs a real
+   capture run to confirm before trusting it. Then flip `status` to
    `confirmed` — nothing downstream (drift gate, `/document`'s normal
    pipeline) treats this tour as real until they do. Suggest `/document
    validate` once they've filled it in, to catch an undefined auth profile

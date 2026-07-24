@@ -259,6 +259,13 @@ async function main() {
   // prompt, so no extra browser-context permission grant is needed).
   const launchArgs = [...(config.launchArgs ?? [])];
   if (tour.preconditions?.voice) {
+    if (!fs.existsSync(tour.preconditions.voice)) {
+      throw new Error(
+        `Tour "${tour.id}"'s preconditions.voice fixture "${tour.preconditions.voice}" doesn't exist — ` +
+          `create it under fixtures/ before capturing. Run \`node validate.mjs\` (or ` +
+          `\`/autodocs:document validate\`) to catch this before launching a browser next time.`,
+      );
+    }
     launchArgs.push(
       '--use-fake-device-for-media-stream',
       '--use-fake-ui-for-media-stream',

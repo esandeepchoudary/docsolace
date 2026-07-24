@@ -299,4 +299,32 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/no "\." or "\.\." segments/);
   });
+
+  it('throws when preconditions.voice is an explicit empty string', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\npreconditions:\n  voice: ""\nsteps:\n  - action: goto\n    path: /\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/must be a path starting with "fixtures\//);
+  });
+
+  it('throws when a step combines "action" and "capture" on the same step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: click\n    selector: "role=button[name=\'Save\']"\n    capture: after-save\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/has both an "action" and a "capture" field/);
+  });
+
+  it('throws when a malformed action step is rescued by an accompanying capture field', () => {
+    // Regression guard: isCapture used to be the only isX check that
+    // ignored step.action, so a step with a valid capture field but a
+    // malformed action (missing a required field like upload's "file")
+    // used to pass validation entirely.
+    const dir = writeTmpTour(
+      'demo.yaml',
+      "id: demo\nsteps:\n  - action: upload\n    selector: \"role=button[name='Upload']\"\n    capture: dashboard-upload\n",
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/has both an "action" and a "capture" field/);
+  });
 });
