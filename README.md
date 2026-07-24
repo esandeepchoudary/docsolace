@@ -259,6 +259,15 @@ selector in a tour, target the real `<input type="file">` element with a
 CSS selector rather than a role locator — file inputs have no meaningful
 accessible role for this, so CSS is the documented exception here.
 
+Drafting via `/document propose`? If you didn't hand-author a fixture,
+`tour-scout` will try to self-author a small one for simple, inferable
+formats (CSV/JSON only when a shape is actually visible on the page,
+plain text, or an image via a real screenshot) and verify the upload
+actually succeeds before finalizing the step. For anything else — a
+domain-specific or unknown binary format — it still stops and asks for a
+real fixture, same as before. Either way, it's flagged in tour-scout's
+report so you know to review it.
+
 ### Filling out forms and editing content
 
 Use `fill` for standard inputs/textareas — it sets the value directly, fast
@@ -293,6 +302,14 @@ a value change:
 Never put a real credential in a `fill`/`type` step's `value` — for a login
 form, use the `auth` mechanism above instead; a tour's YAML is committed to
 your repo, and a hardcoded password in it is a leaked password.
+
+Drafting via `/document propose`? A form field starts empty, so when you
+didn't give it a real value, `tour-scout` fills in an obviously-fake
+placeholder inferred from the field's label — `user@example.com` for an
+email field, a `555-01XX` number for phone, a generic non-notable name,
+and so on (all flagged in its report). It will never auto-fill anything
+that looks like an SSN, government ID, or payment card field, synthetic or
+not — that's left for you to fill in yourself, same as a password field.
 
 ### Waiting for async content (e.g. an AI chat reply)
 

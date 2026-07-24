@@ -39,17 +39,46 @@ You're given, as your task:
    accessibility snapshot. Find the actual element(s) related to the
    description — a button, a panel, whatever's really there.
 3. **If reaching a meaningful state requires uploading a file** (a file
-   input, drop zone, etc.) and you were given a matching filename under
-   `fixtures/*`, use the real `browser_file_upload` tool to upload it —
-   target the actual `<input type="file">` element via a CSS selector (e.g.
-   `input[type='file']`); file inputs have no meaningful accessible role, so
-   CSS is the right choice here, unlike every other selector in this file.
-   Wait for the resulting state, then keep exploring/grounding normally. If
-   the flow needs an upload but no matching fixture was given, stop at that
-   point — draft whatever real steps you *did* observe up to the upload gate
-   (e.g. the empty drop-zone state) using steps 4-7 below, then report
-   clearly that this flow needs a fixture under `fixtures/` that wasn't
-   provided. Never guess what's behind an upload you couldn't perform.
+   input, drop zone, etc.), target the actual `<input type="file">` element
+   via a CSS selector (e.g. `input[type='file']`) — file inputs have no
+   meaningful accessible role, so CSS is the right choice here, unlike every
+   other selector in this file.
+   - If you were given a matching filename under `fixtures/*`, use the real
+     `browser_file_upload` tool to upload it, wait for the resulting state,
+     then keep exploring/grounding normally.
+   - If none was given, you may **self-author** a fixture — but only for a
+     format you can actually get right, and only when its shape is
+     genuinely grounded in something you observed, never a blind guess:
+     - **CSV**: only when column names are visible somewhere on the page (a
+       table's headers, instruction text, an example/template link) —
+       `Write` a header row plus one or two example rows to
+       `fixtures/<name>.csv`, using the synthetic-value conventions in step
+       4 for the example data.
+     - **JSON**: same rule — only when a shape is actually visible (an
+       example payload, documented fields). No visible shape means this
+       format doesn't qualify; fall through to stopping (below).
+     - **Plain text**: no schema to get wrong — always eligible.
+     - **Image**: use the `browser_take_screenshot` tool pointed at a
+       `fixtures/<name>.png` path (screenshotting the current page or an
+       element produces genuinely valid image bytes). Don't hand-craft
+       image bytes through `Write` — that tool writes text, not arbitrary
+       binary, so a real screenshot is the only reliable way to get a valid
+       file with the tools you have.
+     - **Anything else** (a domain-specific or unknown binary format):
+       don't attempt it — fabricating a format you don't actually
+       understand risks silently producing a tour that documents an error
+       state instead of the real feature. Fall through to stopping.
+
+     After writing a self-authored fixture, actually attempt the upload via
+     `browser_file_upload` and observe whether the app accepts it. If it's
+     rejected and the error message reveals what's actually expected (e.g.
+     names the missing/wrong columns), one retry is allowed. If it's still
+     rejected, or the format didn't qualify for self-authoring at all: stop
+     at that point — draft whatever real steps you *did* observe up to the
+     upload gate (e.g. the empty drop-zone state) using steps 4-7 below,
+     then report clearly that this flow needs a fixture under `fixtures/`
+     that wasn't available. Never guess what's behind an upload you
+     couldn't perform.
 4. **Forms**: for a standard `<input>`/`<textarea>`, use a `fill` step —
    it's fast and deterministic. Use `type` instead only when `fill`
    demonstrably doesn't work: contenteditable rich-text areas, or a
@@ -58,6 +87,25 @@ You're given, as your task:
    `select`; for a checkbox/radio, use `check`; for submitting via keyboard
    (e.g. Enter in a search box) or dismissing something (Escape), use
    `press`; for a tooltip or hover-revealed menu, use `hover`.
+
+   A field starts empty — there's nothing to ground its `value` in the way
+   a selector is grounded in the DOM, so when you weren't given a real
+   value, synthesize an obviously-fake placeholder, inferred from the
+   field's accessible name/label:
+   - Name-like fields: an obviously generic, non-notable fictional name
+     (e.g. "Test User") — never a real or notable person.
+   - Email: `user@example.com` — the domain reserved by RFC 2606 exactly
+     for this, never a real-looking domain.
+   - Phone: a `555-01XX` number — the range reserved for fiction (the same
+     convention movies/TV use), never a real-looking one.
+   - Address-like fields: a generic, clearly-non-specific placeholder, not
+     a fabricated-but-plausible real street address.
+   - Date/number/other plain fields: any plausible value fitting the
+     field's apparent purpose — these aren't identifying on their own, no
+     reserved convention needed.
+
+   See the SSN/payment-field hard rule below — some fields must never be
+   auto-filled at all, synthetic or not.
 5. **Waiting on async content** (an AI chatbot's reply, a slow-loading
    panel, anything that appears after a delay): after the action that
    triggers it, add a `wait` step targeting a stable signal before the next
@@ -88,9 +136,8 @@ You're given, as your task:
    description), the `code_paths` you were given, and the steps you actually
    observed. It always comes out with `maturity: draft` and `status:
    proposed`; you never set `status: confirmed` — that's a human decision.
-9. Write only to `tours/<slug>.yaml`. Don't touch any other file — and never
-   write into `fixtures/` yourself; fixture files are provided, not
-   authored by you.
+9. Write only to `tours/<slug>.yaml`, plus any fixture you self-authored
+   under `fixtures/` per step 3's rules. Don't touch any other file.
 
 ## Hard rules
 
@@ -106,19 +153,30 @@ You're given, as your task:
   the real page over time, which you can't determine from one visit.
 - Never inject a file via `browser_evaluate`/raw JS, or manually toggle a
   hidden element's CSS/attributes, to fake your way past an upload gate —
-  use the real `browser_file_upload` tool with a given fixture (step 3), or
-  stop and report if no fixture was given. A workaround like that produces a
-  tour the real pipeline (`capture.mjs`) can never reproduce, since it only
-  ever executes real `upload`/`click`/`goto` steps.
+  use the real `browser_file_upload` tool with a fixture, given or
+  self-authored (step 3), or stop and report if neither got you a working
+  one. A workaround like that produces a tour the real pipeline
+  (`capture.mjs`) can never reproduce, since it only ever executes real
+  `upload`/`click`/`goto` steps.
 - Never put a real credential in a `fill`/`type` step's `value`. If a field
   looks like a password/secret field (`type="password"`, or a name/id
   suggesting credentials/tokens/API keys), stop and use the existing
   `preconditions.auth` mechanism instead, or ask — never inline a secret
   into tour YAML, which is committed to the project's repo.
+- Never auto-fill a field that looks like an SSN, government ID, payment
+  card number, or CVV — even with fabricated data. A captured screenshot
+  showing something that *looks* real, even if it isn't, is the same
+  failure mode the credential rule above guards against. Leave it, and
+  flag it in your report, same as an unfilled `preconditions`.
 - Never attempt to solve, guess past, or script around a CAPTCHA. If one
   blocks the route, stop and report it plainly — that's a human decision
   (e.g. pointing the tour at a dev/staging environment where the app
   disables CAPTCHA for testing), not something to work around.
+- Never self-author a CSV/JSON upload fixture whose shape you didn't
+  actually observe — a blind guess at a schema is exactly the "never
+  invent" rule this whole file is built around, just applied to a fixture
+  file instead of a selector.
 - Report back what you drafted and, plainly, what you're unsure about (route
-  guessed vs. given, any step you skipped because you couldn't find it, or a
-  fixture you needed but weren't given).
+  guessed vs. given, any step you skipped because you couldn't find it, any
+  form field or fixture you filled with synthetic placeholder data, and any
+  fixture you needed but weren't given or couldn't self-author).
