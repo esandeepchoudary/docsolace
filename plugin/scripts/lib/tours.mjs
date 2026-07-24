@@ -33,7 +33,7 @@ function assertSafeFixturePath(filePath, label) {
   if (typeof filePath !== 'string' || !filePath.startsWith(FIXTURE_PREFIX)) {
     throw new Error(
       `${label} "${filePath}" is invalid — must be a path starting with "fixtures/", since it's read ` +
-        `from disk and uploaded into the browser.`,
+        `from disk and used by the browser.`,
     );
   }
   const segments = filePath.slice(FIXTURE_PREFIX.length).split('/');
@@ -129,6 +129,13 @@ export function loadTour(toursDir, tourId) {
     if (isUpload) {
       assertSafeFixturePath(step.file, `Tour "${tourId}" step ${index}'s "file" field`);
     }
+  }
+
+  // preconditions.voice is a fixture path read into the browser at launch
+  // time (see capture.mjs's fake-microphone wiring) — same trust boundary
+  // as an upload step's "file", so it gets the same guard.
+  if (tour.preconditions?.voice) {
+    assertSafeFixturePath(tour.preconditions.voice, `Tour "${tourId}"'s "preconditions.voice" field`);
   }
 
   return tour;

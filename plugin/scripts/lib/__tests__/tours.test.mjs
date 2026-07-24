@@ -274,4 +274,29 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/step 0 is invalid/);
   });
+
+  it('loads a tour with a valid preconditions.voice fixture path', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\npreconditions:\n  voice: fixtures/sample-voice.wav\nsteps:\n  - action: goto\n    path: /\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.preconditions.voice).toBe('fixtures/sample-voice.wav');
+  });
+
+  it('throws when preconditions.voice does not start with "fixtures/"', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\npreconditions:\n  voice: sample-voice.wav\nsteps:\n  - action: goto\n    path: /\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/must be a path starting with "fixtures\//);
+  });
+
+  it('throws when preconditions.voice contains a ".." traversal segment', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\npreconditions:\n  voice: "fixtures/../../../../etc/passwd"\nsteps:\n  - action: goto\n    path: /\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/no "\." or "\.\." segments/);
+  });
 });
