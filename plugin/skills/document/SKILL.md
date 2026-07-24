@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | validate | init-site"
+description: Captures the current project's tours and regenerates docs for whichever tours actually changed, via the doc-scribe subagent. Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented, instead of running the normal pipeline. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover an app's features via a dynamic crawl plus a code review, propose a doc structure, and draft tours for whichever discovered features you choose. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | validate | init-site"
 allowed-tools: Bash(git diff *) Bash(git log *)
 ---
 
@@ -49,6 +49,7 @@ If `autodocs.config.yaml` already exists, skip straight to the arguments
 below.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
+If the arguments start with `map`, follow **"Map the whole app"** below.
 If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
 Otherwise: run the AutoDocs pipeline — capture → drift gate → dispatch dirty
@@ -101,6 +102,72 @@ confirmed one.
    pipeline) treats this tour as real until they do. Suggest `/document
    validate` once they've filled it in, to catch an undefined auth profile
    or an empty `code_paths` match before the first real capture.
+
+## Map the whole app
+
+Parses as `map` (optionally `map --interactive` to also enable the
+crawler's opt-in mutating exploration — see the safety note in step 1
+below). This is the "map all features automatically" entry point: it
+combines a dynamic crawl of the running app with your own reading of its
+source code, then proposes a feature list and a doc structure — but drafts
+nothing without asking first. Same "propose, never confirm" discipline as
+**"Propose a new tour"** above, just applied across many candidate features
+at once instead of one you were told about.
+
+1. **Preflight.** Config must exist (Step 0 above bootstraps it if not). If
+   `--interactive` was requested, this crawl fills in and submits
+   safe-looking forms with synthetic data on the real running app —
+   **confirm out loud with the user that `baseUrl` points at a throwaway or
+   dev environment, not anything with real data**, before proceeding.
+   `crawl.mjs` itself refuses to run interactively unless
+   `crawl.allowInteractive: true` is also set in `autodocs.config.yaml` (see
+   the README's "Mapping a whole app automatically") — if it reports that,
+   that config flag still needs to be turned on deliberately; don't work
+   around it by any other means.
+2. **Crawl.** Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" [--interactive]
+   ```
+   Writes `.autodocs/artifacts/site-map.json` — every same-origin route it
+   reached, with the buttons/forms/links found there. This proves
+   *reachability*; it doesn't replace reading the code (next step), since a
+   route can exist without being linked from anywhere the crawl's auth
+   profile could reach (e.g. gated behind a role it doesn't have).
+3. **Code review.** Read the app's routing/pages source — adapt to whatever
+   the project actually uses (React Router config, Next.js/SvelteKit
+   file-based routing, a Vue Router table, etc.), there's no one bundled
+   parser for this on purpose (framework conventions and versions drift;
+   this is exactly the kind of judgment call you're better suited for than
+   a brittle script — same reasoning as `init-site` below). Enumerate real
+   features: each one's route, a short description, and its backing
+   `code_paths`. Reconcile against `site-map.json`: a route the crawl
+   reached confirms real UI is there; a route only found in code (no crawl
+   entry) gets flagged as possibly unreachable/gated, not silently dropped
+   or silently assumed real.
+4. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
+   reconciled feature list — slug (run each through the same
+   lowercase-kebab-case rule `tours.mjs`'s `assertSafeSlug` enforces),
+   route, one-line description, `code_paths`, and whether an existing
+   `tours/*.yaml` already covers it — grouped into a suggested doc structure
+   (an ordered list of sections, e.g. Getting Started → core features →
+   settings/admin). This is the "structure the documentation properly"
+   deliverable, meant for a human to read before anything gets drafted.
+5. **Present and ask.** Show the user the discovered feature list (already
+   covered vs. gaps) and the proposed structure. Ask which gap features to
+   draft tours for now — **don't draft all of them automatically**; picking
+   what's worth documenting is the same human call `propose` already
+   defers, just made once across a list instead of one feature at a time.
+6. **Draft the selected ones.** For each feature the user picked, dispatch
+   the `tour-scout` subagent exactly as in "Propose a new tour" (slug,
+   description, candidate `code_paths`, existing tour/fixture filenames),
+   additionally passing that route's affordances from `site-map.json` as a
+   hint — tour-scout still verifies everything live via Playwright MCP
+   itself; the site map only points at where to look first. One dispatch
+   per feature. Every draft lands `status: proposed`, same as `propose`.
+7. **Report.** What was discovered, what's already covered, the proposed
+   structure, what was drafted this run (and tour-scout's own uncertainties
+   for each), and the same reminder as `propose`: review and flip `status:
+   confirmed` per tour, then `/document validate` and the normal pipeline.
 
 ## Validate a project
 

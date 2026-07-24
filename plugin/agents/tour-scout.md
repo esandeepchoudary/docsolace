@@ -1,6 +1,6 @@
 ---
 name: tour-scout
-description: Drafts a candidate tour for a feature that was just implemented, by exploring the running app via Playwright MCP. Invoked by /document propose <slug> "<description>" — never invoked automatically, and never produces a confirmed tour.
+description: Drafts a candidate tour for a feature that was just implemented, by exploring the running app via Playwright MCP. Invoked by /document propose <slug> "<description>" (one feature, human-described) or /document map (one feature per dispatch, from a discovered feature list) — never invoked automatically, and never produces a confirmed tour.
 model: sonnet
 effort: medium
 maxTurns: 20
@@ -27,6 +27,12 @@ You're given, as your task:
 - the app's base URL and the likely route to start from (from
   `autodocs.config.yaml` and the description; ask if genuinely ambiguous
   rather than guessing at a route)
+- optionally, a route's **affordances from `/document map`'s site map**
+  (`.autodocs/artifacts/site-map.json` — button/form/link text a crawler
+  observed on that route). This is only ever a *hint* for where to look
+  first — it never substitutes for actually navigating and taking your own
+  accessibility snapshot in step 2 below; the crawler may have missed
+  something behind a click, or a page may have changed since it ran.
 
 ## What to do
 
@@ -108,7 +114,10 @@ You're given, as your task:
    A field starts empty — there's nothing to ground its `value` in the way
    a selector is grounded in the DOM, so when you weren't given a real
    value, synthesize an obviously-fake placeholder, inferred from the
-   field's accessible name/label:
+   field's accessible name/label. These conventions are shared with
+   `/document map`'s crawler (`plugin/scripts/lib/synthetic-data.mjs`'s
+   `syntheticValueFor`), so a field gets the same fake value regardless of
+   which path drafted its tour:
    - Name-like fields: an obviously generic, non-notable fictional name
      (e.g. "Test User") — never a real or notable person.
    - Email: `user@example.com` — the domain reserved by RFC 2606 exactly
@@ -122,7 +131,8 @@ You're given, as your task:
      reserved convention needed.
 
    See the SSN/payment-field hard rule below — some fields must never be
-   auto-filled at all, synthetic or not.
+   auto-filled at all, synthetic or not (same `isSensitiveField` check the
+   crawler applies before it will touch a field).
 6. **Waiting on async content** (an AI chatbot's reply, a slow-loading
    panel, anything that appears after a delay): after the action that
    triggers it, add a `wait` step targeting a stable signal before the next
@@ -182,10 +192,11 @@ You're given, as your task:
   `preconditions.auth` mechanism instead, or ask — never inline a secret
   into tour YAML, which is committed to the project's repo.
 - Never auto-fill a field that looks like an SSN, government ID, payment
-  card number, or CVV — even with fabricated data. A captured screenshot
-  showing something that *looks* real, even if it isn't, is the same
-  failure mode the credential rule above guards against. Leave it, and
-  flag it in your report, same as an unfilled `preconditions`.
+  card number, or CVV — even with fabricated data (same
+  `isSensitiveField` check `synthetic-data.mjs` uses). A captured
+  screenshot showing something that *looks* real, even if it isn't, is the
+  same failure mode the credential rule above guards against. Leave it,
+  and flag it in your report, same as an unfilled `preconditions`.
 - Never attempt to solve, guess past, or script around a CAPTCHA. If one
   blocks the route, stop and report it plainly — that's a human decision
   (e.g. pointing the tour at a dev/staging environment where the app

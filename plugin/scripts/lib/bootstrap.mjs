@@ -103,6 +103,18 @@ outputDir: .autodocs/artifacts
 #   demo-baseline:
 #     description: "What this fixture is / how it's seeded."
 # allowSeedCommands: false
+#
+# Bounds for \`/autodocs:document map\`'s dynamic crawl step (see the README's
+# "Mapping a whole app automatically"). allowInteractive stays false unless
+# you explicitly want the crawler to fill in and submit safe-looking forms
+# with synthetic data while mapping — only turn it on against a throwaway/
+# dev environment, never production; sensitive fields and destructive
+# controls (delete/pay/logout/etc.) are excluded no matter what this is set
+# to.
+# crawl:
+#   maxPages: 50
+#   maxDepth: 4
+#   allowInteractive: false
 `;
 }
 

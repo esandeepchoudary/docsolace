@@ -12,6 +12,7 @@ import { loadTour } from './lib/tours.mjs';
 import { sha256Buffer, buildManifest, saveManifestEntry } from './lib/manifest.mjs';
 import { mergeMasks } from './lib/masking.mjs';
 import { resolveSeed } from './lib/seed.mjs';
+import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
@@ -70,62 +71,6 @@ function applySeed(config, seedId, { allowSeedCommands }) {
     default:
       throw new Error(`Unknown seed resolution action "${resolution.action}"`);
   }
-}
-
-function primaryViewport(config) {
-  return Object.values(config.viewports)[0];
-}
-
-async function ensureAuthState(browser, config, authProfileId) {
-  const profile = config.auth?.[authProfileId];
-  if (!profile) {
-    throw new Error(`Auth profile "${authProfileId}" not found in autodocs.config.yaml`);
-  }
-
-  // Apps that can't be logged into with a scripted username/password fill —
-  // OAuth, SSO, magic links, 2FA — use a pre-exported session instead: a
-  // human logs in once, manually, via `save-auth-state.mjs`, and that
-  // recorded session is reused directly. No scripted login is attempted.
-  if (profile.storageStatePath) {
-    if (!fs.existsSync(profile.storageStatePath)) {
-      throw new Error(
-        `Auth profile "${authProfileId}" has storageStatePath "${profile.storageStatePath}" ` +
-          `but that file doesn't exist yet. In your own terminal (it opens a real, visible browser ` +
-          `window — this can't run headless), run ` +
-          `\`node "\${CLAUDE_PLUGIN_DATA}/scripts/save-auth-state.mjs" --profile ${authProfileId}\` ` +
-          `(or the equivalent local path to save-auth-state.mjs) to log in once and record it. Pass ` +
-          `--wait-for "<url-pattern>" to have it detect you're done automatically instead of waiting ` +
-          `for you to press Enter.`,
-      );
-    }
-    return profile.storageStatePath;
-  }
-
-  const authDir = path.join(config.outputDir, '.auth');
-  fs.mkdirSync(authDir, { recursive: true });
-  const statePath = path.join(authDir, `${authProfileId}.json`);
-  if (fs.existsSync(statePath)) return statePath;
-
-  const username = process.env[profile.usernameEnv];
-  const password = process.env[profile.passwordEnv];
-  if (!username || !password) {
-    throw new Error(
-      `Missing credentials for auth profile "${authProfileId}": set ` +
-        `${profile.usernameEnv} and ${profile.passwordEnv} (see .env.example).`,
-    );
-  }
-
-  const context = await browser.newContext({ viewport: primaryViewport(config) });
-  const page = await context.newPage();
-  await page.goto(`${config.baseUrl}${profile.loginUrl}`, { waitUntil: 'networkidle' });
-  await page.fill(profile.usernameSelector, username);
-  await page.fill(profile.passwordSelector, password);
-  await page.click(profile.submitSelector);
-  await page.waitForURL(profile.successUrlPattern);
-  await page.waitForLoadState('networkidle');
-  await context.storageState({ path: statePath });
-  await context.close();
-  return statePath;
 }
 
 async function runTour(browser, config, tour) {
