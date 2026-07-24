@@ -110,15 +110,20 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('$ARGUMENTS');
   });
 
-  it('only pre-approves scoped git commands, no bare Bash', () => {
-    // capture/drift/generate-docs run via node "${CLAUDE_PLUGIN_DATA}/scripts/*.mjs"
-    // — not pre-approved here because CLAUDE_PLUGIN_DATA isn't substituted in
-    // allowed-tools (only CLAUDE_SKILL_DIR/CLAUDE_PROJECT_DIR are), so a
-    // wildcard pattern would either never match or be too broad. They prompt
-    // for permission on first use instead, which is safe.
+  it('pre-approves the git/gh/node/Edit surface the autonomous ship step needs', () => {
+    // capture/drift/generate-docs/review-diffs run via
+    // node "${CLAUDE_PLUGIN_DATA}/scripts/*.mjs" — a specific per-script
+    // pattern can't be used here because CLAUDE_PLUGIN_DATA isn't
+    // substituted in allowed-tools (only CLAUDE_SKILL_DIR/CLAUDE_PROJECT_DIR
+    // are), so the widened Bash(node *) is the only pattern that actually
+    // matches. Bash(git *)/Bash(gh pr *) cover the Ship step's branch/commit/
+    // push/PR commands; Edit covers the targeted status/maturity flip on a
+    // proposed tour. This is broader than before autonomy existed — Claude
+    // itself is still the one constructing every command, but this is the
+    // surface a security review should scrutinize (see CLAUDE.md's SSDLC
+    // section).
     const tools = parseToolList(frontmatter['allowed-tools']);
-    expect(tools).toEqual(['Bash(git diff *)', 'Bash(git log *)']);
-    expect(tools.every((t) => t.startsWith('Bash('))).toBe(true);
+    expect(tools).toEqual(['Bash(git *)', 'Bash(gh pr *)', 'Bash(node *)', 'Edit']);
   });
 
   it('bootstraps autodocs.config.yaml/tours in a project on first use', () => {
@@ -139,11 +144,26 @@ describe('skills/document/SKILL.md', () => {
     expect(body.toLowerCase()).toContain('never hand-write');
   });
 
-  it('delegates tour drafting to the tour-scout subagent, and never auto-confirms', () => {
+  it('delegates tour drafting to the tour-scout subagent, and auto-confirms by default unless a hard stop fires', () => {
     expect(body).toContain('tour-scout');
     expect(body).toContain('draft the tour yourself');
     expect(body).toContain('status');
     expect(body).toContain('confirmed');
+    // Autonomous mode confirms the draft itself (targeted status/maturity
+    // edit) instead of always waiting on a human; --review restores the old
+    // stop-and-ask behavior.
+    expect(body).toContain('--review');
+    expect(body.toLowerCase()).toContain('hard stop');
+    // Whitespace-tolerant: this phrase legitimately wraps across a line in
+    // the 80-col-wrapped markdown source.
+    expect(body).toMatch(/status: proposed`\s*→\s*`status: confirmed`/);
+  });
+
+  it('ships an opened docs PR by default but never merges it', () => {
+    expect(body).toContain('Ship');
+    expect(body.toLowerCase()).toMatch(/gh pr\s+create/);
+    expect(body.toLowerCase()).toContain('never merge');
+    expect(body).toContain('feat/*');
   });
 
   it('has an init-site mode that encodes the verified markdown.format fix', () => {
@@ -160,11 +180,17 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain("docs.path: '../docs'");
   });
 
-  it('has a map mode that discovers features and never drafts everything automatically', () => {
+  it('has a map mode that discovers features, drafting every gap by default but only on --review\'s say-so otherwise', () => {
     expect(frontmatter['argument-hint']).toContain('map');
     expect(body).toContain('Map the whole app');
     expect(body).toContain('crawl.mjs');
-    expect(body.toLowerCase()).toContain("don't draft all of them automatically");
+    // Autonomous (default) mode drafts every discovered gap feature without
+    // asking which; --review mode restores the old "ask which" behavior.
+    expect(body.toLowerCase()).toContain('draft every gap feature');
+    // Whitespace-tolerant: this phrase legitimately wraps across a line in
+    // the 80-col-wrapped markdown source.
+    expect(body.toLowerCase()).toMatch(/don't draft\s+all of them/);
+    expect(body).toContain('--review');
   });
 
   it("map mode requires a human affirmation before interactive (mutating) crawling", () => {

@@ -41,6 +41,12 @@ told otherwise.
 - Merging a PR into `main` still requires your explicit go-ahead — this
   keeps `main` as the reviewed, shipped line per the brief's own "never
   auto-merge" principle for generated docs.
+- This section is about developing AutoDocs itself (this repo). The
+  `/document` skill it ships now follows the same shape independently, in
+  whatever *target* project it's run against — see "Tutorial-need check"
+  below and `plugin/skills/document/SKILL.md`'s "Autonomy" section: docs land
+  on the feature's own branch (or a fresh `docs/<slug>` branch off `main`),
+  get pushed, and get a PR opened — never merged automatically there either.
 
 ### Documentation
 - Keep `README.md` updated as you go, each time repo structure, setup steps,
@@ -88,9 +94,18 @@ told otherwise.
   proposed`, `maturity: draft`). Don't hand-write the tour yourself; that
   exploration is tour-scout's job, same "never invent UI" discipline as
   doc-scribe.
-- Never set `status: confirmed` yourself — report what was drafted and what
-  tour-scout was unsure about, and let the user review/edit before they flip
-  it. This is Phase 7 ("assisted tour discovery") in the brief.
+- **By default this now carries all the way through**: once tour-scout's
+  draft is in hand, `/document propose` itself validates it, flips `status`
+  to `confirmed` and `maturity` to `stable`, runs capture/generate, and opens
+  a docs PR — all without stopping to ask, unless it hits one of the hard
+  stops in `plugin/skills/document/SKILL.md`'s "Autonomy" section (tour-scout
+  couldn't ground the feature, an unverified voice flow, a `validate` error,
+  an unrecorded auth session, or a hand-edited page it won't silently
+  overwrite). Append `--review` to `propose`/`map`/the normal run to fall
+  back to the previous behavior: draft, report, and wait for a human to flip
+  `status: confirmed` themselves. This is Phase 7 ("assisted tour discovery")
+  in the brief, now with the autonomous default layered on top — the PR it
+  opens is the review point, and it is never auto-merged.
 
 ## Tour and doc-generation conventions
 
@@ -119,15 +134,18 @@ told otherwise.
 - Before a docs PR goes out, run `npm run review-diffs` and look at the
   report — it's the only place you can see *what* a screenshot update
   actually changed before it's pushed.
-- Tours are hand-authored (`tours/*.yaml`). Nothing crawls the app to invent
-  a full tour set on install — Playwright MCP (`plugin/.mcp.json`, bundled
-  with the plugin so it travels to any project it's installed into) exists
-  for *interactively* authoring a new tour with a human at the keyboard,
-  either by hand or via `/document propose` + `tour-scout` (Phase 7 — see
-  below). A tour's `status` (default `confirmed`) is separate from
-  its `maturity`: `status: proposed` means a tour was suggested but not yet
-  reviewed — the drift gate and `/document` both skip it, same as `maturity:
-  draft`, until a human flips it to `confirmed`.
+- Tours are hand-authored (`tours/*.yaml`) or drafted by `tour-scout` via
+  `/document propose`/`map` (Phase 7 — see below). Nothing crawls the app to
+  invent a full tour set on install — Playwright MCP (`plugin/.mcp.json`,
+  bundled with the plugin so it travels to any project it's installed into)
+  exists for *interactively* authoring a new tour with a human at the
+  keyboard, whether by hand or via tour-scout. A tour's `status` (default
+  `confirmed`) is separate from its `maturity`: `status: proposed` means a
+  tour was suggested but not yet reviewed — the drift gate and `/document`
+  both skip it, same as `maturity: draft`, until it's flipped to `confirmed`.
+  By default `/document propose`/`map` flip it themselves once validation
+  passes (see "Tutorial-need check" above); `--review` keeps that flip a
+  human decision instead.
 
 ## Plugin packaging conventions
 
