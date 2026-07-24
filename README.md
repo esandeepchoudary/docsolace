@@ -98,6 +98,11 @@ there:
   a worked example, start to finish (this repo also happens to be its own
   best demo project — it's both the plugin source and a working AutoDocs
   project).
+- **`/autodocs:document map`** — don't want to name features one at a time?
+  This discovers them: a bounded crawl of the running app plus a read of its
+  source reconcile into a proposed feature list and doc structure
+  (`.autodocs/artifacts/doc-plan.md`), which you then pick from before
+  anything gets drafted. See "Mapping a whole app automatically" below.
 - **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
   and every tour, without launching a browser: an undefined
   `preconditions.auth` profile is an error, an empty `code_paths` match, an
@@ -112,10 +117,14 @@ there:
   follows a proven recipe, this repo's own `site/`. See "Publishing a docs
   site" below for details and deployment.
 
-Tours are always hand-authored or human-confirmed — nothing here crawls your
-app and invents a tour set on its own. Playwright MCP (bundled in the
-plugin) is for `tour-scout`'s interactive authoring only; the automated
-pipeline (capture/drift/generate) drives Playwright directly and never goes
+Tours are always hand-authored or human-confirmed — nothing runs on its own
+in the background and invents a tour set for you. `/autodocs:document map`
+is the one explicit, human-invoked exception: you ask it to survey the app,
+it proposes what it found, and you still choose what actually gets drafted
+and still confirm every tour yourself — same review gate as `propose`, just
+covering more ground per invocation. Playwright MCP (bundled in the plugin)
+is for `tour-scout`'s interactive authoring only; the automated pipeline
+(capture/drift/generate/crawl) drives Playwright directly and never goes
 through MCP.
 
 ### It nudges you when a feature looks worth documenting
@@ -468,6 +477,56 @@ actual text in the following capture, same as any AI-generated response —
 see "Waiting for async content" above for why: speech-to-text output is
 non-deterministic even when it's working correctly.
 
+### Mapping a whole app automatically
+
+`/autodocs:document map` discovers what to document instead of you naming
+one feature at a time: it crawls the running app and separately reads its
+source, reconciles the two into a proposed feature list and doc structure,
+and asks which features you want drafted before dispatching `tour-scout`
+for any of them. Nothing gets `confirmed` on its own — same review gate as
+`propose`, just covering the whole app per invocation instead of one
+feature.
+
+```
+node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs"
+```
+
+By **default the crawl is read-only**: it navigates same-origin links
+(reusing whatever `preconditions.auth`-style profile you point it at) and
+records what it finds — page titles, and the buttons/forms/links present —
+into `.autodocs/artifacts/site-map.json`. It never submits a form or clicks
+an action button in this mode. Bounded by `crawl.maxPages` / `crawl.maxDepth`
+in config (defaults: 50 pages, depth 4) so it can't run away on a large app,
+and it never follows a logout/sign-out link (that would kill its own
+session mid-crawl) or leave the app's origin.
+
+**Interactive mode** (`crawl.mjs --interactive`) additionally fills in and
+submits forms with synthetic data, and clicks buttons, to reach states a
+pure link-crawl can't reach on its own (e.g. a search results page). This
+is **double opt-in, off by default** — it requires *both* the `--interactive`
+flag *and* `crawl.allowInteractive: true` in `autodocs.config.yaml`, the
+same shape as `allowSeedCommands` above, since a crawler that submits forms
+on a real authenticated app can trigger real side effects (an email sent, a
+support ticket filed) if pointed at anything but a throwaway/dev
+environment. **Even with interactive mode on, it never touches a sensitive
+field** (password, SSN, payment/card number, CVV, API key/token — the same
+`isSensitiveField` check `tour-scout`'s own form-filling guidance uses) **or
+clicks a destructive-sounding control** (delete, pay, send, log out, and
+similar — `isDestructiveControl`) — those exclusions aren't something the
+config flag can widen.
+
+```yaml
+crawl:
+  maxPages: 50
+  maxDepth: 4
+  allowInteractive: false # only set true against a throwaway/dev environment
+```
+
+After the crawl, `/document map` reads the app's own routing/source to name
+each feature and its backing files, cross-checks that against
+`site-map.json`, and writes `.autodocs/artifacts/doc-plan.md` — the
+reconciled list plus a suggested section structure — for you to review
+before picking what gets drafted.
 
 ## Publishing a docs site
 
@@ -599,8 +658,8 @@ plugin/                    The self-contained, installable Claude Code plugin �
   .mcp.json                    Playwright MCP — bundled, travels with the plugin to any project
   skills/document/SKILL.md      /autodocs:document — bootstraps config/tours, runs the pipeline
   agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
-  agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose subcommand)
-  scripts/                     The engine: capture.mjs, drift.mjs, generate-docs.mjs,
+  agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
+  scripts/                     The engine: capture.mjs, crawl.mjs, drift.mjs, generate-docs.mjs,
                                 review-diffs.mjs, lib/ (unit-tested helpers)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks

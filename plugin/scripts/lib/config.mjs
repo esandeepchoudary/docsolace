@@ -110,5 +110,36 @@ export function loadConfig(configPath) {
   if (config.allowSeedCommands !== undefined && typeof config.allowSeedCommands !== 'boolean') {
     throw new Error(`autodocs config at "${configPath}": "allowSeedCommands" must be a boolean`);
   }
+  if (config.crawl !== undefined) {
+    assertValidCrawlConfig(configPath, config.crawl);
+  }
   return config;
+}
+
+// crawl.allowInteractive gates crawl.mjs's mutating "safe form fill/submit"
+// mode — same default-off, config-plus-flag double-opt-in shape as
+// allowSeedCommands above, since an interactive crawl of a real
+// authenticated app can trigger real side effects if left on by accident.
+function assertValidCrawlConfig(configPath, crawl) {
+  if (!crawl || typeof crawl !== 'object' || Array.isArray(crawl)) {
+    throw new Error(`autodocs config at "${configPath}": "crawl" must be an object`);
+  }
+  for (const field of ['maxPages', 'maxDepth']) {
+    if (crawl[field] !== undefined && (typeof crawl[field] !== 'number' || crawl[field] <= 0)) {
+      throw new Error(`autodocs config at "${configPath}": "crawl.${field}" must be a positive number`);
+    }
+  }
+  for (const field of ['startPaths', 'excludePaths']) {
+    if (crawl[field] !== undefined) {
+      if (!Array.isArray(crawl[field]) || crawl[field].some((p) => typeof p !== 'string' || !p.startsWith('/'))) {
+        throw new Error(
+          `autodocs config at "${configPath}": "crawl.${field}" must be a list of site-relative paths ` +
+            `starting with "/"`,
+        );
+      }
+    }
+  }
+  if (crawl.allowInteractive !== undefined && typeof crawl.allowInteractive !== 'boolean') {
+    throw new Error(`autodocs config at "${configPath}": "crawl.allowInteractive" must be a boolean`);
+  }
 }

@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "capture": "node plugin/scripts/capture.mjs",
+    "crawl": "node plugin/scripts/crawl.mjs",
     "generate-docs": "node plugin/scripts/generate-docs.mjs",
     "drift": "node plugin/scripts/drift.mjs",
     "validate": "node plugin/scripts/validate.mjs",
