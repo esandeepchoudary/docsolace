@@ -53,7 +53,16 @@ function main() {
   const tours = loadAllTours();
 
   const enabledPageIds = config.product?.pages ?? PRODUCT_PAGE_IDS;
-  let pagesToGenerate = PRODUCT_PAGES.filter((p) => enabledPageIds.includes(p.id));
+  // enabledPages (config-driven) is distinct from pagesToGenerate
+  // (additionally --page-scoped for this run): docs/_sidebar.autodocs.json
+  // is one shared file covering every product page, so a --page-scoped run
+  // must still list every *enabled* page in it — narrowing it to just the
+  // pages this one invocation happened to touch would silently drop the
+  // others from the sidebar even though their doc files are untouched and
+  // still on disk. Confirmed by reproducing it directly: running
+  // `--page overview` shrank productPages to `["overview"]` alone.
+  const enabledPages = PRODUCT_PAGES.filter((p) => enabledPageIds.includes(p.id));
+  let pagesToGenerate = enabledPages;
 
   if (requestedPages.length > 0) {
     const unknown = requestedPages.filter((id) => !PRODUCT_PAGE_IDS.includes(id));
@@ -112,7 +121,7 @@ function main() {
     .sort((a, b) => a.title.localeCompare(b.title));
 
   const sidebarStructure = buildSidebarStructure({
-    pages: pagesToGenerate,
+    pages: enabledPages,
     sections: config.docs?.sections,
     tours,
   });
