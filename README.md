@@ -16,12 +16,45 @@ Anthropic's command-line coding agent — see
 picture, but you don't need to have used it before to follow along; the next
 section walks through installing it.
 
+## Quickstart
+
+Inside Claude Code:
+
+```
+/plugin marketplace add esandeepchoudary/autodocs
+/plugin install autodocs@autodocs-marketplace
+/reload-plugins
+```
+
+Then, in the project you want tutorials for:
+
+```
+/autodocs:document
+```
+
+The first run bootstraps the project — asks for your app's local base URL,
+writes a starter `autodocs.config.yaml`, creates an empty `tours/`. Once
+you've built something worth documenting:
+
+```
+/autodocs:document propose <slug> "<description>"
+```
+
+drafts a tour by actually driving your app, then — by default — carries it
+all the way through to an opened docs PR. That's the whole loop.
+
+Everything below is reference material for when you need more: every mode
+`/autodocs:document` supports, configuring auth, edge cases (uploads, async
+content, non-password logins, voice input), mapping a whole app at once, and
+publishing a docs site. If `/plugin` doesn't behave as expected, jump to
+"Troubleshooting" below.
+
 ## Prerequisites
 
 - **Claude Code** — install/log in per [its docs](https://docs.claude.com/en/docs/claude-code)
   if you haven't already. Would rather skip it entirely? The underlying
   pipeline is plain Node scripts you can run from a terminal instead — see
-  "Running it without Claude Code" below.
+  "Running it without Claude Code" under "Advanced topics" below.
 - **Node.js 22+** and npm (built and tested against Node 22.21.1; nothing
   here relies on anything newer). Once the plugin is installed, it installs
   its *own* runtime dependencies (Playwright, js-yaml, etc.) into its own
@@ -86,60 +119,32 @@ the session cookies and credentials those can hold never end up committed.
 Then it tells you there's nothing to generate until a tour exists. From
 there:
 
-- **`/autodocs:document`** — run the full pipeline over every tour, then ship
-  a docs PR (see "It ships a docs PR for you" below).
-- **`/autodocs:document <tour-id>`** — just that one tour, same shipping at
-  the end.
-- **`/autodocs:document propose <slug> "<description>"`** — just implemented
-  a feature and think it's worth a tutorial? This drafts a *candidate* tour:
-  the `tour-scout` subagent drives your app via Playwright MCP and writes
-  `tours/<slug>.yaml` grounded in what it actually finds. **By default**, once
-  tour-scout is done, Claude carries it the rest of the way itself —
-  validating, flipping it to `status: confirmed`, capturing, generating, and
-  opening a PR — unless tour-scout flags something it couldn't ground (a
-  missing fixture, an unverified voice flow, a sensitive field it refused to
-  fill), in which case it stops and reports instead. Append `--review` to get
-  the old behavior back: stop right after the draft so you can review the
-  steps/selectors and flip `status` to `confirmed` yourself. See
-  `tours/dashboard-export.yaml` in *this* repo for a worked example, start to
-  finish (this repo also happens to be its own best demo project — it's both
-  the plugin source and a working AutoDocs project).
-- **`/autodocs:document map`** — don't want to name features one at a time?
-  This discovers them: an **authenticated** bounded crawl of the running
-  app — once per configured `auth` profile, plus a signed-out pass, so
-  role-gated features aren't invisible — plus a read of its source, plus a
-  direct visit of every route the source declares (not just linked ones),
-  reconcile into a proposed feature list and doc structure
-  (`.autodocs/artifacts/doc-plan.md`). **By default**, it drafts and ships a
-  tour for every discovered gap automatically; append `--review` to get the
-  old "pick what to draft" behavior instead. See "Mapping a whole app
-  automatically" below.
-- **`/autodocs:document validate`** — preflight-checks `autodocs.config.yaml`
-  and every tour, without launching a browser: an undefined
-  `preconditions.auth` profile is an error, an empty `code_paths` match, an
-  unrecorded `storageStatePath` session, or a non-`role=`/`text=` selector
-  are warnings. An `error` finding is one of the things that stops the
-  autonomous flow above short — worth understanding even though you won't
-  usually need to run it by hand anymore.
-- **`/autodocs:document init-site`** — once you've got at least one
-  confirmed, generated tour, scaffolds a Docusaurus site in your project
-  reading its `docs/` folder directly. Prompt-driven, not a bundled script,
-  so it adapts to scaffolding-tool changes instead of breaking — but it
-  follows a proven recipe, this repo's own `site/`. See "Publishing a docs
-  site" below for details and deployment.
+| Command | What it does |
+|---|---|
+| `/autodocs:document` | Run the full pipeline over every tour, ship a docs PR |
+| `/autodocs:document <tour-id>` | Same, but just that one tour |
+| `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
+| `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap |
+| `/autodocs:document validate` | Preflight-check config/tours, no browser — rarely needed by hand, mostly for CI |
+| `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
-By default, all of this runs autonomously to an opened PR without stopping
-for review at each step — that PR is the one review point, and it's **never
-auto-merged**; merging `main` is always your call. A short list of hard stops
-still halts a run and asks rather than pushing through: tour-scout couldn't
-ground the feature, a voice/microphone flow (always reported `unverified`), a
-`validate` error, an auth session that needs a real human at a headed
-browser, or a hand-edited docs page outside its keep-region. Append
-`--review` anywhere above to fall back to the original stop-and-ask-at-every-
-step behavior instead. Playwright MCP (bundled in the plugin) is for
-`tour-scout`'s interactive authoring only; the automated pipeline
-(capture/drift/generate/crawl) drives Playwright directly and never goes
-through MCP.
+Every mode above except `validate` runs autonomously by default: draft or
+capture → generate → open a docs PR, without stopping for review at each
+step — that PR (never auto-merged) is the review point. A short list of hard
+stops still halts a run and asks rather than pushing through: `tour-scout`
+couldn't ground the feature, a voice/microphone flow (always reported
+`unverified`), a `validate` error, an auth session that needs a real human at
+a headed browser, or a hand-edited docs page outside its keep-region. Append
+`--review` to any mode above to fall back to the original stop-and-ask-at-
+every-step behavior instead; append `--no-style` to skip design-skill
+detection for that run. See `tours/dashboard-export.yaml` in *this* repo for
+a worked `propose` example, start to finish (this repo also happens to be
+its own best demo project — it's both the plugin source and a working
+AutoDocs project), and "Mapping a whole app automatically" under "Advanced
+topics" below for how `map` actually works. Playwright MCP (bundled in the
+plugin) is for `tour-scout`'s interactive authoring only; the automated
+pipeline (capture/drift/generate/crawl) drives Playwright directly and never
+goes through MCP.
 
 ### It ships a docs PR for you
 
@@ -191,7 +196,8 @@ auto-update**.
 
 Four stages, run in order — this is what `/autodocs:document` orchestrates
 end to end (the same stages are also runnable directly as `npm run`
-scripts; see "Running it without Claude Code" below):
+scripts; see "Running it without Claude Code" under "Advanced topics"
+below):
 
 1. **Capture** (`npm run capture`) — a **tour** is a YAML file describing one
    feature walk: which pages to visit, what to click, and where to take
@@ -261,14 +267,14 @@ Two things to set up, both by example in this repo:
   | `check` | `selector`, `checked` (optional, default `true`) | Set a checkbox/radio's checked state |
   | `press` | `selector`, `key` | Send a keyboard key (e.g. `Enter`, `Escape`) |
   | `hover` | `selector` | Hover to reveal tooltip/menu UI |
-  | `upload` | `selector`, `file` | Upload a `fixtures/<name>` file — see below |
-  | `wait` | `selector`, `state` (`visible`\|`hidden`\|`attached`\|`detached`) | Wait for an element to reach a state before continuing — see below |
+  | `upload` | `selector`, `file` | Upload a `fixtures/<name>` file — see "Advanced topics" below |
+  | `wait` | `selector`, `state` (`visible`\|`hidden`\|`attached`\|`detached`) | Wait for an element to reach a state before continuing — see "Advanced topics" below |
   | *(none)* | `capture`, `description` | Take a screenshot + accessibility snapshot at this point |
 
   `fill`/`type`/`select`/`check`/`press`/`hover` don't wait for anything
   after acting, unlike `goto`/`click`/`upload` — add an explicit `wait` step
   when something needs a moment to happen (see "Waiting for async content"
-  below).
+  under "Advanced topics" below).
 
 ### Page layout and design-skill styling
 
@@ -303,13 +309,87 @@ touches what `doc-scribe` writes or which UI a tour describes:
 
 No design skill installed (the common case) means nothing changes — plain,
 unbranded docs, same as before this feature existed. Append `--no-style` to
-any `/document` invocation to skip detection for that run regardless; run
-`/document restyle` to re-detect and re-apply after installing a different
-skill or changing the existing one. A change to the `docs:` block or to
-`doc-style.json` automatically re-renders every existing page on the next
-`/document` run — no `--force` needed — because it changes each tour's
-render hash (part of what `drift.mjs` checks), independent of that tour's
-own screenshots or code.
+any `/document` invocation to skip detection for that run regardless; just
+re-run `/document init-site` to re-detect and re-apply after installing a
+different skill or changing the existing one — it's idempotent, so running
+it again on an already-scaffolded site refreshes styling instead of
+refusing. A change to the `docs:` block or to `doc-style.json` automatically
+re-renders every existing page on the next `/document` run — no `--force`
+needed — because it changes each tour's render hash (part of what
+`drift.mjs` checks), independent of that tour's own screenshots or code.
+
+## Publishing a docs site
+
+The fastest path is **`/autodocs:document init-site`** (see "Use it in your
+project" above) — it scaffolds a [Docusaurus](https://docusaurus.io/) site
+in your project that reads its `docs/` folder directly, no content
+duplication.
+
+This repo's own `site/` is that same scaffold, dogfooded:
+
+```bash
+cd site && npm install
+npm start           # dev server with live reload
+npm run build        # static build into site/build/
+```
+
+`npm run build` only produces static files in `site/build/` — it doesn't
+publish them anywhere. Three common targets:
+
+**GitHub Pages** (free, scriptable, no dashboard needed). In
+`site/docusaurus.config.js`, set `url` to your Pages URL, `baseUrl` to `/`
+(or `/<repo-name>/` for a project page), and `organizationName`/
+`projectName` to your GitHub org/repo. Then:
+
+```bash
+cd site
+GIT_USER=<your-github-username> npm run deploy   # or USE_SSH=true npm run deploy
+```
+
+This is Docusaurus's built-in `deploy` command — it builds and pushes
+straight to the repo's `gh-pages` branch.
+
+**Netlify / Vercel** (dashboard-driven, no CLI recipe needed): connect the
+repo, set the build command to `cd site && npm install && npm run build`
+and the publish directory to `site/build`. Both auto-deploy on every push
+once connected.
+
+Whichever you use, the docs site itself is a plain static build — nothing
+about it is AutoDocs-specific once it's built.
+
+## Troubleshooting
+
+- **`/plugin` isn't recognized** — your Claude Code install is out of date;
+  check with `claude --version` and upgrade however you installed it, then
+  restart.
+- **Plugin's installed but `/autodocs:document` doesn't show up** — run
+  `/reload-plugins`. Still missing? Clear the cache
+  (`rm -rf ~/.claude/plugins/cache`), restart, and reinstall.
+- **`capture` hangs or times out** — is the app it's supposed to screenshot
+  actually running? (In the "Running it without Claude Code" example under
+  "Advanced topics" below, that's `npm run dev` inside `demo-app/`, left
+  running in its own terminal.)
+- **Playwright asks for a password / `--with-deps` fails** — some Linux
+  setups need root to install system-level browser dependencies. If
+  `npx playwright install --with-deps chromium` fails, try
+  `npx playwright install chromium` (browser only, no system deps) — that's
+  usually enough.
+- **Port 5173 already in use** — something else is already running the demo
+  app (or a previous run didn't shut down); stop it first, or note whichever
+  port Vite actually picked and adjust `baseUrl` in `autodocs.config.yaml`
+  for that run.
+- **Two runs produce different screenshot hashes for content that "didn't
+  change"** — something on the page is genuinely non-deterministic (a
+  clock, an animation, live data). Mask it — see `defaultMask` in
+  `autodocs.config.yaml` or a tour's own `mask` list.
+
+## Advanced topics
+
+Not needed for the common path above — reach for these when you hit the
+specific case: uploading a file, filling out forms, waiting on async
+content, CAPTCHA, a non-password login, a third-party integration, seed
+data, voice input, mapping a whole app at once, running the pipeline without
+Claude Code at all, or wiring up CI.
 
 ### Uploading a file
 
@@ -640,46 +720,7 @@ role(s) reached it, or a flag if none did) plus a suggested section
 structure, and the audit trail for what gets drafted next (all of it, by
 default; whatever you pick, under `--review`).
 
-## Publishing a docs site
-
-The fastest path is **`/autodocs:document init-site`** (see "Use it in your
-project" above) — it scaffolds a [Docusaurus](https://docusaurus.io/) site
-in your project that reads its `docs/` folder directly, no content
-duplication.
-
-This repo's own `site/` is that same scaffold, dogfooded:
-
-```bash
-cd site && npm install
-npm start           # dev server with live reload
-npm run build        # static build into site/build/
-```
-
-`npm run build` only produces static files in `site/build/` — it doesn't
-publish them anywhere. Three common targets:
-
-**GitHub Pages** (free, scriptable, no dashboard needed). In
-`site/docusaurus.config.js`, set `url` to your Pages URL, `baseUrl` to `/`
-(or `/<repo-name>/` for a project page), and `organizationName`/
-`projectName` to your GitHub org/repo. Then:
-
-```bash
-cd site
-GIT_USER=<your-github-username> npm run deploy   # or USE_SSH=true npm run deploy
-```
-
-This is Docusaurus's built-in `deploy` command — it builds and pushes
-straight to the repo's `gh-pages` branch.
-
-**Netlify / Vercel** (dashboard-driven, no CLI recipe needed): connect the
-repo, set the build command to `cd site && npm install && npm run build`
-and the publish directory to `site/build`. Both auto-deploy on every push
-once connected.
-
-Whichever you use, the docs site itself is a plain static build — nothing
-about it is AutoDocs-specific once it's built.
-
-## Running it without Claude Code
+### Running it without Claude Code
 
 The plugin is the primary way to use AutoDocs, but the pipeline underneath
 it is just plain Node scripts — nothing about it requires Claude Code. This
@@ -721,7 +762,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 These are the exact same scripts `/autodocs:document` calls under the hood —
 see "Developing on the plugin itself" below.
 
-## CI (optional, off by default)
+### CI (optional, off by default)
 
 `.github/workflows/docs.yml` can run the whole pipeline in GitHub Actions
 and open a PR with anything that changed, but it's parked on manual trigger
@@ -730,32 +771,6 @@ solo-developer tool, so running things yourself is the default, not
 something to set up before you can use AutoDocs. If you ever want it
 automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
 `on:` trigger and set an `ANTHROPIC_API_KEY` repo secret.
-
-## Troubleshooting
-
-- **`/plugin` isn't recognized** — your Claude Code install is out of date;
-  check with `claude --version` and upgrade however you installed it, then
-  restart.
-- **Plugin's installed but `/autodocs:document` doesn't show up** — run
-  `/reload-plugins`. Still missing? Clear the cache
-  (`rm -rf ~/.claude/plugins/cache`), restart, and reinstall.
-- **`capture` hangs or times out** — is the app it's supposed to screenshot
-  actually running? (In the "Running it without Claude Code" example,
-  that's `npm run dev` inside `demo-app/`, left running in its own
-  terminal.)
-- **Playwright asks for a password / `--with-deps` fails** — some Linux
-  setups need root to install system-level browser dependencies. If
-  `npx playwright install --with-deps chromium` fails, try
-  `npx playwright install chromium` (browser only, no system deps) — that's
-  usually enough.
-- **Port 5173 already in use** — something else is already running the demo
-  app (or a previous run didn't shut down); stop it first, or note whichever
-  port Vite actually picked and adjust `baseUrl` in `autodocs.config.yaml`
-  for that run.
-- **Two runs produce different screenshot hashes for content that "didn't
-  change"** — something on the page is genuinely non-deterministic (a
-  clock, an animation, live data). Mask it — see `defaultMask` in
-  `autodocs.config.yaml` or a tour's own `mask` list.
 
 ## Project layout
 
@@ -782,7 +797,7 @@ docs/                      This repo's own generated tutorials (images + markdow
 .autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
-.github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" above
+.github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" under "Advanced topics" above
 ```
 
 Everything under `plugin/` is what gets installed elsewhere; everything else
