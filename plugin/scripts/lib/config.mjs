@@ -281,6 +281,16 @@ function assertValidDocsSections(configPath, sections) {
   if (!Array.isArray(sections)) {
     throw new Error(`autodocs config at "${configPath}": "docs.sections" must be a list`);
   }
+  // A tour id listed twice (whether in one section's own list or across two
+  // different sections) isn't just redundant — lib/product.mjs's
+  // buildSidebarStructure/computeTourSidebarPositions would then place that
+  // same tour in two sidebar categories at once and double-count it while
+  // computing every later tour's sidebar_position, silently shifting their
+  // order too. Confirmed by reproducing it directly: a tour named in two
+  // sections showed up twice in docs/_sidebar.autodocs.json. Caught here,
+  // once, for both shapes, rather than trying to dedupe downstream in two
+  // different functions that would need to agree on how.
+  const seenTourIds = new Map(); // tourId -> "docs.sections[i]" it was first seen in
   for (const [index, section] of sections.entries()) {
     if (!section || typeof section !== 'object' || Array.isArray(section)) {
       throw new Error(`autodocs config at "${configPath}": "docs.sections[${index}]" must be an object`);
@@ -298,6 +308,14 @@ function assertValidDocsSections(configPath, sections) {
             `is invalid — must be a lowercase kebab-case tour id`,
         );
       }
+      const firstSeenAt = seenTourIds.get(tourId);
+      if (firstSeenAt !== undefined) {
+        throw new Error(
+          `autodocs config at "${configPath}": tour "${tourId}" appears in both "${firstSeenAt}" and ` +
+            `"docs.sections[${index}]" — a tour can belong to only one section.`,
+        );
+      }
+      seenTourIds.set(tourId, `docs.sections[${index}]`);
     }
   }
 }

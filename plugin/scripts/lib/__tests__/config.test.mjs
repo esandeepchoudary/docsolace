@@ -294,6 +294,24 @@ describe('loadConfig', () => {
     expect(() => loadConfig(filePath)).toThrow(/lowercase kebab-case tour id/);
   });
 
+  it('throws when the same tour id appears in two different docs.sections entries', () => {
+    // Regression: a tour listed in two sections shows up in both categories
+    // in the generated sidebar (docs/_sidebar.autodocs.json) and throws off
+    // every later tour's computed sidebar_position — reproduced directly
+    // via lib/product.mjs's buildSidebarStructure/computeTourSidebarPositions
+    // before this check existed.
+    const sections = 'docs:\n  sections:\n    - label: "A"\n      tours: [login]\n    - label: "B"\n      tours: [login, dashboard-overview]\n';
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + sections);
+    expect(() => loadConfig(filePath)).toThrow(/tour "login" appears in both/);
+  });
+
+  it('throws when the same tour id is repeated within one docs.sections entry\'s own tours list', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections:\n    - label: "A"\n      tours: [login, login]\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/tour "login" appears in both/);
+  });
+
   it('omitting product entirely stays valid', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS);
     expect(loadConfig(filePath).product).toBeUndefined();
