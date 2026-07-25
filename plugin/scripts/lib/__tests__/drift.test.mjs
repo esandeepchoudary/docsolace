@@ -3,7 +3,13 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { afterEach, describe, expect, it } from 'vitest';
-import { computeCodePathsHash, isTourDirty, resolveCodePathFiles } from '../drift.mjs';
+import {
+  computeCodePathsHash,
+  getDirtyReasons,
+  isRenderOnlyDirty,
+  isTourDirty,
+  resolveCodePathFiles,
+} from '../drift.mjs';
 
 const tmpDirs = [];
 
@@ -157,5 +163,160 @@ describe('isTourDirty', () => {
         currentCodePathsHash: 'y',
       }),
     ).toBe(true);
+  });
+
+  it('is not dirty when currentRenderHash matches the previous renderHash and nothing else changed', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      isTourDirty({
+        tour: baseTour,
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r1',
+      }),
+    ).toBe(false);
+  });
+
+  it('is dirty when the render hash changed (e.g. a template/style change) even if nothing else did', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      isTourDirty({
+        tour: baseTour,
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r2',
+      }),
+    ).toBe(true);
+  });
+
+  it('is dirty when the previous entry has no renderHash at all (predates the render-hash feature)', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x' };
+    expect(
+      isTourDirty({
+        tour: baseTour,
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r1',
+      }),
+    ).toBe(true);
+  });
+
+  it('ignores render hash entirely when currentRenderHash is not passed (back-compat callers)', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x' };
+    expect(
+      isTourDirty({
+        tour: baseTour,
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+      }),
+    ).toBe(false);
+  });
+
+  it('draft/proposed still wins over a changed render hash', () => {
+    const previousEntry = { screenshotHashes: {}, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      isTourDirty({
+        tour: { maturity: 'draft' },
+        previousEntry,
+        currentScreenshotHashes: {},
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r2',
+      }),
+    ).toBe(false);
+    expect(
+      isTourDirty({
+        tour: { maturity: 'stable', status: 'proposed' },
+        previousEntry,
+        currentScreenshotHashes: {},
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r2',
+      }),
+    ).toBe(false);
+  });
+});
+
+describe('getDirtyReasons', () => {
+  it('returns ["never-generated"] when there is no previous entry', () => {
+    expect(
+      getDirtyReasons({
+        previousEntry: undefined,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r1',
+      }),
+    ).toEqual(['never-generated']);
+  });
+
+  it('returns [] when nothing changed', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      getDirtyReasons({
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r1',
+      }),
+    ).toEqual([]);
+  });
+
+  it('reports "render" alone when only the render hash changed', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      getDirtyReasons({
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+        currentRenderHash: 'r2',
+      }),
+    ).toEqual(['render']);
+  });
+
+  it('reports every changed dimension together', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x', renderHash: 'r1' };
+    expect(
+      getDirtyReasons({
+        previousEntry,
+        currentScreenshotHashes: { a: '2' },
+        currentCodePathsHash: 'y',
+        currentRenderHash: 'r2',
+      }),
+    ).toEqual(['screenshots', 'code', 'render']);
+  });
+
+  it('ignores render entirely when currentRenderHash is not passed', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x' };
+    expect(
+      getDirtyReasons({
+        previousEntry,
+        currentScreenshotHashes: { a: '1' },
+        currentCodePathsHash: 'x',
+      }),
+    ).toEqual([]);
+  });
+});
+
+describe('isRenderOnlyDirty', () => {
+  it('is true when the only reason is "render"', () => {
+    expect(isRenderOnlyDirty(['render'])).toBe(true);
+  });
+
+  it('is false when render is mixed with a content reason', () => {
+    expect(isRenderOnlyDirty(['render', 'screenshots'])).toBe(false);
+  });
+
+  it('is false for content-only reasons', () => {
+    expect(isRenderOnlyDirty(['screenshots'])).toBe(false);
+  });
+
+  it('is false for an empty (clean) reasons list', () => {
+    expect(isRenderOnlyDirty([])).toBe(false);
+  });
+
+  it('is false for never-generated (there is no prose to reuse yet)', () => {
+    expect(isRenderOnlyDirty(['never-generated'])).toBe(false);
   });
 });

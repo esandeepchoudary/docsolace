@@ -31,9 +31,10 @@ describe('renderAnnotatedConfig', () => {
     // Everything optional stays commented out, so it's absent, not invalid.
     expect(config.auth).toBeUndefined();
     expect(config.defaultMask).toBeUndefined();
+    expect(config.docs).toBeUndefined();
   });
 
-  it('includes commented example stanzas for both auth shapes, masks, and seeds', () => {
+  it('includes commented example stanzas for both auth shapes, masks, seeds, and docs layout', () => {
     const yaml = renderAnnotatedConfig('http://localhost:3000');
     expect(yaml).toContain('# auth:');
     expect(yaml).toContain('storageStatePath: .autodocs/artifacts/.auth/oauth-user.manual.json');
@@ -41,6 +42,9 @@ describe('renderAnnotatedConfig', () => {
     expect(yaml).toContain('# defaultMask:');
     expect(yaml).toContain('# seeds:');
     expect(yaml).toContain('# allowSeedCommands: false');
+    expect(yaml).toContain('# docs:');
+    expect(yaml).toContain('#   primaryViewport: desktop');
+    expect(yaml).toContain('#   collapseOtherViewports: true');
   });
 
   it('normalizes and safely quotes the baseUrl', () => {

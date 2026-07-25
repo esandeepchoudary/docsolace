@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { applyKeepRegion, extractKeepRegion, nonKeepContent, renderTourPage } from '../docgen.mjs';
+import {
+  applyKeepRegion,
+  extractKeepRegion,
+  nonKeepContent,
+  RENDER_TEMPLATE_VERSION,
+  renderTourPage,
+} from '../docgen.mjs';
 
 describe('renderTourPage', () => {
   const page = renderTourPage({
@@ -51,9 +57,10 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
     });
     expect(page).toContain('![Step one](a@desktop.png)');
     expect(page).not.toContain('*desktop*');
+    expect(page).not.toContain('<details');
   });
 
-  it('labels each image by viewport when there is more than one', () => {
+  it('by default (collapseOtherViewports unset) inlines the first image and collapses the rest', () => {
     const page = renderTourPage({
       title: 'Tour',
       intent: 'Intent.',
@@ -68,10 +75,209 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
         },
       ],
     });
+    // Primary (first) image inline, unlabeled, before any <details> block.
+    expect(page.indexOf('![Step one](a@desktop.png)')).toBeLessThan(page.indexOf('<details'));
+    expect(page).not.toContain('*desktop*');
+    // Non-primary image inside a collapsed, classed <details> block.
+    expect(page).toContain('<details class="autodocs-viewport autodocs-viewport--mobile">');
+    expect(page).toContain('<summary>Mobile view</summary>');
+    expect(page).toContain('![Step one (mobile)](a@mobile.png)');
+    expect(page).toContain('</details>');
+  });
+
+  it('honors an explicit primaryViewport, even if it is not the first image', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+      style: { primaryViewport: 'mobile' },
+    });
+    expect(page.indexOf('![Step one](a@mobile.png)')).toBeLessThan(page.indexOf('<details'));
+    expect(page).toContain('<details class="autodocs-viewport autodocs-viewport--desktop">');
+    expect(page).toContain('![Step one (desktop)](a@desktop.png)');
+  });
+
+  it('uses custom viewportLabels for the collapsed summary text when provided', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+      style: { viewportLabels: { mobile: 'On your phone' } },
+    });
+    expect(page).toContain('<summary>On your phone</summary>');
+  });
+
+  it('applies a blank line before and after the image inside the collapsed block', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+    });
+    const detailsBlock = page.slice(page.indexOf('<details'), page.indexOf('</details>') + '</details>'.length);
+    const detailsLines = detailsBlock.split('\n');
+    const imageLineIndex = detailsLines.findIndex((l) => l.includes('![Step one (mobile)]'));
+    expect(detailsLines[imageLineIndex - 1].trim()).toBe('');
+    expect(detailsLines[imageLineIndex + 1].trim()).toBe('');
+  });
+
+  it('collapseOtherViewports: false restores the old flat, all-inline layout', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+      style: { collapseOtherViewports: false },
+    });
     expect(page).toContain('*desktop*');
     expect(page).toContain('![Step one (desktop)](a@desktop.png)');
     expect(page).toContain('*mobile*');
     expect(page).toContain('![Step one (mobile)](a@mobile.png)');
+    expect(page).not.toContain('<details');
+  });
+
+  it('wraps images in a <figure> when style.figures is true', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+      style: { figures: true },
+    });
+    const figureCount = (page.match(/<figure class="autodocs-figure">/g) ?? []).length;
+    expect(figureCount).toBe(2); // one for the primary image, one for the collapsed one
+    expect(page).toContain('</figure>');
+    expect(page).toContain('![Step one](a@desktop.png)');
+    expect(page).toContain('![Step one (mobile)](a@mobile.png)');
+  });
+
+  it('does not wrap images in <figure> by default', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+    });
+    expect(page).not.toContain('autodocs-figure');
+  });
+
+  it('HTML-escapes a viewport name before it reaches the raw <details>/<summary> block', () => {
+    // config.mjs's own viewport-name validation rejects this in practice,
+    // but renderTourPage shouldn't rely on that alone — the <details>/
+    // <summary> lines form one raw CommonMark HTML block (no blank line
+    // between them), so nothing embedded there gets markdown's automatic
+    // escaping the way a markdown `![alt](path)` line does (its alt text is
+    // legitimately unescaped *here*, in the markdown source — the renderer
+    // escapes it when it builds the final <img alt="..."> attribute, same
+    // as any other markdown image, so this test only needs to check the
+    // raw-HTML-block lines, not the whole page).
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: '"><script>alert(1)</script>', path: 'a@evil.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+    });
+    const detailsLine = page.split('\n').find((l) => l.includes('<details'));
+    const summaryLine = page.split('\n').find((l) => l.includes('<summary'));
+    expect(detailsLine).not.toContain('<script>');
+    expect(detailsLine).toContain('&lt;script&gt;');
+    expect(summaryLine).not.toContain('<script>');
+    expect(summaryLine).toContain('&lt;script&gt;');
+  });
+
+  it('HTML-escapes a custom viewportLabels value too, in case it reaches renderTourPage unvalidated', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [
+        {
+          description: 'Step one',
+          images: [
+            { viewport: 'desktop', path: 'a@desktop.png' },
+            { viewport: 'mobile', path: 'a@mobile.png' },
+          ],
+          paragraph: 'Paragraph.',
+        },
+      ],
+      style: { viewportLabels: { mobile: '<img src=x onerror=alert(1)>' } },
+    });
+    expect(page).not.toContain('<img src=x onerror=alert(1)>');
+    expect(page).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  it('supports a custom stepsHeading', () => {
+    const page = renderTourPage({
+      title: 'Tour',
+      intent: 'Intent.',
+      steps: [{ description: 'Step', imagePath: 'a.png', paragraph: 'Paragraph.' }],
+      style: { stepsHeading: 'Walkthrough' },
+    });
+    expect(page).toContain('## Walkthrough');
+    expect(page).not.toContain('## Steps');
+  });
+});
+
+describe('RENDER_TEMPLATE_VERSION', () => {
+  it('is exported as a stable integer other modules can hash', () => {
+    expect(Number.isInteger(RENDER_TEMPLATE_VERSION)).toBe(true);
   });
 });
 
