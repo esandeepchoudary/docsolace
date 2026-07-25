@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { withRetry } from './retry.mjs';
 
 // Shared by capture.mjs and crawl.mjs so a crawl can walk pages behind login
 // exactly the same way a capture does — extracted out of capture.mjs rather
@@ -48,15 +49,22 @@ export async function ensureAuthState(browser, config, authProfileId) {
     );
   }
 
+  // try/finally guarantees this context is closed even if a login step
+  // fails (bad selector, slow app) — matches the cleanup discipline every
+  // other Playwright context in this codebase already follows (capture.mjs's
+  // runTour, crawl.mjs's runPass).
   const context = await browser.newContext({ viewport: primaryViewport(config) });
-  const page = await context.newPage();
-  await page.goto(`${config.baseUrl}${profile.loginUrl}`, { waitUntil: 'networkidle' });
-  await page.fill(profile.usernameSelector, username);
-  await page.fill(profile.passwordSelector, password);
-  await page.click(profile.submitSelector);
-  await page.waitForURL(profile.successUrlPattern);
-  await page.waitForLoadState('networkidle');
-  await context.storageState({ path: statePath });
-  await context.close();
+  try {
+    const page = await context.newPage();
+    await withRetry(() => page.goto(`${config.baseUrl}${profile.loginUrl}`, { waitUntil: 'networkidle' }));
+    await page.fill(profile.usernameSelector, username);
+    await page.fill(profile.passwordSelector, password);
+    await page.click(profile.submitSelector);
+    await page.waitForURL(profile.successUrlPattern);
+    await page.waitForLoadState('networkidle');
+    await context.storageState({ path: statePath });
+  } finally {
+    await context.close();
+  }
   return statePath;
 }

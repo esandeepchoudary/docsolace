@@ -12,6 +12,7 @@
 // isDestructiveControl first (see synthetic-data.mjs) as a hard exclusion,
 // not a scope knob a config flag can widen.
 import { isDestructiveControl, isSensitiveField, syntheticValueFor } from './synthetic-data.mjs';
+import { withRetry } from './retry.mjs';
 
 const LOGOUT_RE = /\blog ?out\b|\bsign ?out\b/i;
 const CRAWL_ID_ATTR = 'data-autodocs-crawl-id';
@@ -234,6 +235,12 @@ export async function crawl(page, options) {
     maxPages = 50,
     maxDepth = 4,
     navTimeoutMs = 15000,
+    // A single transient failure (slow first response from a cold dev
+    // server, a brief network blip) shouldn't cost this page entirely —
+    // retried once, with a short backoff, before giving up on it. Both
+    // configurable (like navTimeoutMs above) so tests can keep this fast.
+    gotoRetries = 1,
+    gotoRetryDelayMs = 500,
     interactive = false,
     // Tags every page this pass records with which auth profile (or
     // 'anonymous') reached it — see crawl.mjs's --all-auth, which runs one
@@ -257,23 +264,37 @@ export async function crawl(page, options) {
     if (visited.has(requestedRoute)) continue;
     visited.add(requestedRoute);
 
-    await page.goto(url, { waitUntil: 'networkidle', timeout: navTimeoutMs });
+    // One page failing to load (a timeout, a 500, a connection reset)
+    // shouldn't abort the whole crawl pass and lose every page already
+    // discovered — retried once first (withRetry), then recorded as an
+    // error entry and skipped if it still fails, so the BFS keeps going.
+    let route;
+    let data;
+    try {
+      await withRetry(() => page.goto(url, { waitUntil: 'networkidle', timeout: navTimeoutMs }), {
+        retries: gotoRetries,
+        delayMs: gotoRetryDelayMs,
+      });
 
-    // A same-origin client-side redirect (an SPA's auth guard bouncing "/"
-    // to "/dashboard", for example) means page.url() after navigation can
-    // differ from what was requested — record the route actually rendered,
-    // not the one asked for, or the site map would mislabel real content
-    // under the wrong route. If that resolved route was already recorded
-    // via a different queued URL, this is a duplicate arrival at the same
-    // page — mark it visited but don't double-record it.
-    const finalUrl = new URL(page.url());
-    const route = finalUrl.pathname + finalUrl.search;
-    if (route !== requestedRoute) {
-      if (visited.has(route)) continue;
-      visited.add(route);
+      // A same-origin client-side redirect (an SPA's auth guard bouncing "/"
+      // to "/dashboard", for example) means page.url() after navigation can
+      // differ from what was requested — record the route actually rendered,
+      // not the one asked for, or the site map would mislabel real content
+      // under the wrong route. If that resolved route was already recorded
+      // via a different queued URL, this is a duplicate arrival at the same
+      // page — mark it visited but don't double-record it.
+      const finalUrl = new URL(page.url());
+      route = finalUrl.pathname + finalUrl.search;
+      if (route !== requestedRoute) {
+        if (visited.has(route)) continue;
+        visited.add(route);
+      }
+
+      data = await extractPageData(page);
+    } catch (err) {
+      siteMap.push({ route: requestedRoute, depth, error: err.message });
+      continue;
     }
-
-    const data = await extractPageData(page);
 
     let interactions;
     if (interactive) {

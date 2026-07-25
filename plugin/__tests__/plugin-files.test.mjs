@@ -134,6 +134,35 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('tours/');
   });
 
+  it('resumes a bootstrap interrupted before tours/ was created, not just a missing config', () => {
+    // init-project.mjs is idempotent per-artifact (see its own robustness
+    // fix) — this pins that Step 0 actually takes advantage of that instead
+    // of only gating on config existence, which would silently strand a
+    // half-bootstrapped project forever (config written, tours/ never
+    // created, and the old gate would never re-invoke the script).
+    // Whitespace-tolerant: this phrase legitimately wraps across a line in
+    // the 80-col-wrapped markdown source (same convention as other tests in
+    // this file, e.g. the map-mode "don't draft all of them" assertion).
+    expect(body).toMatch(/it\s+exists but `\$\{CLAUDE_PROJECT_DIR\}\/tours\/` doesn't/);
+    expect(body.toLowerCase()).toContain('interrupted');
+    expect(body).toContain('[--base-url <url>]');
+  });
+
+  it('checks gh auth status before Step 1, not only right before Ship', () => {
+    // gh pr create is the last thing a run does; checking early means a
+    // missing/unauthenticated gh is caught before capture/generate work
+    // runs, not only after it all already succeeded.
+    const ghCheckIndex = body.indexOf('gh auth status');
+    const step1Index = body.indexOf('1. **Capture.**');
+    expect(ghCheckIndex).toBeGreaterThan(-1);
+    expect(step1Index).toBeGreaterThan(-1);
+    expect(ghCheckIndex).toBeLessThan(step1Index);
+    expect(body).toContain('gh auth login');
+    // Never needed in --review mode, since that mode never reaches Ship in
+    // the same invocation.
+    expect(body).toMatch(/Unless this run is in `--review` mode.*gh auth status/s);
+  });
+
   it("invokes the AutoDocs pipeline from the plugin's data directory, not via npm run", () => {
     expect(body).toContain('${CLAUDE_PLUGIN_DATA}/scripts/');
     // "npm run build" is legitimate here — it's the *scaffolded site's own*
