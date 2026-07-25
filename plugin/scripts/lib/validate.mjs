@@ -10,6 +10,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { resolveCodePathFiles } from './drift.mjs';
+import { isPublishedTour } from './product.mjs';
 
 const LOCATOR_PREFIXES = ['role=', 'text='];
 
@@ -104,4 +105,48 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
 // so it can print a per-tour report.
 export function validateProject(config, tours, { cwd = process.cwd() } = {}) {
   return tours.flatMap((tour) => validateTour(config, tour, { cwd }));
+}
+
+// Preflight checks for the product-documentation layer (see lib/product.mjs)
+// — all `warn`, never `error`: a thin/missing grounding source means the
+// generated pages will be thin, not that generation will fail the way an
+// undefined auth profile does for a tour. `tour: '_product'` reuses the same
+// {level, tour, message} finding shape validateTour produces, tagged with
+// the same reserved key generate-product-docs.mjs's state entry uses (see
+// lib/product.mjs's PRODUCT_STATE_KEY), so a caller can print/filter it
+// identically to a real tour's findings.
+export function validateProduct(config, tours, { cwd = process.cwd() } = {}) {
+  const findings = [];
+  const push = (message) => findings.push({ level: 'warn', tour: '_product', message });
+
+  if (!fs.existsSync(path.join(cwd, 'README.md'))) {
+    push('No README.md found — the generated overview/getting-started pages will have little to ground in.');
+  }
+
+  for (const pattern of config.product?.sources ?? []) {
+    if (resolveCodePathFiles([pattern], cwd).length === 0) {
+      push(`product.sources entry "${pattern}" matched no files.`);
+    }
+  }
+
+  const sections = config.docs?.sections;
+  if (Array.isArray(sections) && sections.length > 0) {
+    const tourIds = new Set(tours.map((t) => t.id));
+    const sectionedIds = new Set();
+    for (const section of sections) {
+      for (const tourId of section.tours ?? []) {
+        sectionedIds.add(tourId);
+        if (!tourIds.has(tourId)) {
+          push(`docs.sections "${section.label}" names tour "${tourId}", which doesn't exist under tours/.`);
+        }
+      }
+    }
+    for (const tour of tours.filter(isPublishedTour)) {
+      if (!sectionedIds.has(tour.id)) {
+        push(`tour "${tour.id}" is confirmed but appears in no docs.sections group — it'll be listed under "everything else".`);
+      }
+    }
+  }
+
+  return findings;
 }

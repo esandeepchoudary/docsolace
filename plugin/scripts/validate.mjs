@@ -6,7 +6,7 @@
 import fs from 'node:fs';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
-import { validateTour } from './lib/validate.mjs';
+import { validateProduct, validateTour } from './lib/validate.mjs';
 
 function main() {
   const config = loadConfig('autodocs.config.yaml');
@@ -21,12 +21,15 @@ function main() {
     .filter((f) => f.endsWith('.yaml'))
     .map((f) => f.replace(/\.yaml$/, ''));
 
-  if (tourIds.length === 0) {
-    console.log('No tours yet under tours/ — nothing to validate.');
-    return;
-  }
-
   let hasError = false;
+  // Only successfully-loaded tours feed validateProduct below — same
+  // "isolate one bad file, keep going" posture the per-tour loop already has
+  // for its own findings.
+  const loadedTours = [];
+
+  if (tourIds.length === 0) {
+    console.log('No tours yet under tours/ — nothing to validate there (product pages checked below).');
+  }
 
   for (const fileId of tourIds) {
     // Isolated per tour: a single malformed tour file (bad slug, invalid
@@ -41,6 +44,7 @@ function main() {
       console.log(`  error   ${fileId}: ${err.message}`);
       continue;
     }
+    loadedTours.push(tour);
 
     const findings = validateTour(config, tour);
 
@@ -51,6 +55,18 @@ function main() {
     for (const finding of findings) {
       if (finding.level === 'error') hasError = true;
       console.log(`  ${finding.level === 'error' ? 'error  ' : 'warn   '} ${tour.id}: ${finding.message}`);
+    }
+  }
+
+  // Runs regardless of whether tours/ has anything in it yet — a brand-new
+  // project with just a README can validate (and, via /document product,
+  // generate) its product pages before its first tour exists.
+  const productFindings = validateProduct(config, loadedTours);
+  if (productFindings.length === 0) {
+    console.log('  ok      _product (overview/getting-started/concepts)');
+  } else {
+    for (const finding of productFindings) {
+      console.log(`  warn    _product: ${finding.message}`);
     }
   }
 

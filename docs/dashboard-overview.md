@@ -1,3 +1,8 @@
+---
+sidebar_position: 11
+sidebar_label: "Dashboard overview"
+---
+
 # Dashboard overview
 
 Show a new user what the main dashboard displays and how to read it.

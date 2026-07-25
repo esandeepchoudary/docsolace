@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyKeepRegion,
   extractKeepRegion,
+  KEEP_END,
+  KEEP_START,
   nonKeepContent,
   RENDER_TEMPLATE_VERSION,
   renderTourPage,
@@ -278,6 +280,38 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
 describe('RENDER_TEMPLATE_VERSION', () => {
   it('is exported as a stable integer other modules can hash', () => {
     expect(Number.isInteger(RENDER_TEMPLATE_VERSION)).toBe(true);
+  });
+});
+
+describe('KEEP_START / KEEP_END', () => {
+  it('are exported so other renderers (lib/product.mjs) share one keep-region implementation', () => {
+    expect(KEEP_START).toBe('<!-- autodocs:keep -->');
+    expect(KEEP_END).toBe('<!-- /autodocs:keep -->');
+  });
+});
+
+describe('renderTourPage with frontmatter', () => {
+  const base = {
+    title: 'Tour',
+    intent: 'Intent.',
+    steps: [{ description: 'Step', imagePath: 'a.png', paragraph: 'Paragraph.' }],
+  };
+
+  it('prepends the given frontmatter block before the title', () => {
+    const page = renderTourPage({ ...base, frontmatter: '---\nsidebar_position: 10\n---\n' });
+    expect(page.startsWith('---\nsidebar_position: 10\n---\n\n# Tour')).toBe(true);
+  });
+
+  it('renders with no frontmatter block at all when none is given (back-compat)', () => {
+    const page = renderTourPage(base);
+    expect(page.startsWith('# Tour')).toBe(true);
+    expect(page).not.toContain('sidebar_position');
+  });
+
+  it('keep-region and step content are unaffected by frontmatter presence', () => {
+    const withFm = renderTourPage({ ...base, frontmatter: '---\nsidebar_position: 1\n---\n' });
+    const withoutFm = renderTourPage(base);
+    expect(nonKeepContent(withFm).replace(/^---\n[\s\S]*?\n---\n\n/, '')).toBe(nonKeepContent(withoutFm));
   });
 });
 

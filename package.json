@@ -7,6 +7,7 @@
     "capture": "node plugin/scripts/capture.mjs",
     "crawl": "node plugin/scripts/crawl.mjs",
     "generate-docs": "node plugin/scripts/generate-docs.mjs",
+    "generate-product-docs": "node plugin/scripts/generate-product-docs.mjs",
     "drift": "node plugin/scripts/drift.mjs",
     "prune": "node plugin/scripts/prune.mjs",
     "archive-tour": "node plugin/scripts/archive-tour.mjs",

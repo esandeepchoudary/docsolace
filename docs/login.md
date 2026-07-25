@@ -1,3 +1,8 @@
+---
+sidebar_position: 12
+sidebar_label: "Login page"
+---
+
 # Login page
 
 Show what a signed-out user sees before authenticating.
