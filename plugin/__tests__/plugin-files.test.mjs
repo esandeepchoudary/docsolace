@@ -46,6 +46,16 @@ describe('hooks/hooks.json', () => {
     expect(guidanceCommand).not.toContain('CLAUDE_PLUGIN_DATA');
   });
 
+  it('guards the second SessionStart entry against CLAUDE_PLUGIN_ROOT being unset too', () => {
+    // An unset var would otherwise interpolate to empty and surface as an
+    // opaque node "Cannot find module" error instead of a clear message
+    // naming the actual problem — same guard shape the first hook already
+    // has for both its vars.
+    const guidanceCommand = hooks.hooks.SessionStart[1].hooks[0].command;
+    expect(guidanceCommand).toMatch(/CLAUDE_PLUGIN_ROOT:\?/);
+    expect(guidanceCommand.indexOf('CLAUDE_PLUGIN_ROOT:?')).toBeLessThan(guidanceCommand.indexOf('node '));
+  });
+
   it('installs bundled deps into CLAUDE_PLUGIN_DATA, never CLAUDE_PLUGIN_ROOT', () => {
     expect(command).toContain('${CLAUDE_PLUGIN_DATA}');
     expect(command).toContain('npm install');
