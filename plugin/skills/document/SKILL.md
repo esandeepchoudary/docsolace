@@ -60,39 +60,49 @@ human's explicit call.
 
 ## Step 0 — first run in this project: bootstrap
 
-If `${CLAUDE_PROJECT_DIR}/autodocs.config.yaml` doesn't exist yet, this is
-the first time `/document` has run here. Before anything else:
+If `${CLAUDE_PROJECT_DIR}/autodocs.config.yaml` doesn't exist yet, **or** it
+exists but `${CLAUDE_PROJECT_DIR}/tours/` doesn't — a sign a previous
+bootstrap was interrupted (crashed, killed) before it finished; every
+artifact `init-project.mjs` writes is independently idempotent, so it's
+always safe to resume this way — this project needs bootstrapping. Before
+anything else:
 
-1. Ask the user for the app's local base URL (e.g. `http://localhost:3000`)
-   — don't guess a port.
+1. If `autodocs.config.yaml` doesn't exist yet, ask the user for the app's
+   local base URL (e.g. `http://localhost:3000`) — don't guess a port. If it
+   already exists (the resume case above), skip straight to step 2 — the
+   existing `baseUrl` is kept, not re-asked.
 2. Run:
    ```
-   node "${CLAUDE_PLUGIN_DATA}/scripts/init-project.mjs" --base-url <url>
+   node "${CLAUDE_PLUGIN_DATA}/scripts/init-project.mjs" [--base-url <url>]
    ```
-   This writes a real, valid `autodocs.config.yaml` at the project root
-   (live `baseUrl`/`viewports`/`outputDir`, plus every optional section —
-   both `auth` shapes, `defaultMask`, `pixelDiffThreshold`, `seeds` — as
+   (omit `--base-url` on the resume case; it's only required when writing a
+   fresh config, and is ignored otherwise). This writes a real, valid
+   `autodocs.config.yaml` at the project root (live
+   `baseUrl`/`viewports`/`outputDir`, plus every optional section — both
+   `auth` shapes, `defaultMask`, `pixelDiffThreshold`, `seeds` — as
    commented-out examples right there in the file, so there's no dead
-   pointer to chase down later). It also creates an empty `tours/` directory
-   with a short `tours/README.md` "what's next" pointer, and — security-
-   critical, don't skip or reimplement this by hand — merges `.autodocs/artifacts/`
-   and `.env` into the project's `.gitignore` (idempotently; safe to re-run)
-   so a live session-cookie file or scripted-login credentials can't get
-   committed by accident, plus a `.env.example` if one doesn't already
-   exist. If it reports the config already exists, this project was already
-   bootstrapped — don't overwrite it, just report that and move on to the
-   arguments below.
-3. Tell the user plainly: there are no tours yet. The fastest way to get one
-   is `/document propose <slug> "<description>"` after implementing a
-   feature — by default this runs all the way through to an opened docs PR
-   (see "Autonomy" above); append `--review` if you'd rather review the
-   draft yourself before it's confirmed and shipped. Once at least one tour
-   is `confirmed` and `/document` has generated its page, `/document
-   init-site` scaffolds a browsable docs site for `docs/`. Then stop; there's
-   nothing to capture/generate until a tour exists.
+   pointer to chase down later) **only if it doesn't already exist** — it's
+   never overwritten. It also creates whatever's missing among an empty
+   `tours/` directory, a short `tours/README.md` "what's next" pointer, and
+   — security-critical, don't skip or reimplement this by hand — merges
+   `.autodocs/artifacts/` and `.env` into the project's `.gitignore`
+   (idempotently; safe to re-run) so a live session-cookie file or
+   scripted-login credentials can't get committed by accident, plus a
+   `.env.example` if one doesn't already exist. Report whatever it reports —
+   a fresh bootstrap, a resumed one that filled in what was missing, or
+   nothing to do — and move on to the arguments below.
+3. On a fresh bootstrap only (not the resume case — a resumed project may
+   already have tours), tell the user plainly: there are no tours yet. The
+   fastest way to get one is `/document propose <slug> "<description>"`
+   after implementing a feature — by default this runs all the way through
+   to an opened docs PR (see "Autonomy" above); append `--review` if you'd
+   rather review the draft yourself before it's confirmed and shipped. Once
+   at least one tour is `confirmed` and `/document` has generated its page,
+   `/document init-site` scaffolds a browsable docs site for `docs/`. Then
+   stop; there's nothing to capture/generate until a tour exists.
 
-If `autodocs.config.yaml` already exists, skip straight to the arguments
-below.
+If both `autodocs.config.yaml` and `tours/` already exist, skip straight to
+the arguments below.
 
 Parse `--review` and `--no-style` out of the arguments wherever they appear
 (both are flags, not positional) before matching what's left against the
@@ -457,6 +467,14 @@ Runs against whichever tour(s) were resolved above (one slug, or every
 skill"** above first. In `--review` mode, stop after Step 5's summary — the
 same behavior as before autonomy existed. Otherwise (the default), continue
 into Step 6 and ship a PR.
+
+Unless this run is in `--review` mode (Step 6 Ship never runs this
+invocation, so there's nothing to preflight), run `gh auth status` once,
+now, before Step 1 below — not right before Step 6. `gh pr create` is the
+very last thing a run does; checking this early means a missing or
+unauthenticated `gh` is caught before any capture/generate work runs,
+instead of only surfacing after everything else already succeeded. On
+failure, report the exact fix (`gh auth login`) and stop.
 
 1. **Capture.** For each target tour, run:
    ```

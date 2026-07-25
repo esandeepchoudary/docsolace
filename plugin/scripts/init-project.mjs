@@ -51,14 +51,14 @@ const ENV_EXAMPLE = `# Copy to .env and fill in. .env is gitignored — never co
 # AUTODOCS_STANDARD_USER_PASSWORD=demo-pass
 `;
 
+// --base-url is only actually required when writing a fresh config (see
+// main()) — a resumed run against an already-bootstrapped project doesn't
+// need one, so validating it here unconditionally would force a caller to
+// supply (or re-ask the user for) a URL that won't even be used.
 function parseArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--base-url') args.baseUrl = argv[i + 1];
-  }
-  if (!args.baseUrl) {
-    console.error('Usage: init-project.mjs --base-url <http://localhost:PORT>');
-    process.exit(1);
   }
   return args;
 }
@@ -68,17 +68,23 @@ function main() {
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
   const configPath = path.join(projectDir, 'autodocs.config.yaml');
 
-  if (fs.existsSync(configPath)) {
-    console.error(
-      `"${configPath}" already exists — this project is already bootstrapped. Remove it first if you ` +
-        `really want to start over.`,
-    );
-    process.exit(1);
+  // Every artifact below is independently existsSync-gated, so it's always
+  // safe to re-run this whole function — including after a crash that left
+  // the project half-bootstrapped (e.g. config written, but the process
+  // died before tours/ ever got created). A prior version of this script
+  // refused outright whenever the config already existed, which also meant
+  // a half-bootstrap could never self-heal: SKILL.md's own "does config
+  // exist" gate would see the config and stop calling this script at all.
+  const configAlreadyExisted = fs.existsSync(configPath);
+  if (!configAlreadyExisted) {
+    if (!baseUrl) {
+      console.error('Usage: init-project.mjs --base-url <http://localhost:PORT>');
+      process.exit(1);
+    }
+    // Fail before touching the filesystem if baseUrl is bad.
+    const configYaml = renderAnnotatedConfig(baseUrl);
+    writeFileAtomic(configPath, configYaml);
   }
-
-  // Fail before touching the filesystem if baseUrl is bad.
-  const configYaml = renderAnnotatedConfig(baseUrl);
-  writeFileAtomic(configPath, configYaml);
 
   const gitignorePath = path.join(projectDir, '.gitignore');
   const existingGitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, 'utf8') : '';
@@ -88,9 +94,11 @@ function main() {
     writeFileAtomic(gitignorePath, newGitignore);
   }
 
+  const toursDirExisted = fs.existsSync(path.join(projectDir, 'tours'));
   fs.mkdirSync(path.join(projectDir, 'tours'), { recursive: true });
   const toursReadmePath = path.join(projectDir, 'tours', 'README.md');
-  if (!fs.existsSync(toursReadmePath)) {
+  const toursReadmeWritten = !fs.existsSync(toursReadmePath);
+  if (toursReadmeWritten) {
     writeFileAtomic(toursReadmePath, TOURS_README);
   }
 
@@ -100,14 +108,24 @@ function main() {
     writeFileAtomic(envExamplePath, ENV_EXAMPLE);
   }
 
-  console.log(`Bootstrapped AutoDocs in ${projectDir}:`);
-  console.log(`  - autodocs.config.yaml (baseUrl: ${baseUrl})`);
+  if (!configAlreadyExisted) {
+    console.log(`Bootstrapped AutoDocs in ${projectDir}:`);
+    console.log(`  - autodocs.config.yaml (baseUrl: ${baseUrl})`);
+  } else if (gitignoreChanged || !toursDirExisted || toursReadmeWritten || envExampleWritten) {
+    console.log(`AutoDocs was already bootstrapped in ${projectDir} — filled in what was missing:`);
+    console.log('  - autodocs.config.yaml already existed, left untouched');
+  } else {
+    console.log(`AutoDocs is already fully bootstrapped in ${projectDir} — nothing to do.`);
+    return;
+  }
   console.log(
     gitignoreChanged
       ? '  - .gitignore now excludes .autodocs/artifacts/, .env, and .playwright-mcp/'
       : '  - .gitignore already excluded .autodocs/artifacts/, .env, and .playwright-mcp/',
   );
-  console.log('  - tours/ (empty — see tours/README.md for next steps)');
+  console.log(
+    toursDirExisted ? '  - tours/ already existed' : '  - tours/ (empty — see tours/README.md for next steps)',
+  );
   console.log(envExampleWritten ? '  - .env.example' : '  - .env.example already existed, left untouched');
 }
 

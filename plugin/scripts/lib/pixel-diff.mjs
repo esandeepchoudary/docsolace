@@ -3,13 +3,28 @@ import path from 'node:path';
 import { PNG } from 'pngjs';
 import pixelmatch from 'pixelmatch';
 
+// PNG.sync.read throws a bare, file-agnostic pngjs message ("invalid file
+// signature") on a truncated/corrupt PNG (e.g. from an interrupted
+// capture) — rethrown here with the actual path and a concrete next step,
+// since the raw error gives no way to tell which of two files is bad.
+function readPng(pngPath) {
+  try {
+    return PNG.sync.read(fs.readFileSync(pngPath));
+  } catch (err) {
+    throw new Error(
+      `"${pngPath}" is not a readable PNG (${err.message}) — it may be truncated from an interrupted ` +
+        `capture. Delete it and re-run capture to regenerate it.`,
+    );
+  }
+}
+
 // Shared by pixelDiffRatio and writeDiffImage so they can't disagree on what
 // counts as "different". Returns `diff: null` when the images can't be
 // compared pixel-for-pixel (dimension mismatch) — there's no diff image to
 // visualize in that case, only a ratio.
 function diffImages(baselinePath, candidatePath) {
-  const baseline = PNG.sync.read(fs.readFileSync(baselinePath));
-  const candidate = PNG.sync.read(fs.readFileSync(candidatePath));
+  const baseline = readPng(baselinePath);
+  const candidate = readPng(candidatePath);
   if (baseline.width !== candidate.width || baseline.height !== candidate.height) {
     return { ratio: 1, diff: null };
   }

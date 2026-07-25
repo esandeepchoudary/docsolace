@@ -13,6 +13,8 @@ import { sha256Buffer, buildManifest, saveManifestEntry } from './lib/manifest.m
 import { mergeMasks } from './lib/masking.mjs';
 import { resolveSeed } from './lib/seed.mjs';
 import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
+import { isSameOrigin } from './lib/crawl.mjs';
+import { withRetry } from './lib/retry.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
@@ -94,11 +96,37 @@ async function runTour(browser, config, tour) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
     const captures = [];
+    const baseOrigin = new URL(config.baseUrl).origin;
+    // A reused auth session (storageStatePath, or a previously-cached
+    // scripted login — see ensureAuthState) is never revalidated before
+    // this point. If it's expired, the app typically bounces the very next
+    // navigation off to a login/consent screen on a different origin —
+    // checked once, right after the tour's first goto, so a stale session
+    // fails loudly here instead of silently capturing (and shipping) login
+    // screenshots mislabeled as the real feature. Scoped to off-origin
+    // landings only, not every goto: a same-origin app-level /login page
+    // isn't caught by this, avoiding false positives on legitimate
+    // same-app redirects later in the tour.
+    let authSessionChecked = !tour.preconditions?.auth;
 
     for (const [index, step] of tour.steps.entries()) {
       try {
         if (step.action === 'goto') {
-          await page.goto(`${config.baseUrl}${step.path}`, { waitUntil: 'networkidle' });
+          await withRetry(() => page.goto(`${config.baseUrl}${step.path}`, { waitUntil: 'networkidle' }));
+          if (!authSessionChecked) {
+            authSessionChecked = true;
+            if (!isSameOrigin(page.url(), baseOrigin)) {
+              throw new Error(
+                `the reused session for auth profile "${tour.preconditions.auth}" appears expired or ` +
+                  `invalid — after navigating to "${step.path}", the page ended up at "${page.url()}" ` +
+                  `(a different origin than baseUrl), which usually means the app redirected to a login ` +
+                  `or consent screen instead of the requested page. Re-run save-auth-state.mjs to record ` +
+                  `a fresh session (storageStatePath profiles), or delete the cached session under ` +
+                  `${path.join(config.outputDir, '.auth', `${tour.preconditions.auth}.json`)} to force a ` +
+                  `fresh scripted login next run.`,
+              );
+            }
+          }
         } else if (step.action === 'click') {
           await page.locator(step.selector).click();
           await page.waitForLoadState('networkidle');
@@ -128,7 +156,7 @@ async function runTour(browser, config, tour) {
         } else if (step.action === 'hover') {
           await page.locator(step.selector).hover();
         } else if (step.action === 'wait') {
-          await page.locator(step.selector).waitFor({ state: step.state });
+          await withRetry(() => page.locator(step.selector).waitFor({ state: step.state }));
         } else if (step.capture) {
           const maskSelectors = mergeMasks(config.defaultMask, step.mask);
           const viewportShots = {};

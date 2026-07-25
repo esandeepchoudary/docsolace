@@ -2,7 +2,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { buildManifest, flattenScreenshotHashes, loadManifest, saveManifestEntry, sha256Buffer } from '../manifest.mjs';
+import {
+  buildManifest,
+  findMissingViewports,
+  flattenScreenshotHashes,
+  loadManifest,
+  saveManifestEntry,
+  sha256Buffer,
+} from '../manifest.mjs';
 
 describe('sha256Buffer', () => {
   it('hashes an empty buffer to the well-known empty-string SHA-256', () => {
@@ -64,6 +71,35 @@ describe('flattenScreenshotHashes', () => {
 
   it('returns an empty object for no captures', () => {
     expect(flattenScreenshotHashes([])).toEqual({});
+  });
+});
+
+describe('findMissingViewports', () => {
+  const captures = [
+    { name: 'dashboard-full', viewports: { desktop: { sha256: 'aaa' }, mobile: { sha256: 'bbb' } } },
+    { name: 'dashboard-filters', viewports: { desktop: { sha256: 'ccc' }, mobile: { sha256: 'ddd' } } },
+  ];
+
+  it('returns an empty array when every configured viewport was captured', () => {
+    expect(findMissingViewports(['desktop', 'mobile'], captures)).toEqual([]);
+  });
+
+  it('returns a viewport configured after the tour was last captured', () => {
+    expect(findMissingViewports(['desktop', 'mobile', 'tablet'], captures)).toEqual(['tablet']);
+  });
+
+  it('only flags a viewport missing from every capture, not just some', () => {
+    const partial = [
+      { name: 'a', viewports: { desktop: { sha256: 'x' } } },
+      { name: 'b', viewports: { desktop: { sha256: 'y' }, mobile: { sha256: 'z' } } },
+    ];
+    // "mobile" appears in at least one capture, so it's not considered
+    // missing even though capture "a" doesn't have it.
+    expect(findMissingViewports(['desktop', 'mobile'], partial)).toEqual([]);
+  });
+
+  it('treats every configured viewport as missing when there are no captures at all', () => {
+    expect(findMissingViewports(['desktop'], [])).toEqual(['desktop']);
   });
 });
 
