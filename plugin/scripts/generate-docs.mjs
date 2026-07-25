@@ -63,6 +63,10 @@ function main() {
     console.log(`Skipping "${tour.id}": status is "proposed" — needs human review before it's real.`);
     process.exit(0);
   }
+  if (tour.status === 'archived') {
+    console.log(`Skipping "${tour.id}": status is "archived" — see docs/archive/${tour.id}.md (run archive-tour.mjs to archive, not this script).`);
+    process.exit(0);
+  }
 
   const manifestPath = path.join(config.outputDir, 'manifest.json');
   const manifest = loadManifest(manifestPath);

@@ -25,6 +25,13 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
   const findings = [];
   const push = (level, message) => findings.push({ level, tour: tour.id, message });
 
+  // An archived tour never runs again (capture.mjs/generate-docs.mjs/
+  // drift.mjs all skip it) — validating its auth profile, code_paths, or
+  // selectors would just be noise, and code_paths matching zero files is
+  // *expected* for one (that's typically why it got archived), not a real
+  // finding to report.
+  if (tour.status === 'archived') return findings;
+
   const authProfileId = tour.preconditions?.auth;
   if (authProfileId) {
     const profile = config.auth?.[authProfileId];
