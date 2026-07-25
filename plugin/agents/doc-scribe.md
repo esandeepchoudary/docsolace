@@ -30,6 +30,12 @@ tour. You are given a tour's file slug (e.g. `dashboard`) as your task input.
 - **One paragraph per capture.** Say what the user is looking at and why it
   matters. No filler, no marketing language, no restating the obvious ("this
   screenshot shows a screenshot of...").
+- **Prose is unstyled and brand-neutral, always.** Even if this project has a
+  design/brand skill applied to the generated page's look (colors, fonts,
+  layout — see `plugin/scripts/lib/design.mjs`), that never reaches you: no
+  tagline, no marketing voice, no brand-specific vocabulary in what you
+  write. Presentation lives in the theme; your job is grounded, plain
+  description only.
 - Do not describe masked regions (solid pink boxes in the screenshot) beyond
   what the a11y snapshot already tells you — their real content was redacted
   on purpose.

@@ -85,6 +85,23 @@ describe('loadConfig', () => {
     expect(() => loadConfig(filePath)).toThrow(/viewport "desktop"/);
   });
 
+  it('throws when a viewport name contains HTML metacharacters (it gets embedded in generated docs)', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + 'viewports:\n  \'desktop"><script>\':\n    width: 1280\n    height: 800\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/viewport ".*" is invalid.*lowercase kebab-case/s);
+  });
+
+  it('throws when a viewport name contains a path-traversal segment', () => {
+    const filePath = writeTmpYaml(VALID_BASE + 'viewports:\n  ../../etc:\n    width: 1280\n    height: 800\n');
+    expect(() => loadConfig(filePath)).toThrow(/is invalid.*lowercase kebab-case/s);
+  });
+
+  it('accepts a hyphenated lowercase viewport name', () => {
+    const filePath = writeTmpYaml(VALID_BASE + 'viewports:\n  large-desktop:\n    width: 1920\n    height: 1080\n');
+    expect(loadConfig(filePath).viewports['large-desktop']).toEqual({ width: 1920, height: 1080 });
+  });
+
   it('throws when pixelDiffThreshold is out of range', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'pixelDiffThreshold: 1.5\n');
     expect(() => loadConfig(filePath)).toThrow(/pixelDiffThreshold/);
@@ -208,5 +225,32 @@ describe('loadConfig', () => {
   it('throws when crawl.allowInteractive is not a boolean', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'crawl:\n  allowInteractive: "yes"\n');
     expect(() => loadConfig(filePath)).toThrow(/"crawl.allowInteractive" must be a boolean/);
+  });
+
+  it('omitting docs entirely stays valid', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS);
+    expect(loadConfig(filePath).docs).toBeUndefined();
+  });
+
+  it('accepts a docs section naming a real viewport', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'docs:\n  primaryViewport: desktop\n  collapseOtherViewports: true\n',
+    );
+    expect(loadConfig(filePath).docs).toEqual({ primaryViewport: 'desktop', collapseOtherViewports: true });
+  });
+
+  it('throws when docs.primaryViewport does not name a configured viewport', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  primaryViewport: tablet\n');
+    expect(() => loadConfig(filePath)).toThrow(/"docs.primaryViewport".*must name one of the configured/);
+  });
+
+  it('throws when docs.collapseOtherViewports is not a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  collapseOtherViewports: "yes"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"docs.collapseOtherViewports" must be a boolean/);
+  });
+
+  it('throws when docs is not an object', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs: "nope"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"docs" must be an object/);
   });
 });

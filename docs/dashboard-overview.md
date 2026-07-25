@@ -6,25 +6,27 @@ Show a new user what the main dashboard displays and how to read it.
 
 1. **Full dashboard after login**
 
-   *desktop*
+   ![Full dashboard after login](images/dashboard-overview/dashboard-full@desktop.png)
 
-   ![Full dashboard after login (desktop)](images/dashboard-overview/dashboard-full@desktop.png)
-
-   *mobile*
+   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <summary>Mobile view</summary>
 
    ![Full dashboard after login (mobile)](images/dashboard-overview/dashboard-full@mobile.png)
+
+   </details>
 
    After signing in, the dashboard opens with three key-metric cards — active users, open tickets, and uptime — followed by a "Filters" button and a table of recent activity, where each row shows who acted, what they did, and its status.
 
 2. **Filter panel expanded**
 
-   *desktop*
+   ![Filter panel expanded](images/dashboard-overview/dashboard-filters@desktop.png)
 
-   ![Filter panel expanded (desktop)](images/dashboard-overview/dashboard-filters@desktop.png)
-
-   *mobile*
+   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <summary>Mobile view</summary>
 
    ![Filter panel expanded (mobile)](images/dashboard-overview/dashboard-filters@mobile.png)
+
+   </details>
 
    Clicking "Filters" expands a panel with a Status dropdown (All, Done, Pending) above the activity table, letting you narrow the table to a single status.
 

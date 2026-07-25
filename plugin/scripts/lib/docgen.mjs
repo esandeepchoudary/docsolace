@@ -3,6 +3,12 @@ const KEEP_END = '<!-- /autodocs:keep -->';
 const KEEP_REGION_SOURCE = '<!-- autodocs:keep -->([\\s\\S]*?)<!-- /autodocs:keep -->';
 const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE);
 
+// Bumped whenever renderTourPage's output *shape* changes (not its inputs) —
+// folded into generate-docs.mjs's render hash (see lib/design.mjs) so the
+// drift gate re-renders every existing page the next time this changes,
+// instead of waiting for that tour's own screenshots or code_paths to move.
+export const RENDER_TEMPLATE_VERSION = 2;
+
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
 // human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
 // shape — every helper below only sees the first match, so a second block
@@ -44,18 +50,95 @@ export function applyKeepRegion(newMarkdown, previousMarkdown) {
   return newMarkdown.replace(KEEP_REGION_RE, `${KEEP_START}\n${previousContent}\n${KEEP_END}`);
 }
 
-export function renderTourPage({ title, intent, steps, keepRegionPlaceholder }) {
+// The <details class="..."> / <summary> lines below form a single raw HTML
+// block (CommonMark: no blank line between them), which the markdown parser
+// passes straight through to the built site unprocessed — unlike the
+// `![alt](path)` lines elsewhere in this file, nothing here gets the
+// automatic escaping normal markdown-to-HTML conversion provides. Escape
+// explicitly before interpolating anything into this block. viewportName
+// normally comes from autodocs.config.yaml's `viewports` map keys — config
+// content, which CLAUDE.md's SSDLC section already treats as untrusted
+// input for anything that shells out or renders — so this isn't only
+// defense-in-depth.
+function escapeHtml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// A design skill's summary text for a non-primary viewport's collapsed
+// block, e.g. "Mobile view" — falls back to a capitalized default when the
+// project hasn't named one (see lib/design.mjs's doc-style.json shape).
+// loadDocStyle already rejects HTML metacharacters in a custom label, but
+// the fallback is built from the raw viewport name, so it's escaped too —
+// see escapeHtml's comment above for why that matters here specifically.
+function viewportSummary(viewportName, viewportLabels) {
+  if (viewportLabels?.[viewportName]) return escapeHtml(viewportLabels[viewportName]);
+  return escapeHtml(`${viewportName.charAt(0).toUpperCase()}${viewportName.slice(1)} view`);
+}
+
+// Renders one already-indented markdown image line, optionally wrapped in a
+// `<figure class="autodocs-figure">` — an extra, opt-in theming hook (see
+// doc-style.json's page.figures) for a design skill that wants its own
+// framed/captioned screenshot treatment. Same blank-line discipline as the
+// <details> blocks above: an HTML block only hands control back to the
+// markdown parser after a blank line, so the image inside still resolves and
+// bundles as a real asset instead of being swallowed as raw HTML text.
+function imageLines(imageMarkdownLine, figures) {
+  if (!figures) return [imageMarkdownLine, ''];
+  return ['   <figure class="autodocs-figure">', '', imageMarkdownLine, '', '   </figure>', ''];
+}
+
+export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, style }) {
+  const {
+    primaryViewport,
+    collapseOtherViewports = true,
+    viewportLabels = {},
+    stepsHeading = 'Steps',
+    figures = false,
+  } = style ?? {};
+
   const stepBlocks = steps.map((step, index) => {
     const lines = [`${index + 1}. **${step.description}**`, ''];
     const images = step.images ?? (step.imagePath ? [{ path: step.imagePath }] : []);
-    // Only label images by viewport when there's more than one — keeps
-    // single-viewport output identical to before multi-viewport support.
-    const showLabels = images.length > 1;
-    for (const image of images) {
-      const alt = showLabels ? `${step.description} (${image.viewport})` : step.description;
-      if (showLabels) lines.push(`   *${image.viewport}*`, '');
-      lines.push(`   ![${alt}](${image.path})`, '');
+
+    if (images.length > 1 && collapseOtherViewports) {
+      // The primary viewport's screenshot stays inline, unlabeled — every
+      // other viewport moves into its own collapsed <details> block instead
+      // of stacking full-page screenshots the reader has to scroll past.
+      // Blank lines around the image (both here and inside the <details>
+      // block below) are load-bearing: CommonMark only resumes parsing
+      // markdown — rather than treating everything as raw HTML — after a
+      // blank line inside an HTML block, and markdown image syntax (not a
+      // raw <img> tag) is what lets Docusaurus resolve/bundle the asset.
+      const primaryIndex = primaryViewport ? images.findIndex((img) => img.viewport === primaryViewport) : -1;
+      const primaryImage = primaryIndex >= 0 ? images[primaryIndex] : images[0];
+      lines.push(...imageLines(`   ![${step.description}](${primaryImage.path})`, figures));
+      for (const image of images) {
+        if (image === primaryImage) continue;
+        lines.push(
+          `   <details class="autodocs-viewport autodocs-viewport--${escapeHtml(image.viewport)}">`,
+          `   <summary>${viewportSummary(image.viewport, viewportLabels)}</summary>`,
+          '',
+          ...imageLines(`   ![${step.description} (${image.viewport})](${image.path})`, figures),
+          '   </details>',
+          '',
+        );
+      }
+    } else {
+      // Only label images by viewport when there's more than one — keeps
+      // single-viewport output identical to before multi-viewport support.
+      const showLabels = images.length > 1;
+      for (const image of images) {
+        const alt = showLabels ? `${step.description} (${image.viewport})` : step.description;
+        if (showLabels) lines.push(`   *${image.viewport}*`, '');
+        lines.push(`   ![${alt}](${image.path})`, '');
+      }
     }
+
     lines.push(`   ${step.paragraph}`);
     return lines.join('\n');
   });
@@ -65,7 +148,7 @@ export function renderTourPage({ title, intent, steps, keepRegionPlaceholder }) 
     '',
     intent,
     '',
-    '## Steps',
+    `## ${stepsHeading}`,
     '',
     stepBlocks.join('\n\n'),
     '',

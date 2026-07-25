@@ -8,9 +8,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
-import { applyKeepRegion, nonKeepContent, renderTourPage } from './lib/docgen.mjs';
+import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPage } from './lib/docgen.mjs';
 import { flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
+import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { pixelDiffRatio, writeDiffImage } from './lib/pixel-diff.mjs';
 
@@ -65,6 +66,21 @@ function main() {
   const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
   const previousEntry = loadState(statePath)[tour.id];
 
+  // docsConfig (autodocs.config.yaml's `docs:` block) picks the primary
+  // viewport / whether others collapse; doc-style.json's `page` section (if
+  // a design skill was applied — see lib/design.mjs) layers presentation
+  // knobs (heading text, viewport labels, figure wrapping) on top. Neither
+  // ever touches tour content — see CLAUDE.md's styling scope guardrail.
+  const docsConfig = config.docs ?? {};
+  const docStyle = loadDocStyle(process.cwd());
+  const pageStyle = docStyle.page ?? {};
+  const style = { primaryViewport: docsConfig.primaryViewport, collapseOtherViewports: docsConfig.collapseOtherViewports, ...pageStyle };
+  const currentRenderHash = computeRenderHash({
+    templateVersion: RENDER_TEMPLATE_VERSION,
+    docsConfig,
+    pageStyle,
+  });
+
   if (tour.maturity === 'draft') {
     console.log(`Skipping "${tour.id}": maturity is "draft" — drift gate never regenerates it.`);
     process.exit(0);
@@ -79,6 +95,7 @@ function main() {
     previousEntry,
     currentScreenshotHashes,
     currentCodePathsHash,
+    currentRenderHash,
   });
 
   if (!dirty) {
@@ -138,6 +155,7 @@ function main() {
     title: tour.title,
     intent: tour.intent ?? '',
     steps,
+    style,
   });
 
   const docPath = path.join('docs', `${tour.id}.md`);
@@ -168,6 +186,7 @@ function main() {
     screenshotHashes: currentScreenshotHashes,
     codePathsHash: currentCodePathsHash,
     bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
+    renderHash: currentRenderHash,
   });
 
   console.log(`Generated ${docPath}`);
