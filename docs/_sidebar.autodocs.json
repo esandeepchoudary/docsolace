@@ -1,0 +1,13 @@
+{
+  "productPages": [
+    "overview",
+    "getting-started",
+    "concepts"
+  ],
+  "sections": [],
+  "unsectionedTours": [
+    "dashboard-export",
+    "dashboard-overview",
+    "login"
+  ]
+}
