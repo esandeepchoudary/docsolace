@@ -6,7 +6,9 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { flattenScreenshotHashes, loadManifest } from './lib/manifest.mjs';
-import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
+import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty } from './lib/drift.mjs';
+import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import { RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { loadState } from './lib/state.mjs';
 
 function main() {
@@ -21,6 +23,13 @@ function main() {
     .readdirSync('tours')
     .filter((f) => f.endsWith('.yaml'))
     .map((f) => f.replace(/\.yaml$/, ''));
+
+  // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs
+  // does, so this report and the actual regeneration never disagree about
+  // what counts as dirty (see lib/design.mjs's computeRenderHash).
+  const docsConfig = config.docs ?? {};
+  const pageStyle = loadDocStyle(process.cwd()).page ?? {};
+  const currentRenderHash = computeRenderHash({ templateVersion: RENDER_TEMPLATE_VERSION, docsConfig, pageStyle });
 
   let anyDirty = false;
 
@@ -46,9 +55,15 @@ function main() {
     const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
     const previousEntry = state[tour.id];
 
-    const dirty = isTourDirty({ tour, previousEntry, currentScreenshotHashes, currentCodePathsHash });
+    const reasons = getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash });
+    const dirty = reasons.length > 0;
     if (dirty) anyDirty = true;
-    console.log(`  ${dirty ? 'dirty  ' : 'clean  '} ${tour.id}`);
+    // Flag render-only dirtiness explicitly — the /document skill's Step 3
+    // skips dispatching the doc-scribe subagent for these (the existing
+    // prose is still grounded; only the layout/style changed), and only
+    // needs to re-run generate-docs.mjs to pick up the new template.
+    const suffix = dirty ? (isRenderOnlyDirty(reasons) ? ' (render only — no new prose needed)' : ` (${reasons.join(', ')})`) : '';
+    console.log(`  ${dirty ? 'dirty  ' : 'clean  '} ${tour.id}${suffix}`);
   }
 
   process.exit(anyDirty ? 1 : 0);

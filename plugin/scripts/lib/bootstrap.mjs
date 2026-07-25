@@ -115,6 +115,16 @@ outputDir: .autodocs/artifacts
 #   maxPages: 50
 #   maxDepth: 4
 #   allowInteractive: false
+#
+# Controls generated page layout. primaryViewport (must name a key under
+# "viewports" above) stays inline in every step; every other viewport's
+# screenshot collapses into a <details> block instead of stacking full-page
+# screenshots the reader has to scroll past. Defaults: the first "viewports"
+# entry, collapsed on. Set collapseOtherViewports: false to go back to
+# showing every viewport inline, labeled.
+# docs:
+#   primaryViewport: desktop
+#   collapseOtherViewports: true
 `;
 }
 

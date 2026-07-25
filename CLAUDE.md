@@ -134,6 +134,27 @@ told otherwise.
 - Before a docs PR goes out, run `npm run review-diffs` and look at the
   report — it's the only place you can see *what* a screenshot update
   actually changed before it's pushed.
+- **Page layout vs. design-skill styling — presentation only, never content.**
+  `autodocs.config.yaml`'s `docs:` section (`primaryViewport`,
+  `collapseOtherViewports`) picks which viewport's screenshot stays inline
+  per step versus collapses into a `<details>` block (`lib/docgen.mjs`'s
+  `renderTourPage`). `/document` also auto-detects a project's own
+  design/brand skill (if any — `lib/design.mjs`'s `discoverDesignSkills`,
+  never a parent directory's `CLAUDE.md`) and distills it into a **committed**
+  (not gitignored — generated docs depend on it) `.autodocs/doc-style.json`
+  plus the scaffolded Docusaurus site's theme. Both of these change how a
+  page *looks* — heading text, viewport labels, colors/fonts/logo — and
+  never what `doc-scribe` writes or which UI a tour describes; never inject
+  a skill's tagline or marketing copy into a generated page. This repo's own
+  `CLAUDE.md` (top of this file) opts this project out of the unrelated
+  parent REDACTED brand for exactly this reason — auto-detection must keep
+  respecting that, never fall back to a parent `CLAUDE.md`'s styling rules.
+  A change to either the `docs:` block or `doc-style.json` re-renders every
+  existing page on the next `/document` run automatically (folded into each
+  tour's render hash, alongside its screenshot/code_paths hashes in
+  `drift.mjs`'s dirty check) — no `--force` needed, and no new `doc-scribe`
+  dispatch either, since existing prose is still grounded when only the
+  render hash changed.
 - Tours are hand-authored (`tours/*.yaml`) or drafted by `tour-scout` via
   `/document propose`/`map` (Phase 7 — see below). `/document map`'s crawl
   (`plugin/scripts/crawl.mjs`) is **authenticated by default** (`--all-auth`:
