@@ -12,6 +12,7 @@ import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPag
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import { buildFrontmatter, computeTourSidebarPositions, isPublishedTour } from './lib/product.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { pixelDiffRatio, writeDiffImage } from './lib/pixel-diff.mjs';
 
@@ -102,10 +103,26 @@ function main() {
   const docStyle = loadDocStyle(process.cwd());
   const pageStyle = docStyle.page ?? {};
   const style = { primaryViewport: docsConfig.primaryViewport, collapseOtherViewports: docsConfig.collapseOtherViewports, ...pageStyle };
+
+  // sidebar_position always applies (product pages pin to the top at 1-3,
+  // tours start at 10 — see lib/product.mjs's computeTourSidebarPositions),
+  // whether or not this project has opted into config.docs.sections at all —
+  // grouping is opt-in, ordering isn't. A tour's position depends on every
+  // *other* tour's existence/status too, so that sorted inventory feeds
+  // currentRenderHash below — adding/removing/renaming a sibling tour has to
+  // re-render this one's frontmatter too, not just the tour that changed.
+  const allTours = fs
+    .readdirSync('tours')
+    .filter((f) => f.endsWith('.yaml'))
+    .map((f) => f.replace(/\.yaml$/, ''))
+    .map((id) => loadTour('tours', id));
+  const tourInventory = allTours.filter(isPublishedTour).map((t) => t.id).sort();
+
   const currentRenderHash = computeRenderHash({
     templateVersion: RENDER_TEMPLATE_VERSION,
     docsConfig,
     pageStyle,
+    tourInventory,
   });
 
   const dirty = isTourDirty({
@@ -169,11 +186,20 @@ function main() {
       };
     });
 
+  // sidebar_label only when the tour actually has a title — loadTour doesn't
+  // require one.
+  const sidebarPositions = computeTourSidebarPositions({ sections: config.docs?.sections, tours: allTours });
+  const frontmatter = buildFrontmatter({
+    sidebarPosition: sidebarPositions.get(tour.id),
+    sidebarLabel: tour.title,
+  });
+
   const newMarkdown = renderTourPage({
     title: tour.title,
     intent: tour.intent ?? '',
     steps,
     style,
+    frontmatter,
   });
 
   const docPath = path.join('docs', `${tour.id}.md`);

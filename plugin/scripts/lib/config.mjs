@@ -1,5 +1,9 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { load as parseYaml } from 'js-yaml';
+import { assertSafeLabel } from './design.mjs';
+import { PRODUCT_PAGE_IDS } from './product.mjs';
+import { SLUG_RE } from './tours.mjs';
 
 // Same lowercase-kebab-case constraint as tours.mjs's tour-id SLUG_RE.
 // Viewport names flow, unmodified, into a screenshot filename
@@ -134,7 +138,78 @@ export function loadConfig(configPath) {
   if (config.docs !== undefined) {
     assertValidDocsConfig(configPath, config.docs, config.viewports);
   }
+  if (config.product !== undefined) {
+    assertValidProductConfig(configPath, config.product);
+  }
   return config;
+}
+
+// product.sources entries are filesystem-relative globs handed straight to
+// glob.globSync (lib/product.mjs's collectProductSources) and then to a
+// Read-only subagent — same untrusted-config-input posture as everywhere
+// else in this file. Rejecting an absolute path or a literal ".." segment
+// here blocks the obvious escape (e.g. "/etc/passwd" or "../../secrets/**")
+// at load time, before it ever reaches a glob — but a *literal* ".." segment
+// isn't the only way a pattern *string* can still resolve outside the
+// project: brace expansion (e.g. "{..,x}/*secret*") contains no segment
+// that's literally "..", so it passes this check, yet glob still expands it
+// into a real "../*secret*" match. Reject brace syntax outright too, rather
+// than relying solely on lib/product.mjs's `nobrace: true` / resolved-path
+// confinement (isWithinRoot) to catch it downstream — a clear error here
+// beats a pattern that silently matches nothing there. Symlinks are a
+// separate escape this can't catch at the *pattern* level at all (a
+// perfectly innocent-looking pattern can match a tracked symlink pointing
+// outside the project) — lib/product.mjs's own deny list and resolved-path
+// confinement are what actually close that one, not this function.
+function assertSafeSourceGlob(configPath, pattern) {
+  if (typeof pattern !== 'string' || !pattern) {
+    throw new Error(`autodocs config at "${configPath}": "product.sources" entries must be non-empty strings`);
+  }
+  if (
+    path.isAbsolute(pattern) ||
+    pattern.startsWith('/') ||
+    pattern.split('/').includes('..') ||
+    pattern.includes('{') ||
+    pattern.includes('}')
+  ) {
+    throw new Error(
+      `autodocs config at "${configPath}": "product.sources" entry "${pattern}" is invalid — must be a ` +
+        `project-relative glob (no absolute path, no ".." segment, no "{...}" brace expansion).`,
+    );
+  }
+}
+
+// Controls generate-product-docs.mjs — which product-level pages to generate
+// (default: all of lib/product.mjs's PRODUCT_PAGES) and what extra files
+// ground them beyond the standing README/package.json/.env.example/
+// autodocs.config.yaml set (see lib/product.mjs's collectProductSources).
+function assertValidProductConfig(configPath, product) {
+  if (!product || typeof product !== 'object' || Array.isArray(product)) {
+    throw new Error(`autodocs config at "${configPath}": "product" must be an object`);
+  }
+  if (product.name !== undefined && (typeof product.name !== 'string' || !product.name.trim())) {
+    throw new Error(`autodocs config at "${configPath}": "product.name" must be a non-empty string`);
+  }
+  if (product.pages !== undefined) {
+    if (!Array.isArray(product.pages) || product.pages.length === 0) {
+      throw new Error(`autodocs config at "${configPath}": "product.pages" must be a non-empty list`);
+    }
+    const unknown = product.pages.filter((p) => !PRODUCT_PAGE_IDS.includes(p));
+    if (unknown.length > 0) {
+      throw new Error(
+        `autodocs config at "${configPath}": "product.pages" names unknown page(s) ${unknown.join(', ')} — ` +
+          `must be a subset of ${PRODUCT_PAGE_IDS.join(', ')}`,
+      );
+    }
+  }
+  if (product.sources !== undefined) {
+    if (!Array.isArray(product.sources)) {
+      throw new Error(`autodocs config at "${configPath}": "product.sources" must be a list of globs`);
+    }
+    for (const pattern of product.sources) {
+      assertSafeSourceGlob(configPath, pattern);
+    }
+  }
 }
 
 // crawl.allowInteractive gates crawl.mjs's mutating "safe form fill/submit"
@@ -189,5 +264,40 @@ function assertValidDocsConfig(configPath, docs, viewports) {
   }
   if (docs.collapseOtherViewports !== undefined && typeof docs.collapseOtherViewports !== 'boolean') {
     throw new Error(`autodocs config at "${configPath}": "docs.collapseOtherViewports" must be a boolean`);
+  }
+  if (docs.sections !== undefined) {
+    assertValidDocsSections(configPath, docs.sections);
+  }
+}
+
+// Optional sidebar grouping for tour pages (lib/product.mjs's
+// buildSidebarStructure) — a project that doesn't set this gets one flat
+// "everything else" group, same as before this feature existed. Each
+// section's label goes through the same assertSafeLabel bar as everywhere
+// else short plain text reaches a generated page/site config; each tour id
+// must be a real, safe slug (same SLUG_RE loadTour enforces) since it's
+// joined into a docs/<id>.md link.
+function assertValidDocsSections(configPath, sections) {
+  if (!Array.isArray(sections)) {
+    throw new Error(`autodocs config at "${configPath}": "docs.sections" must be a list`);
+  }
+  for (const [index, section] of sections.entries()) {
+    if (!section || typeof section !== 'object' || Array.isArray(section)) {
+      throw new Error(`autodocs config at "${configPath}": "docs.sections[${index}]" must be an object`);
+    }
+    assertSafeLabel(section.label, `docs.sections[${index}].label`);
+    if (!Array.isArray(section.tours) || section.tours.length === 0) {
+      throw new Error(
+        `autodocs config at "${configPath}": "docs.sections[${index}].tours" must be a non-empty list of tour ids`,
+      );
+    }
+    for (const tourId of section.tours) {
+      if (typeof tourId !== 'string' || !SLUG_RE.test(tourId)) {
+        throw new Error(
+          `autodocs config at "${configPath}": "docs.sections[${index}].tours" entry "${JSON.stringify(tourId)}" ` +
+            `is invalid — must be a lowercase kebab-case tour id`,
+        );
+      }
+    }
   }
 }

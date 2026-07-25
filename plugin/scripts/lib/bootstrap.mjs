@@ -121,10 +121,27 @@ outputDir: .autodocs/artifacts
 # screenshot collapses into a <details> block instead of stacking full-page
 # screenshots the reader has to scroll past. Defaults: the first "viewports"
 # entry, collapsed on. Set collapseOtherViewports: false to go back to
-# showing every viewport inline, labeled.
+# showing every viewport inline, labeled. "sections" groups tour pages in the
+# generated sidebar (docs/_sidebar.autodocs.json — see the README's "Grouping
+# tours in the sidebar"); a tour not listed in any section just sorts into
+# one flat "everything else" group instead.
 # docs:
 #   primaryViewport: desktop
 #   collapseOtherViewports: true
+#   sections:
+#     - label: "Getting started"
+#       tours: [login]
+#
+# Controls \`/autodocs:document product\` — the generated overview/
+# getting-started/concepts pages describing the product itself (see the
+# README's "Documenting the product itself"). "pages" defaults to all three;
+# "sources" adds extra grounding files/globs beyond the standing README.md /
+# package.json / .env.example / autodocs.config.yaml set.
+# product:
+#   name: "My App"
+#   pages: [overview, getting-started, concepts]
+#   sources:
+#     - "docs-src/**/*.md"
 `;
 }
 
