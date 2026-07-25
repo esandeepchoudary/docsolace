@@ -440,18 +440,28 @@ repo runs it):
    not a fresh scaffold** — nothing here is destructive, so running
    `init-site` again is always safe, and it's also how you pick up a
    newly-installed or changed design skill, or apply one that `--no-style`
-   skipped originally: just run `init-site` again.
-   - If `--no-style` was passed this time too, there's nothing to do —
-     report that (site already exists, no styling requested) and stop.
+   skipped originally, or backfill search on a site scaffolded before that
+   existed: just run `init-site` again.
+   - **Backfill search first, unconditionally (not gated by `--no-style` —
+     search is a capability, not a style choice).** Check whether
+     `site/package.json`'s dependencies already include
+     `@easyops-cn/docusaurus-search-local`; if not, apply step 5 below
+     (install + config) to this existing site now.
+   - Then, if `--no-style` was passed this time too: rebuild (`cd site &&
+     npm run build`, `npm install` first only if step 5 just added the
+     search dependency) if search was backfilled, otherwise there's nothing
+     left to do. Report accordingly and stop.
    - Otherwise, re-run **"Apply the project's design skill"** below,
      ignoring its own "skip if `.autodocs/doc-style.json` already exists"
-     shortcut so it actually re-detects and re-applies, then
-     `cd site && npm run build` (no `npm install` needed — the site's deps
-     are already there) to confirm the refreshed theme still builds. Report
+     shortcut so it actually re-detects and re-applies, then `cd site && npm
+     install && npm run build` (`npm install` is a no-op if step 5 didn't
+     just add a new dependency, so always safe to include) to confirm the
+     refreshed theme (and search, if just backfilled) still builds. Report
      "site already existed — refreshed styling" (naming which skill, if
-     any) instead of scaffolding from scratch.
+     any) and/or "backfilled search" as applicable, instead of scaffolding
+     from scratch.
 
-   Otherwise (no `site/` yet), continue with steps 2–8 below for a fresh
+   Otherwise (no `site/` yet), continue with steps 2–9 below for a fresh
    scaffold.
 2. Scaffold: `npx create-docusaurus@latest site classic --javascript --skip-install`.
 3. Remove the sample content you don't want: `site/blog/`, `site/docs/`
@@ -471,7 +481,42 @@ repo runs it):
      parses `<!--` as JSX and errors). This is a real, verified bug, not a
      hypothetical — confirm by running a build before and after this line
      if you want to see it yourself.
-5. **Fix `site/src/pages/index.js` — required, not optional, even with no
+5. **Add local search — required, not optional.** A generated-tutorials site
+   is exactly the kind of thing that accumulates pages over time as
+   `/document propose`/`map` draft more tours; without search, "browse the
+   sidebar" stops being a real way to find anything past a handful of pages.
+   Deliberately **not** Algolia DocSearch — that needs an external service
+   and an application/approval step, which cuts against this plugin's
+   install-once-no-external-accounts model.
+   ```
+   cd site && npm install @easyops-cn/docusaurus-search-local
+   ```
+   Then add a `themes` array as a new top-level key in
+   `site/docusaurus.config.js` (sibling to `presets`/`themeConfig`):
+   ```js
+   themes: [
+     [
+       '@easyops-cn/docusaurus-search-local',
+       {
+         hashed: true,
+         indexDocs: true,
+         indexBlog: false,
+       },
+     ],
+   ],
+   ```
+   Leave `docsRouteBasePath` unset — it must match the docs plugin's own
+   route base path, which this config never overrides (Docusaurus's default
+   is `/docs`); setting it to `/` here is a real mistake that silently
+   breaks search-result links, not a hypothetical (caught by actually
+   building and checking `build/search-index.json`'s entries had `/docs/...`
+   URLs, not `/...`). Indexes at build time into `site/build/search-index.json`
+   — confirm it actually worked by checking that file exists after step 8's
+   build and contains an entry per generated tour page, same "verify by
+   running it" discipline as the other fixes in this recipe. This also
+   indexes anything under `docs/archive/` automatically — it's just more
+   docs-plugin content, no separate config needed.
+6. **Fix `site/src/pages/index.js` — required, not optional, even with no
    tours yet.** The scaffolded homepage links to `/docs/intro`, a sample
    page that no longer exists once `docs.path` points at the real `docs/`
    (step 4) — the build fails on that broken link otherwise (verified: it
@@ -479,16 +524,17 @@ repo runs it):
    generated tour pages if any exist (e.g. `/docs/<some-tour-id>`); if none
    exist yet, remove the link/button entirely rather than pointing it
    anywhere.
-6. Unless `--no-style` was passed, run **"Apply the project's design
+7. Unless `--no-style` was passed, run **"Apply the project's design
    skill"** below now, before installing — it edits
    `site/src/css/custom.css`/`site/docusaurus.config.js`'s `themeConfig`,
    which the build in the next step should already reflect.
-7. `cd site && npm install && npm run build` — confirm it actually succeeds,
+8. `cd site && npm install && npm run build` — confirm it actually succeeds,
    don't just assume the edits were correct (this also verifies the theming
-   from step 6 didn't break the build).
-8. Report what was created and how to preview it (`cd site && npm start`),
-   and point at this plugin's own README section "Deploying your docs" for
-   publishing it somewhere. Note which design skill (if any) was applied.
+   from step 7 and the search setup from step 5 didn't break the build).
+9. Report what was created and how to preview it (`cd site && npm start`),
+   and point at this plugin's own README section "Publishing a docs site"
+   for publishing it somewhere. Note which design skill (if any) was
+   applied, and that search is set up.
 
 ## Apply the project's design skill
 
