@@ -43,6 +43,20 @@ export function resolveTourRoutes(tour) {
 // sourceRoutes: optional array of site-relative route strings (/document
 //   map's code-review step's source-routes.json) — same optionality.
 export function findOrphanTours({ tours, state, siteMap, sourceRoutes, cwd = process.cwd() } = {}) {
+  // Both come from JSON files a previous /document map run wrote (or a
+  // caller-supplied path) — untrusted/possibly-stale on-disk input, same
+  // trust boundary as tour YAML per CLAUDE.md. A malformed shape (e.g. a
+  // hand-edited site-map.json whose "pages" isn't an array) should fail with
+  // a clear, path-naming message, not a bare "siteMap.map is not a
+  // function" TypeError — same posture lib/fs-atomic.mjs's readJsonFile
+  // already takes for corrupt JSON generally.
+  if (siteMap !== undefined && !Array.isArray(siteMap)) {
+    throw new Error('findOrphanTours: siteMap must be an array of {route, ...} page entries (or omitted).');
+  }
+  if (sourceRoutes !== undefined && !Array.isArray(sourceRoutes)) {
+    throw new Error('findOrphanTours: sourceRoutes must be an array of route strings (or omitted).');
+  }
+
   const checkRoutes = siteMap !== undefined || sourceRoutes !== undefined;
   const knownRoutes = new Set([
     ...(siteMap ?? []).map((page) => page.route),
@@ -63,7 +77,15 @@ export function findOrphanTours({ tours, state, siteMap, sourceRoutes, cwd = pro
 
     if (checkRoutes) {
       const routes = resolveTourRoutes(tour);
-      if (routes.length > 0 && routes.every((route) => !knownRoutes.has(route))) {
+      // .some(), not .every(): a multi-goto tour (e.g. a checkout flow that
+      // visits /cart then /checkout) shouldn't need *every* one of its
+      // routes missing before this fires — one unreached route is already
+      // worth a human look. This is safe to be permissive about: unlike
+      // code-removed, route-unreachable never triggers autonomous archiving
+      // on its own (see isStrongOrphanSignal below) — it only ever surfaces
+      // a candidate for review, so a false positive here costs a human one
+      // extra glance, not a wrongly archived tour.
+      if (routes.length > 0 && routes.some((route) => !knownRoutes.has(route))) {
         reasons.push('route-unreachable');
       }
     }

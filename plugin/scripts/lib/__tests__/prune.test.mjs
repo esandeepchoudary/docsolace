@@ -178,6 +178,73 @@ describe('findOrphanTours', () => {
     });
     expect(orphans).toEqual([]);
   });
+
+  it('flags route-unreachable for a multi-goto tour when only ONE of its routes is missing — regression guard for the old .every() threshold', () => {
+    // A checkout-style tour that visits /cart then /checkout: /cart is
+    // still reachable, but /checkout (the actual feature) isn't in the
+    // crawl/code-review data anymore. The old `.every()` check required
+    // *all* routes to be missing before flagging anything, so a tour like
+    // this would slip through undetected — .some() is what this guards.
+    const dir = mkTmpDir();
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'x');
+    const state = { 'dashboard-export': { codePathsHash: 'x' } };
+    const orphans = findOrphanTours({
+      tours: [
+        tour({
+          steps: [
+            { action: 'goto', path: '/cart' },
+            { action: 'goto', path: '/checkout' },
+          ],
+        }),
+      ],
+      state,
+      siteMap: [{ route: '/cart' }], // /checkout is nowhere in here
+      cwd: dir,
+    });
+    expect(orphans).toEqual([{ tourId: 'dashboard-export', reasons: ['route-unreachable'] }]);
+  });
+
+  it('does not flag route-unreachable for a multi-goto tour when every route is still found', () => {
+    const dir = mkTmpDir();
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'x');
+    const state = { 'dashboard-export': { codePathsHash: 'x' } };
+    const orphans = findOrphanTours({
+      tours: [
+        tour({
+          steps: [
+            { action: 'goto', path: '/cart' },
+            { action: 'goto', path: '/checkout' },
+          ],
+        }),
+      ],
+      state,
+      siteMap: [{ route: '/cart' }, { route: '/checkout' }],
+      cwd: dir,
+    });
+    expect(orphans).toEqual([]);
+  });
+
+  it('throws a clear error instead of a raw TypeError when siteMap is not an array', () => {
+    const dir = mkTmpDir();
+    expect(() =>
+      findOrphanTours({ tours: [tour()], state: {}, siteMap: { pages: [] }, cwd: dir }),
+    ).toThrow(/siteMap must be an array/);
+  });
+
+  it('throws a clear error instead of a raw TypeError when sourceRoutes is not an array', () => {
+    const dir = mkTmpDir();
+    expect(() =>
+      findOrphanTours({ tours: [tour()], state: {}, sourceRoutes: '/dashboard', cwd: dir }),
+    ).toThrow(/sourceRoutes must be an array/);
+  });
+
+  it('still works fine when siteMap/sourceRoutes are omitted entirely (no route check, no throw)', () => {
+    const dir = mkTmpDir();
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'x');
+    const state = { 'dashboard-export': { codePathsHash: 'x' } };
+    expect(() => findOrphanTours({ tours: [tour()], state, cwd: dir })).not.toThrow();
+    expect(findOrphanTours({ tours: [tour()], state, cwd: dir })).toEqual([]);
+  });
 });
 
 describe('isStrongOrphanSignal', () => {

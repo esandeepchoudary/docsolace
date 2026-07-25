@@ -22,6 +22,25 @@ function parseArgs(argv) {
   return args;
 }
 
+// Two very different situations look identical if handled the same way: the
+// conventional default path (auto-detected, nothing the user typed) simply
+// not existing yet — expected, silent skip, e.g. no /document map has run —
+// versus an explicit --site-map/--routes-file the user typed themselves
+// pointing at nothing. The latter deserves a loud error, not a silent
+// fallback to "route check disabled" the user never asked for — same
+// posture crawl.mjs's own --routes-file (loadRoutesFile) already takes on a
+// bad explicit path.
+function loadOptionalJsonFile(explicitPath, defaultPath, flagName) {
+  const resolvedPath = explicitPath ?? defaultPath;
+  if (!fs.existsSync(resolvedPath)) {
+    if (explicitPath !== undefined) {
+      throw new Error(`${flagName} "${explicitPath}" does not exist.`);
+    }
+    return { path: resolvedPath, data: undefined };
+  }
+  return { path: resolvedPath, data: readJsonFile(resolvedPath, undefined) };
+}
+
 function main() {
   const { siteMap: siteMapPath, routesFile } = parseArgs(process.argv.slice(2));
   const config = loadConfig('autodocs.config.yaml');
@@ -44,11 +63,12 @@ function main() {
   // write to, if they happen to already exist from a previous map run — a
   // stronger check when available, but never required (the code_paths-only
   // signal still works standalone, no crawl needed).
-  const resolvedSiteMapPath = siteMapPath ?? path.join(config.outputDir, 'site-map.json');
-  const resolvedRoutesFilePath = routesFile ?? path.join(config.outputDir, 'source-routes.json');
-  const siteMapData = fs.existsSync(resolvedSiteMapPath) ? readJsonFile(resolvedSiteMapPath, undefined) : undefined;
-  const siteMap = siteMapData?.pages;
-  const sourceRoutes = fs.existsSync(resolvedRoutesFilePath) ? readJsonFile(resolvedRoutesFilePath, undefined) : undefined;
+  const siteMapFile = loadOptionalJsonFile(siteMapPath, path.join(config.outputDir, 'site-map.json'), '--site-map');
+  const routesFileResult = loadOptionalJsonFile(routesFile, path.join(config.outputDir, 'source-routes.json'), '--routes-file');
+  const resolvedSiteMapPath = siteMapFile.path;
+  const resolvedRoutesFilePath = routesFileResult.path;
+  const siteMap = siteMapFile.data?.pages;
+  const sourceRoutes = routesFileResult.data;
 
   if (siteMap || sourceRoutes) {
     console.log(
