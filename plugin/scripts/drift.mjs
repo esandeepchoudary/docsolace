@@ -19,6 +19,15 @@ function main() {
   const manifestPath = path.join(config.outputDir, 'manifest.json');
   const manifest = loadManifest(manifestPath);
 
+  // Same guard validate.mjs already has — without it, a missing tours/
+  // (e.g. this is run before /autodocs:document has ever bootstrapped the
+  // project) surfaces as a raw ENOENT from readdirSync instead of a
+  // friendly, actionable message.
+  if (!fs.existsSync('tours')) {
+    console.log('No tours/ directory yet — run /autodocs:document once to bootstrap this project.');
+    return;
+  }
+
   const tourIds = fs
     .readdirSync('tours')
     .filter((f) => f.endsWith('.yaml'))

@@ -15,6 +15,7 @@ import { resolveSeed } from './lib/seed.mjs';
 import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
 import { isSameOrigin } from './lib/crawl.mjs';
 import { withRetry } from './lib/retry.mjs';
+import { writeFileAtomic } from './lib/fs-atomic.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
@@ -162,28 +163,37 @@ async function runTour(browser, config, tour) {
           const viewportShots = {};
 
           for (const [viewportName, viewportSize] of Object.entries(config.viewports)) {
-            await page.setViewportSize(viewportSize);
+            // Re-thrown with which viewport was in flight — without this, a
+            // failure partway through a multi-viewport capture (e.g. the
+            // mobile shot times out after desktop already succeeded) only
+            // surfaces the step index, leaving which of N viewports failed
+            // to guesswork.
+            try {
+              await page.setViewportSize(viewportSize);
 
-            const maskLocators = maskSelectors.map((selector) => page.locator(selector));
-            const pngPath = path.join(screenshotsDir, `${step.capture}@${viewportName}.png`);
-            await page.screenshot({ path: pngPath, mask: maskLocators, maskColor: MASK_COLOR });
+              const maskLocators = maskSelectors.map((selector) => page.locator(selector));
+              const pngPath = path.join(screenshotsDir, `${step.capture}@${viewportName}.png`);
+              await page.screenshot({ path: pngPath, mask: maskLocators, maskColor: MASK_COLOR });
 
-            const ariaSnapshot = await page.locator('body').ariaSnapshot();
-            const a11yPath = path.join(snapshotsDir, `${step.capture}@${viewportName}.a11y.json`);
-            fs.writeFileSync(
-              a11yPath,
-              JSON.stringify(
-                { capture: step.capture, viewport: viewportName, description: step.description ?? null, ariaSnapshot },
-                null,
-                2,
-              ),
-            );
+              const ariaSnapshot = await page.locator('body').ariaSnapshot();
+              const a11yPath = path.join(snapshotsDir, `${step.capture}@${viewportName}.a11y.json`);
+              writeFileAtomic(
+                a11yPath,
+                JSON.stringify(
+                  { capture: step.capture, viewport: viewportName, description: step.description ?? null, ariaSnapshot },
+                  null,
+                  2,
+                ),
+              );
 
-            viewportShots[viewportName] = {
-              png: path.relative(config.outputDir, pngPath),
-              a11y: path.relative(config.outputDir, a11yPath),
-              sha256: sha256Buffer(fs.readFileSync(pngPath)),
-            };
+              viewportShots[viewportName] = {
+                png: path.relative(config.outputDir, pngPath),
+                a11y: path.relative(config.outputDir, a11yPath),
+                sha256: sha256Buffer(fs.readFileSync(pngPath)),
+              };
+            } catch (err) {
+              throw new Error(`viewport "${viewportName}": ${err.message}`);
+            }
           }
 
           // Restore the primary viewport so subsequent goto/click steps
