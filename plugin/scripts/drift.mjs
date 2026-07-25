@@ -53,6 +53,10 @@ function main() {
       console.log(`  proposed ${tour.id} (awaiting human review — see Phase 7 in the brief)`);
       continue;
     }
+    if (tour.status === 'archived') {
+      console.log(`  archived ${tour.id} (docs/archive/${fileId}.md — no longer captured or regenerated)`);
+      continue;
+    }
 
     const tourManifest = manifest[tour.id];
     if (!tourManifest) {

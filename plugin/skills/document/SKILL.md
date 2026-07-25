@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review) and drafts tours for every gap. "validate" preflight-checks config/tours with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | validate | init-site   (any mode: [--review] [--no-style])"
+description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "validate" preflight-checks config/tours with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | validate | init-site   (any mode: [--review] [--no-style])"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
@@ -16,9 +16,10 @@ AutoDocs' own npm scripts.
 
 ## Autonomy
 
-By default, every mode below (the normal pipeline, `propose`, and `map`) runs
-end-to-end to an opened docs PR without stopping for review at each
-intermediate step — that single PR (never auto-merged) is the review point.
+By default, every mode below (the normal pipeline, `propose`, `map`, and
+`prune`) runs end-to-end to an opened docs PR without stopping for review at
+each intermediate step — that single PR (never auto-merged) is the review
+point.
 This applies everywhere except the **hard stops** below, where a run always
 stops and reports instead of pushing through:
 
@@ -116,6 +117,7 @@ every mode below, not just the normal pipeline.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
+If the arguments are `prune`, follow **"Prune orphaned tours"** below.
 If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below —
 this also covers re-applying styling to an already-scaffolded site, so
@@ -271,17 +273,49 @@ many candidate features at once instead of one you were told about.
    confirms real UI is there; a route no pass ever reached under any profile
    gets flagged as possibly unreachable/misconfigured, not silently dropped
    or silently assumed real.
-5. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
+5. **Prune existing tours.** The reconciliation above finds features with no
+   tour (gaps); this does the reverse — tours whose feature may no longer
+   exist. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"
+   ```
+   It picks up the `site-map.json`/`source-routes.json` steps 2/4 just wrote
+   automatically (no flags needed) and reports each confirmed/stable tour as
+   `ok` or `orphan (<reasons>)` — `code-removed` (its `code_paths` used to
+   resolve to real files and no longer does) and/or `route-unreachable`
+   (none of its `goto` steps' paths appear in the crawl or the code review).
+   Unlike gap-drafting below, there's no subagent judgment call here — both
+   signals are mechanical string/glob checks against data this run already
+   produced. But they're not equally strong: `code-removed` checks the
+   committed git tree directly (exact), while `route-unreachable` checks
+   against a crawl/code-review pass that's explicitly best-effort elsewhere
+   in this same flow (bounded by `maxPages`/`maxDepth`, a profile can be
+   skipped, and a `site-map.json` left on disk from an earlier, narrower run
+   is just as easy to reconcile against as a fresh one) — treating a route
+   the crawl didn't happen to reach as *proof* it's gone would risk archiving
+   a live tour on nothing more than incomplete coverage. So: **autonomous
+   mode archives only tours flagged `code-removed`** (`prune.mjs` marks these
+   "safe to auto-archive"), one
+   `node "${CLAUDE_PLUGIN_DATA}/scripts/archive-tour.mjs" --tour <id>` per
+   such tour (see "Prune orphaned tours" below for what that does — it only
+   ever archives, never deletes tour YAML or doc content). A tour flagged
+   `route-unreachable` only is reported, not archived, in either mode —
+   surface it in step 9's report so a human can look, same
+   "flag-not-act-on-weak-evidence" posture as tour-scout's own "unconfirmed
+   reachability" note for a gap feature no crawl pass reached. **`--review`
+   mode lists every candidate (both confidence levels) and archives
+   nothing this run** — ask-first posture, same as gap drafting below.
+6. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
    reconciled feature list — slug (run each through the same
    lowercase-kebab-case rule `tours.mjs`'s `assertSafeSlug` enforces),
    route, one-line description, `code_paths`, which role(s) (`reachedBy`)
    actually reached it or "unreached by any profile" if none did, and
    whether an existing `tours/*.yaml` already covers it — grouped into a
    suggested doc structure (an ordered list of sections, e.g. Getting
-   Started → core features → settings/admin). This coverage manifest is what
-   makes "every feature" checkable, not best-effort, and doubles as the audit
-   trail for what got drafted below.
-6. **Autonomous mode: draft every gap feature.** For each feature in the doc
+   Started → core features → settings/admin). Also note anything step 5
+   flagged/archived, so the plan doubles as the audit trail for both
+   directions (gaps drafted, orphans archived) this run touched.
+7. **Autonomous mode: draft every gap feature.** For each feature in the doc
    plan not already covered by an existing tour, dispatch the `tour-scout`
    subagent exactly as in "Propose a new tour" step 4 (slug, description,
    candidate `code_paths`, existing tour/fixture filenames), additionally
@@ -297,7 +331,7 @@ many candidate features at once instead of one you were told about.
    then validate → auto-confirm → Steps 1–5 capture/generate) — but skip that
    tour's own Step 6 Ship; a hard stop on one feature doesn't stop the
    others, just note it and move on. Shipping for every feature drafted this
-   run happens once, together, in step 7 below.
+   run happens once, together, in step 8 below.
 
    **`--review` mode: present and ask instead.** Show the user the
    discovered feature list (already covered vs. gaps, with reachability per
@@ -305,17 +339,72 @@ many candidate features at once instead of one you were told about.
    for now — don't draft all of them; for each one picked, dispatch
    `tour-scout` the same way, but stop after the draft (the review path in
    "Propose a new tour" step 6) rather than auto-confirming.
-7. **Ship.** Autonomous mode only, once every feature's dispatch this run has
-   completed Steps 1–5: run **Step 6 (Ship)** under "Steps" below a single
-   time, covering every tour confirmed and generated this run together — one
+8. **Ship.** Autonomous mode only, once every feature's dispatch this run has
+   completed Steps 1–5 (and step 5's archiving, if any orphans were found):
+   run **Step 6 (Ship)** under "Steps" below a single time, covering every
+   tour confirmed/generated and every tour archived this run together — one
    commit, one PR, rather than one per tour.
-8. **Report.** What was discovered, the coverage manifest (which role reached
+9. **Report.** What was discovered, the coverage manifest (which role reached
    which feature, and anything no profile reached), which auth profiles were
    skipped and why, what's already covered, the proposed structure, what was
    drafted this run (and tour-scout's own uncertainties for each), which ones
-   hit a hard stop and why, and — in autonomous mode — the branch/PR that was
-   shipped, or — in `--review` mode — the reminder to review, flip `status:
-   confirmed`, then `/document validate` and the normal pipeline.
+   hit a hard stop and why, which existing tours were flagged/archived as
+   orphans (or, in `--review` mode, just flagged), and — in autonomous mode —
+   the branch/PR that was shipped, or — in `--review` mode — the reminder to
+   review, flip `status: confirmed`, then `/document validate` and the normal
+   pipeline.
+
+## Prune orphaned tours
+
+Parses as `prune [--review]`. This is "Map the whole app" step 5 on its own,
+for when you just want the archival check without a full crawl/code-review
+pass — useful as a periodic check, or right after removing a feature
+yourself. No browser is launched unless a previous `/document map` run left
+`site-map.json`/`source-routes.json` behind (see below).
+
+1. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"
+   ```
+   Checks every confirmed/stable tour's `code_paths` still resolves to real
+   files (the `code-removed` signal — works standalone, no crawl needed). If
+   `.autodocs/artifacts/site-map.json` and/or `source-routes.json` already
+   exist from an earlier `/document map` run, it also checks each tour's
+   `goto` step paths against them (`route-unreachable`) — it never crawls or
+   reads source itself; run `/document map` first if you want that fuller
+   check and don't have a recent one on disk. Reports each tour `ok`,
+   `orphan (...) — safe to auto-archive` (`code-removed`: checked against the
+   committed git tree, exact), or `orphan (...) — needs human review`
+   (`route-unreachable` only: checked against a crawl/code-review pass that's
+   explicitly best-effort elsewhere in this same flow — bounded by
+   `maxPages`/`maxDepth`, a profile can be skipped, and a `site-map.json`
+   left on disk from an earlier, narrower run reconciles exactly the same as
+   a fresh one — so an unreached route is a reason to look, not proof).
+2. **No orphans found:** report that and stop — nothing to do.
+3. **Autonomous mode (default):** for each orphan flagged `code-removed`
+   (i.e. reported "safe to auto-archive"), run
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/archive-tour.mjs" --tour <id>
+   ```
+   same as "Map the whole app" step 5 — flips `status: archived`, moves
+   `docs/<id>.md` (and its images) under `docs/archive/` with a banner, and
+   writes `docs/archive/_category_.json` the first time (see the README's
+   "Archiving a removed feature" for what a reader sees). Never deletes
+   `tours/<id>.yaml` or any doc content — reversible by hand (flip `status`
+   back to `confirmed`, move the page back) if the detection was wrong. A
+   `route-unreachable`-only candidate is never auto-archived, in either
+   mode — surface it in step 4's report instead. Then, if anything was
+   archived, run **Step 6 (Ship)** under "Steps" below once, covering every
+   tour archived this run.
+
+   **`--review` mode:** list every orphan candidate (both confidence levels)
+   and their reasons, and stop there — don't archive anything, don't ship.
+   Tell the user to review and either run `/document prune` again without
+   `--review` once satisfied, or archive individually with `archive-tour.mjs
+   --tour <id>`.
+4. Report what was found — which were auto-archived (autonomous mode), which
+   need human review (`route-unreachable` only, either mode) — and, in
+   autonomous mode, the branch/PR that shipped if anything did.
 
 ## Validate a project
 
@@ -494,8 +583,10 @@ failure, report the exact fix (`gh auth login`) and stop.
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
    ```
-   to see which tours are dirty, clean, or draft/proposed (skipped
-   entirely). A dirty tour is annotated with why: `(screenshots, code)`
+   to see which tours are dirty, clean, or draft/proposed/archived (skipped
+   entirely — an archived tour's page lives on under `docs/archive/` instead;
+   see "Prune orphaned tours" above for how a tour gets there). A dirty tour
+   is annotated with why: `(screenshots, code)`
    means its content changed, while `(render only — no new prose needed)`
    means only the template/`docs:` layout/design-style changed (see
    `lib/design.mjs`'s render hash) — its existing prose is still grounded.
@@ -531,7 +622,8 @@ failure, report the exact fix (`gh auth login`) and stop.
    - which tours were regenerated (and a one-line reason: code changed
      under their `code_paths`, their screenshots changed, or only the
      render/style layout changed)
-   - which tours were skipped as clean, and which were skipped as draft
+   - which tours were skipped as clean, and which were skipped as
+     draft/proposed/archived
    - anything that failed and why
 
    This summary is meant to double as the body of the docs PR — keep it
@@ -550,15 +642,16 @@ failure, report the exact fix (`gh auth login`) and stop.
       its report — it's the only place a screenshot change is visible
       before it's pushed, and it becomes part of the commit/PR body.
    3. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
-      any `tours/*.yaml` this run wrote or confirmed, and — only if this run
-      applied or changed one — `.autodocs/doc-style.json` (committed, not
-      gitignored) plus any `site/src/css/custom.css`/
-      `site/docusaurus.config.js` theming edits. Never stage
-      `.autodocs/artifacts/` (gitignored; it's local working state, not a
-      deliverable) or anything else in the working tree unrelated to this
-      run.
-   4. Commit (message: which tour(s) changed and why — code or
-      screenshots), then push. If the branch has no open PR yet, `gh pr
+      `docs/archive/**` (any tour this run archived — see "Prune orphaned
+      tours"/"Map the whole app" step 5), any `tours/*.yaml` this run wrote,
+      confirmed, or archived, and — only if this run applied or changed one —
+      `.autodocs/doc-style.json` (committed, not gitignored) plus any
+      `site/src/css/custom.css`/`site/docusaurus.config.js` theming edits.
+      Never stage `.autodocs/artifacts/` (gitignored; it's local working
+      state, not a deliverable) or anything else in the working tree
+      unrelated to this run.
+   4. Commit (message: which tour(s) changed and why — code, screenshots, or
+      archived), then push. If the branch has no open PR yet, `gh pr
       create` against `main` with the step 5 summary plus the review-diffs
       report as the body; if one already exists for this branch, the push
       alone updates it — don't open a second PR.
@@ -568,8 +661,9 @@ failure, report the exact fix (`gh auth login`) and stop.
 
 Never hand-write or hand-edit anything under `docs/` yourself in this
 skill — every page in `docs/` is either subagent-authored prose assembled by
-`generate-docs.mjs`, or a human edit inside a `<!-- autodocs:keep -->`
-region. If a step above fails, stop and report it rather than working around
+`generate-docs.mjs`, a human edit inside a `<!-- autodocs:keep -->` region,
+or (only under `docs/archive/`) `archive-tour.mjs`'s own banner prepended at
+archive time. If a step above fails, stop and report it rather than working around
 it. If a script fails with a missing-dependency or missing-browser error,
 the `SessionStart` hook that installs them may not have finished yet or may
 have failed — check `${CLAUDE_PLUGIN_DATA}/package.json` exists and suggest
