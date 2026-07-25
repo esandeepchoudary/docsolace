@@ -4,8 +4,20 @@
 // never a second, subtly-different one.
 export const KEEP_START = '<!-- autodocs:keep -->';
 export const KEEP_END = '<!-- /autodocs:keep -->';
-const KEEP_REGION_SOURCE = '<!-- autodocs:keep -->([\\s\\S]*?)<!-- /autodocs:keep -->';
-const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE);
+// Anchored to whole lines (^...$ with the multiline flag), not a bare
+// substring match anywhere in the page. Both markers are always emitted as
+// their own standalone line by renderTourPage/renderProductPage — but
+// grounded prose describing AutoDocs' own keep-region mechanism (e.g. a
+// product "concepts" page explaining what a keep-region is) can legitimately
+// quote the marker text inline, mid-sentence, inside a much longer line. A
+// bare substring match would count that quotation as a second real region
+// and refuse to generate — confirmed by an actual product-scribe run whose
+// "concepts" page prose did exactly this. Requiring the whole line to be
+// nothing but the marker excludes an inline quotation (which always has
+// other text before/after it on the same line) while still matching every
+// real, structurally-emitted region.
+const KEEP_REGION_SOURCE = '^<!-- autodocs:keep -->$\\n([\\s\\S]*?)\\n^<!-- /autodocs:keep -->$';
+const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 
 // Bumped whenever renderTourPage's output *shape* changes (not its inputs) —
 // folded into generate-docs.mjs's render hash (see lib/design.mjs) so the
@@ -22,7 +34,7 @@ export const RENDER_TEMPLATE_VERSION = 3;
 // as "generated" content. Fail loudly instead, same as the out-of-keep-
 // region edit check in generate-docs.mjs does for other ambiguous edits.
 function assertAtMostOneKeepRegion(markdown) {
-  const matches = markdown.match(new RegExp(KEEP_REGION_SOURCE, 'g'));
+  const matches = markdown.match(new RegExp(KEEP_REGION_SOURCE, 'gm'));
   if (matches && matches.length > 1) {
     throw new Error(
       `Found ${matches.length} "autodocs:keep" regions — only one is supported per page. ` +

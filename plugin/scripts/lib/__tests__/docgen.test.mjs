@@ -331,6 +331,21 @@ describe('extractKeepRegion', () => {
       '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
     expect(() => extractKeepRegion(md)).toThrow(/only one is supported/);
   });
+
+  it('does not treat an inline, mid-sentence mention of the marker text as a second region', () => {
+    // Regression: a product-scribe-authored "concepts" page describing what
+    // a keep-region *is* legitimately quotes the marker text inline, e.g.
+    // "...placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->`
+    // markers...". That's one line of prose containing both marker
+    // substrings, not a second structural region — it must not trip the
+    // "only one is supported" guard alongside the one real region below.
+    const md =
+      '# Concepts\n\n' +
+      'A keep-region is content placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` markers.\n\n' +
+      '<!-- autodocs:keep -->\nReal note.\n<!-- /autodocs:keep -->\n';
+    expect(() => extractKeepRegion(md)).not.toThrow();
+    expect(extractKeepRegion(md)).toBe('Real note.');
+  });
 });
 
 describe('nonKeepContent', () => {
@@ -361,6 +376,17 @@ describe('nonKeepContent', () => {
       '# Page\n\n<!-- autodocs:keep -->\nFirst.\n<!-- /autodocs:keep -->\n\nMore text.\n\n' +
       '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
     expect(() => nonKeepContent(md)).toThrow(/only one is supported/);
+  });
+
+  it('does not treat an inline, mid-sentence mention of the marker text as a second region', () => {
+    const md =
+      '# Concepts\n\n' +
+      'A keep-region is content placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` markers.\n\n' +
+      '<!-- autodocs:keep -->\nReal note.\n<!-- /autodocs:keep -->\n';
+    const stripped = nonKeepContent(md);
+    expect(stripped).toContain('# Concepts');
+    expect(stripped).toContain('A keep-region is content placed inside');
+    expect(stripped).not.toContain('Real note.');
   });
 });
 
