@@ -37,6 +37,29 @@ export function readJsonFile(filePath, fallback) {
 // stale copy and clobbering the first writer's update on its own write.
 // `fs.openSync(..., 'wx')` fails with EEXIST if the lock is already held,
 // which is what the retry loop polls on.
+// A lock file is stale if the PID recorded in it no longer corresponds to a
+// running process. process.kill(pid, 0) sends no actual signal — it's a
+// pure liveness probe: throws ESRCH if the process is gone (stale), EPERM
+// if it exists but we lack permission to signal it (alive, just not ours —
+// NOT stale). An unreadable or unparseable lock (e.g. an empty one from
+// before this check existed) is treated as *not* stale — never guess, fall
+// back to the exact wait-then-fail behavior this replaces.
+function isStaleLock(lockPath) {
+  let pid;
+  try {
+    pid = Number(fs.readFileSync(lockPath, 'utf8').trim());
+  } catch {
+    return false;
+  }
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return false;
+  } catch (err) {
+    return err.code === 'ESRCH';
+  }
+}
+
 export function withFileLock(filePath, fn, { retries = 200, retryDelayMs = 20 } = {}) {
   const dir = path.dirname(filePath);
   fs.mkdirSync(dir, { recursive: true });
@@ -46,9 +69,18 @@ export function withFileLock(filePath, fn, { retries = 200, retryDelayMs = 20 } 
   for (let attempt = 0; ; attempt++) {
     try {
       fd = fs.openSync(lockPath, 'wx');
+      fs.writeSync(fd, String(process.pid));
       break;
     } catch (err) {
       if (err.code !== 'EEXIST') throw err;
+      // The process that held this lock is gone (crashed, OOM-killed,
+      // machine slept mid-write) — safe to clear it ourselves rather than
+      // making every future run burn the full retry window and require a
+      // human to delete it by hand. Retried immediately, no sleep spent.
+      if (isStaleLock(lockPath)) {
+        fs.rmSync(lockPath, { force: true });
+        continue;
+      }
       if (attempt >= retries) {
         throw new Error(
           `Timed out waiting for lock on "${filePath}" (held by another AutoDocs process?). ` +

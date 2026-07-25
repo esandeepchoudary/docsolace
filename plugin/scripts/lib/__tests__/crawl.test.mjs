@@ -395,4 +395,55 @@ describe('crawl', () => {
       { type: 'click', skipped: 'page navigated away from a prior interaction' },
     ]);
   });
+
+  it('records an error entry for a page that fails to load, and keeps crawling the rest instead of aborting the whole pass', async () => {
+    const { page } = makeFakePage({
+      '/': {
+        title: 'Home',
+        links: [
+          { href: '/a', text: 'A' },
+          { href: '/b', text: 'B' },
+        ],
+        forms: [],
+        buttons: [],
+      },
+      '/b': { title: 'B', links: [], forms: [], buttons: [] },
+    });
+    const originalGoto = page.goto.bind(page);
+    page.goto = async (url) => {
+      if (new URL(url).pathname === '/a') {
+        throw new Error('net::ERR_CONNECTION_RESET');
+      }
+      await originalGoto(url);
+    };
+
+    const siteMap = await crawl(page, { baseUrl, gotoRetryDelayMs: 0 });
+
+    const home = siteMap.find((p) => p.route === '/');
+    const a = siteMap.find((p) => p.route === '/a');
+    const b = siteMap.find((p) => p.route === '/b');
+    expect(home).toBeDefined();
+    expect(b).toBeDefined();
+    expect(a).toBeDefined();
+    expect(a.error).toMatch(/ERR_CONNECTION_RESET/);
+    expect(a.title).toBeUndefined();
+  });
+
+  it('retries a transient goto failure before giving up on the page', async () => {
+    const { page } = makeFakePage({
+      '/': { title: 'Home', links: [], forms: [], buttons: [] },
+    });
+    let attempts = 0;
+    const originalGoto = page.goto.bind(page);
+    page.goto = async (url) => {
+      attempts += 1;
+      if (attempts === 1) throw new Error('transient failure');
+      await originalGoto(url);
+    };
+
+    const siteMap = await crawl(page, { baseUrl, gotoRetries: 1, gotoRetryDelayMs: 1 });
+
+    expect(attempts).toBe(2);
+    expect(siteMap).toEqual([expect.objectContaining({ route: '/', title: 'Home' })]);
+  });
 });
