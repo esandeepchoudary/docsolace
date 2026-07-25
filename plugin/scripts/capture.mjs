@@ -226,6 +226,17 @@ async function main() {
   const config = loadConfig('autodocs.config.yaml');
   const tour = loadTour('tours', tourId);
 
+  // Mirrors generate-docs.mjs's own archived skip: an archived tour's
+  // feature is gone, so driving the app to "capture" it would either hit a
+  // 404 or fail confusingly partway through a step whose selector no longer
+  // exists. Nothing to do here — its existing screenshots live on under
+  // docs/archive/. Flip status back to "confirmed" by hand (or via
+  // archive-tour.mjs's own reversal note) before re-capturing.
+  if (tour.status === 'archived') {
+    console.log(`Skipping "${tour.id}": status is "archived" — its feature is gone, so it can't be captured.`);
+    return;
+  }
+
   if (tour.preconditions?.seed) {
     applySeed(config, tour.preconditions.seed, {
       allowSeedCommands: allowSeedCommands || config.allowSeedCommands === true,

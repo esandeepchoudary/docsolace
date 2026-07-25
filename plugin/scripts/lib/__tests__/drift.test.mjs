@@ -118,6 +118,18 @@ describe('isTourDirty', () => {
     ).toBe(false);
   });
 
+  it('is always false for archived tours, even with a changed screenshot/code hash', () => {
+    const previousEntry = { screenshotHashes: { a: '1' }, codePathsHash: 'x' };
+    expect(
+      isTourDirty({
+        tour: { maturity: 'stable', status: 'archived' },
+        previousEntry,
+        currentScreenshotHashes: { a: '2' },
+        currentCodePathsHash: 'y',
+      }),
+    ).toBe(false);
+  });
+
   it('is dirty when there is no previous entry (never generated)', () => {
     expect(
       isTourDirty({

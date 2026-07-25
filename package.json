@@ -8,6 +8,8 @@
     "crawl": "node plugin/scripts/crawl.mjs",
     "generate-docs": "node plugin/scripts/generate-docs.mjs",
     "drift": "node plugin/scripts/drift.mjs",
+    "prune": "node plugin/scripts/prune.mjs",
+    "archive-tour": "node plugin/scripts/archive-tour.mjs",
     "validate": "node plugin/scripts/validate.mjs",
     "review-diffs": "node plugin/scripts/review-diffs.mjs",
     "test": "vitest run"

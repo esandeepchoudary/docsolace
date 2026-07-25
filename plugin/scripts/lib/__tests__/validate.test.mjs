@@ -230,6 +230,19 @@ describe('validateTour — happy path', () => {
   });
 });
 
+describe('validateTour — archived', () => {
+  it('produces no findings at all for an archived tour, even one that would otherwise error', () => {
+    const config = { auth: {} };
+    const tour = baseTour({
+      status: 'archived',
+      preconditions: { auth: 'missing-profile' }, // would be an error if not archived
+      code_paths: ['nowhere/**'], // would be a warn if not archived
+    });
+
+    expect(validateTour(config, tour)).toEqual([]);
+  });
+});
+
 describe('validateProject', () => {
   it('flattens findings across multiple tours', () => {
     const config = { auth: {} };
