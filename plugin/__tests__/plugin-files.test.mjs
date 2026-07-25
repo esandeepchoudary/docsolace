@@ -259,6 +259,36 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('--interactive');
     expect(body.toLowerCase()).toContain('throwaway');
   });
+
+  it('map mode also prunes existing tours whose feature looks removed, archiving (never deleting) them', () => {
+    expect(body).toContain('Prune existing tours');
+    expect(body).toContain('prune.mjs');
+    expect(body).toContain('archive-tour.mjs');
+    expect(body.toLowerCase()).toContain('code-removed');
+    expect(body.toLowerCase()).toContain('route-unreachable');
+    expect(body.toLowerCase()).toContain('never delete');
+  });
+
+  it('only auto-archives the strong (code-removed) signal — a route the crawl missed is reported, not archived, even autonomously', () => {
+    // Regression guard: route-unreachable is checked against a crawl that's
+    // explicitly best-effort (bounded maxPages/maxDepth, profiles can be
+    // skipped) — treating it as equal to code-removed would risk archiving
+    // a live tour on an incomplete/stale site-map.json alone.
+    expect(body.toLowerCase()).toContain('safe to auto-archive');
+    expect(body.toLowerCase()).toContain('best-effort');
+    expect(body.toLowerCase()).toContain('never auto-archived');
+  });
+
+  it('has a standalone prune mode for the archival check without a full map run', () => {
+    expect(frontmatter['argument-hint']).toContain('prune');
+    expect(body).toContain('## Prune orphaned tours');
+    expect(body).toContain('node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"');
+    expect(body).toContain('--review');
+  });
+
+  it('the shared Ship step stages docs/archive/** alongside docs/*.md', () => {
+    expect(body).toContain('docs/archive/**');
+  });
 });
 
 describe('scripts/crawl.mjs', () => {

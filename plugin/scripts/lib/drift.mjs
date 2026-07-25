@@ -36,7 +36,9 @@ export function computeCodePathsHash(codePaths, cwd = process.cwd()) {
 // gate entirely. Neither is a `proposed` tour (an auto-suggested draft
 // awaiting human review — see Phase 7 in the brief): authorship confidence
 // (`status`) is independent of UI stability (`maturity`), and either one
-// gates alone.
+// gates alone. Neither is an `archived` tour (see lib/archive.mjs,
+// lib/prune.mjs): its feature is gone, so there's nothing left to capture or
+// regenerate — its existing page lives on under docs/archive/ instead.
 //
 // currentRenderHash is optional so every existing caller/test that predates
 // the render hash keeps working unchanged; when it is passed, a previous
@@ -45,7 +47,7 @@ export function computeCodePathsHash(codePaths, cwd = process.cwd()) {
 // template and need one more regeneration to catch up.
 export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash }) {
   if (tour.maturity === 'draft') return false;
-  if (tour.status === 'proposed') return false;
+  if (tour.status === 'proposed' || tour.status === 'archived') return false;
   if (!previousEntry) return true;
   const hashesChanged =
     JSON.stringify(previousEntry.screenshotHashes) !== JSON.stringify(currentScreenshotHashes);

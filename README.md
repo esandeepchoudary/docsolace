@@ -124,7 +124,8 @@ there:
 | `/autodocs:document` | Run the full pipeline over every tour, ship a docs PR |
 | `/autodocs:document <tour-id>` | Same, but just that one tour |
 | `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
-| `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap |
+| `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
+| `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
 | `/autodocs:document validate` | Preflight-check config/tours, no browser — rarely needed by hand, mostly for CI |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
@@ -239,7 +240,8 @@ Two things to set up, both by example in this repo:
   title: "Login page"
   intent: "Show what a signed-out user sees before authenticating."
   maturity: stable      # draft = still churning, skipped until you flip it
-  status: confirmed     # confirmed = ready to use (see "Use it in your project" above)
+  status: confirmed     # confirmed = ready to use; proposed = drafted, not yet reviewed;
+                         # archived = feature looks removed — see "Archiving a removed feature" below
   steps:
     - action: goto
       path: /login
@@ -720,6 +722,54 @@ role(s) reached it, or a flag if none did) plus a suggested section
 structure, and the audit trail for what gets drafted next (all of it, by
 default; whatever you pick, under `--review`).
 
+### Archiving a removed feature
+
+Drift gating keeps docs in sync when a feature *changes*; this is the other
+direction — what happens when a feature is *removed*. Without it, a tour for
+a deleted page either goes stale silently or starts failing capture with a
+confusing error the next time it runs.
+
+`/document map` checks for this automatically (as part of its full
+reconciliation), or run just this check on its own:
+
+```
+/autodocs:document prune
+```
+
+It flags a **confirmed** tour as an orphan candidate on two mechanical
+signals — no guessing involved, and not treated as equally trustworthy:
+
+- **`code-removed`** — the tour's `code_paths` used to resolve to real files
+  (it was captured/generated successfully before) and no longer does. Checked
+  against the committed git tree directly — exact, not a sample.
+- **`route-unreachable`** — none of the tour's `goto` steps' paths turn up in
+  a crawl or code-review pass (only checked when `/document map` has already
+  produced `site-map.json`/`source-routes.json` to check against; `prune` on
+  its own, with neither file present yet, checks `code-removed` only). A
+  crawl is explicitly best-effort elsewhere in this project too (bounded by
+  `maxPages`/`maxDepth`, a profile can be skipped) — an unreached route is a
+  reason to look, not proof the feature is gone, so this signal **alone never
+  triggers auto-archiving**, even in autonomous mode.
+
+**By default it auto-archives only tours flagged `code-removed`** — same
+autonomous-by-default posture as every other mode (see "It ships a docs PR
+for you" above), but only where the evidence is exact — by flipping
+`status: confirmed` to `status: archived` and moving the generated page (and
+images) from `docs/<id>.md` to `docs/archive/<id>.md`, with a banner
+explaining why. It's **never deleted**: `tours/<id>.yaml` and every word of
+prose survive, just relocated, so a wrong call is a one-line revert — flip
+`status` back to `confirmed` and move the page back. A `route-unreachable`-
+only candidate is always just reported, for a human to check. Append
+`--review` to list every candidate (both signals) and stop instead of
+archiving anything.
+
+`docs/archive/` gets its own `_category_.json`, so the scaffolded Docusaurus
+site (see "Publishing a docs site" below) files every archived tutorial into
+a dedicated **Archive** section at the bottom of the sidebar automatically —
+nothing to configure by hand. An archived tour is permanently skipped by
+`capture`/`drift`/`generate-docs`/`validate`, the same way `draft`/`proposed`
+tours are — its feature is gone, so there's nothing left to capture.
+
 ### Running it without Claude Code
 
 The plugin is the primary way to use AutoDocs, but the pipeline underneath
@@ -756,6 +806,8 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
+| `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
+| `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
 | `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
 | `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
 
@@ -788,12 +840,14 @@ plugin/                    The self-contained, installable Claude Code plugin �
   agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
   scripts/                     The engine: capture.mjs, crawl.mjs, drift.mjs, generate-docs.mjs,
                                 review-diffs.mjs, design-scan.mjs (design-skill detection),
+                                prune.mjs (orphan-tour detection), archive-tour.mjs (archives one),
                                 lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks
 autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold, docs layout
 docs/                      This repo's own generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
+docs/archive/              Tutorials for removed features — see "Archiving a removed feature" above
 .autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
@@ -810,7 +864,9 @@ Every phase of the original build plan is done: capture, drift gating,
 grounded generation, plugin packaging, publishing, hardening (multi-viewport,
 default masks, diff review, edit-safety guard), and assisted tour discovery.
 See `autodocs-implementation-brief.md` for the phase-by-phase acceptance
-criteria this was built against.
+criteria this was built against. Since then: orphan-tour detection and
+archiving (`/document prune`, folded into `map`) — the reverse of assisted
+discovery, for when a feature is removed instead of added.
 
 ## Learn more
 
