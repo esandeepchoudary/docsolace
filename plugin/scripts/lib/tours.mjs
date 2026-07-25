@@ -8,7 +8,10 @@ import { load as parseYaml } from 'js-yaml';
 // both the requested id (CLI arg) and the id read back out of the YAML body
 // must be constrained to a safe slug before anything joins them into a path
 // — otherwise a value like "../../../etc/foo" escapes the intended directory.
-const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+// Exported so lib/config.mjs can hold docs.sections' tour-id references to
+// this exact same bar, instead of a second regex that could quietly drift
+// out of sync with it.
+export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function assertSafeSlug(id, label) {
   if (typeof id !== 'string' || !SLUG_RE.test(id)) {

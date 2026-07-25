@@ -109,7 +109,12 @@ const UNSAFE_LABEL_CHARS_RE = /[<>[\]()|\r\n]/;
 const MAX_LABEL_LENGTH = 60;
 const VIEWPORT_KEY_RE = /^[a-z0-9-]+$/;
 
-function assertSafeLabel(value, label) {
+// Exported so other generated-content producers (lib/product.mjs's
+// frontmatter/section labels) can reuse this exact bar instead of forking a
+// slightly different one — same conservative "short plain label, no
+// markdown/HTML metacharacters" posture applies anywhere untrusted config
+// content reaches a generated page.
+export function assertSafeLabel(value, label) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${DOC_STYLE_FILENAME}: "${label}" must be a non-empty string`);
   }
@@ -188,10 +193,22 @@ export function loadDocStyle(projectDir) {
 // folded into the drift gate (lib/drift.mjs's isTourDirty) so a template or
 // style change re-renders every existing page on the next run instead of
 // waiting for that tour's own content to change first.
-export function computeRenderHash({ templateVersion, docsConfig, pageStyle }) {
+//
+// `tourInventory` is optional (existing callers that predate tour
+// sidebar_position frontmatter keep working unchanged) — pass the sorted
+// list of every *other* published tour id when calling this for a tour page.
+// A tour's sidebar_position depends on where every sibling tour sorts (see
+// lib/product.mjs's computeTourSidebarPositions), not just docsConfig/
+// pageStyle in isolation, so adding/removing/renaming a tour anywhere in the
+// project has to re-render every tour page's frontmatter too, not just the
+// one that actually changed.
+export function computeRenderHash({ templateVersion, docsConfig, pageStyle, tourInventory }) {
   const hash = createHash('sha256');
   hash.update(`template:${templateVersion}\n`);
   hash.update(`docsConfig:${JSON.stringify(docsConfig ?? {})}\n`);
+  if (tourInventory !== undefined) {
+    hash.update(`tourInventory:${JSON.stringify(tourInventory)}\n`);
+  }
   hash.update(`pageStyle:${JSON.stringify(pageStyle ?? {})}\n`);
   return hash.digest('hex');
 }

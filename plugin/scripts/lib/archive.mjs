@@ -8,6 +8,16 @@ import path from 'node:path';
 
 const BANNER_MARKER = '<!-- autodocs:archived -->';
 
+// Tour/product pages can now carry a leading YAML frontmatter block (see
+// lib/docgen.mjs's renderTourPage `frontmatter` argument / lib/product.mjs's
+// buildFrontmatter) — Docusaurus requires frontmatter to be the very first
+// thing in the file, so the banner has to land *after* it, not above it, or
+// it would silently break sidebar_position/sidebar_label parsing on every
+// archived page. Mirrors lib/frontmatter.mjs's FRONTMATTER_RE shape, but
+// keeps the frontmatter block as raw text (group 1) instead of parsing it —
+// applyArchiveBanner only needs to preserve it verbatim, never read it.
+const FRONTMATTER_RE = /^(---\n[\s\S]*?\n---\n?)([\s\S]*)$/;
+
 // Prepended above the page's own `# Title` line. Uses the same HTML-comment
 // marker style as the keep-region so applyArchiveBanner can detect it's
 // already there (archive-tour.mjs is safe to re-run) without re-parsing the
@@ -23,12 +33,16 @@ export function buildArchiveBanner() {
   ].join('\n');
 }
 
-// Idempotent: a markdown that already starts with the banner marker is
-// returned unchanged, so re-running archive-tour.mjs on an already-archived
-// page (e.g. after a hand edit) never stacks a second banner.
+// Idempotent: a page whose content (after any frontmatter) already starts
+// with the banner marker is returned unchanged, so re-running
+// archive-tour.mjs on an already-archived page (e.g. after a hand edit)
+// never stacks a second banner.
 export function applyArchiveBanner(markdown) {
-  if (markdown.startsWith(BANNER_MARKER)) return markdown;
-  return `${buildArchiveBanner()}\n${markdown}`;
+  const match = markdown.match(FRONTMATTER_RE);
+  const frontmatter = match ? match[1] : '';
+  const rest = match ? match[2] : markdown;
+  if (rest.startsWith(BANNER_MARKER)) return markdown;
+  return `${frontmatter}${buildArchiveBanner()}\n${rest}`;
 }
 
 // Where a tour's generated page and images live before/after archiving.

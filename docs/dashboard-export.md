@@ -1,3 +1,8 @@
+---
+sidebar_position: 10
+sidebar_label: "Export dashboard activity"
+---
+
 # Export dashboard activity
 
 Show how to export the current activity table as a CSV.

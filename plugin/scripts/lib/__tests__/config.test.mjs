@@ -253,4 +253,105 @@ describe('loadConfig', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs: "nope"\n');
     expect(() => loadConfig(filePath)).toThrow(/"docs" must be an object/);
   });
+
+  it('accepts a valid docs.sections list', () => {
+    const sections =
+      'docs:\n  sections:\n    - label: "Getting started"\n      tours: [login]\n' +
+      '    - label: "Dashboard"\n      tours: [dashboard-overview, dashboard-export]\n';
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + sections);
+    expect(loadConfig(filePath).docs.sections).toEqual([
+      { label: 'Getting started', tours: ['login'] },
+      { label: 'Dashboard', tours: ['dashboard-overview', 'dashboard-export'] },
+    ]);
+  });
+
+  it('throws when docs.sections is not a list', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections: "nope"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"docs.sections" must be a list/);
+  });
+
+  it('throws when a docs.sections entry has no label', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections:\n    - tours: [login]\n');
+    expect(() => loadConfig(filePath)).toThrow(/label/);
+  });
+
+  it('throws when a docs.sections entry has an unsafe label', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections:\n    - label: "<script>alert(1)</script>"\n      tours: [login]\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/metacharacters/);
+  });
+
+  it('throws when a docs.sections entry has an empty tours list', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections:\n    - label: "x"\n      tours: []\n');
+    expect(() => loadConfig(filePath)).toThrow(/non-empty list of tour ids/);
+  });
+
+  it('throws when a docs.sections tour id is not a safe kebab-case slug', () => {
+    const filePath = writeTmpYaml(
+      VALID_BASE + VALID_VIEWPORTS + 'docs:\n  sections:\n    - label: "x"\n      tours: ["../../etc"]\n',
+    );
+    expect(() => loadConfig(filePath)).toThrow(/lowercase kebab-case tour id/);
+  });
+
+  it('omitting product entirely stays valid', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS);
+    expect(loadConfig(filePath).product).toBeUndefined();
+  });
+
+  it('accepts a valid product section', () => {
+    const product =
+      'product:\n  name: "My App"\n  pages: [overview, concepts]\n  sources:\n    - "docs-src/**/*.md"\n';
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + product);
+    expect(loadConfig(filePath).product).toEqual({
+      name: 'My App',
+      pages: ['overview', 'concepts'],
+      sources: ['docs-src/**/*.md'],
+    });
+  });
+
+  it('throws when product is not an object', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product: "nope"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product" must be an object/);
+  });
+
+  it('throws when product.name is an empty string', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  name: "   "\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.name" must be a non-empty string/);
+  });
+
+  it('throws when product.pages is empty', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  pages: []\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.pages" must be a non-empty list/);
+  });
+
+  it('throws when product.pages names an unknown page', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  pages: [overview, faq]\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.pages" names unknown page\(s\) faq/);
+  });
+
+  it('throws when product.sources is not a list', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  sources: "nope"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.sources" must be a list of globs/);
+  });
+
+  it('throws when a product.sources entry is an absolute path', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  sources:\n    - "/etc/passwd"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.sources" entry .* is invalid/s);
+  });
+
+  it('throws when a product.sources entry contains a ".." segment', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  sources:\n    - "../../secrets/**"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.sources" entry .* is invalid/s);
+  });
+
+  it('throws when a product.sources entry uses brace expansion, even with no literal ".." segment', () => {
+    // Regression guard for a confirmed bypass: "{..,x}/*secret*" has no path
+    // segment that is literally ".." (the segment is the string "{..,x}"),
+    // so the ".." check alone would let it through — glob's own brace
+    // expansion then turns it into a real "../*secret*" match at resolve
+    // time. Braces must be rejected outright at the pattern-string level too.
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'product:\n  sources:\n    - "{..,x}/*secret*"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"product.sources" entry .* is invalid.*brace/s);
+  });
 });

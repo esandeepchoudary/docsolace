@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "validate" preflight-checks config/tours with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | validate | init-site   (any mode: [--review] [--no-style])"
+description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level overview/getting-started/concepts pages via the product-scribe subagent, grounded in README/package.json/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | product | validate | init-site   (any mode: [--review] [--no-style])"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
@@ -16,10 +16,10 @@ AutoDocs' own npm scripts.
 
 ## Autonomy
 
-By default, every mode below (the normal pipeline, `propose`, `map`, and
-`prune`) runs end-to-end to an opened docs PR without stopping for review at
-each intermediate step — that single PR (never auto-merged) is the review
-point.
+By default, every mode below (the normal pipeline, `propose`, `map`, `prune`,
+and `product`) runs end-to-end to an opened docs PR without stopping for
+review at each intermediate step — that single PR (never auto-merged) is the
+review point.
 This applies everywhere except the **hard stops** below, where a run always
 stops and reports instead of pushing through:
 
@@ -36,9 +36,9 @@ stops and reports instead of pushing through:
   recorded yet — this genuinely needs a human at a headed browser (see Step 1
   under "Steps" below); relay the exact `save-auth-state.mjs` command and
   stop.
-- `generate-docs.mjs` refuses because a page was hand-edited outside a
-  `<!-- autodocs:keep -->` region (hash mismatch) — never `--force` past this;
-  a human needs to look.
+- `generate-docs.mjs` (or `generate-product-docs.mjs`, for a product page)
+  refuses because a page was hand-edited outside a `<!-- autodocs:keep -->`
+  region (hash mismatch) — never `--force` past this; a human needs to look.
 - `map --interactive` still requires the out-loud dev-environment
   confirmation in its own preflight step before crawling with synthetic form
   submission — required in both autonomous and `--review` mode, never
@@ -49,6 +49,12 @@ isn't recorded yet (see "Map the whole app" steps 2/4). That's a per-profile,
 non-blocking skip — the crawl maps everything reachable under every other
 profile and reports the gap, rather than the whole run stalling on one
 missing role's session the way a *tour's own* `capture.mjs` run does above.
+
+**Also not a hard stop:** `product-scribe` reporting it couldn't ground one
+of the requested product pages (e.g. no README to build a `concepts` page
+from). That page is skipped and reported — every other product page and
+every tour still generates and ships normally, unlike a tour's own
+grounding failure above, which does stop that tour's dispatch.
 
 **`--review`**, appended to the normal run, `propose`, or `map`, restores the
 previous stop-and-ask-at-each-step behavior for anyone who wants to stay
@@ -118,16 +124,21 @@ every mode below, not just the normal pipeline.
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
 If the arguments are `prune`, follow **"Prune orphaned tours"** below.
+If the arguments are `product`, follow **"Document the product itself"**
+below.
 If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below —
 this also covers re-applying styling to an already-scaffolded site, so
 there's no separate "restyle" mode.
 Otherwise: run the AutoDocs pipeline — apply the project's design skill (once,
 if not already applied and `--no-style` wasn't given) → capture → drift gate
-→ dispatch dirty tours needing new prose to the `doc-scribe` subagent →
-regenerate → summarize → ship. If a tour file slug was given, operate on just
-`tours/<slug>.yaml`; with no argument, operate on every `*.yaml` file in
-`tours/`.
+→ dispatch dirty tours needing new prose to the `doc-scribe` subagent (plus
+the product pages, if dirty, to `product-scribe` — see "Document the product
+itself" below, folded into Steps 2–4) → regenerate → summarize → ship. If a
+tour file slug was given, operate on just `tours/<slug>.yaml` (the product
+pages are only touched by their own `product` mode or a no-argument run, never
+by a single-tour run); with no argument, operate on every `*.yaml` file in
+`tours/` plus the product pages.
 
 ## Propose a new tour
 
@@ -406,12 +417,69 @@ yourself. No browser is launched unless a previous `/document map` run left
    need human review (`route-unreachable` only, either mode) — and, in
    autonomous mode, the branch/PR that shipped if anything did.
 
+## Document the product itself
+
+Parses as `product [--review]`. Tours and `doc-scribe` describe individual UI
+flows; this generates the layer above them — `docs/overview.md`,
+`docs/getting-started.md`, `docs/concepts.md` (whichever are enabled — see
+`autodocs.config.yaml`'s `product.pages`) — describing what the product **is**,
+grounded in the repo itself (README, `package.json`, `.env.example`,
+`autodocs.config.yaml`, any extra `product.sources` globs, and the confirmed
+tour inventory), never the running app. This needs no browser and no tours,
+so it's runnable immediately after Step 0's bootstrap — a brand-new project
+can get a real landing page before its first tour exists.
+
+1. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"` (or just read its
+   `_product` line if you already ran it this session) to see whether the
+   product pages are dirty, and why: `(inputs)` means a grounding file or the
+   tour inventory changed and needs fresh `product-scribe` prose;
+   `(render only — no new prose needed)` means only the template/`docs:`
+   layout/design-style changed, so the existing prose is still grounded and
+   only needs re-assembling; clean means nothing to do.
+2. **If dirty for `inputs` (or never generated):** dispatch the
+   `product-scribe` subagent with: which pages to generate (`product.pages`,
+   default all three), the grounding file list (`collectProductSources` —
+   README/package.json/.env.example/autodocs.config.yaml plus any
+   `product.sources` globs, already filtered to exclude `.env`/key files/
+   `.auth/`), and the confirmed tour inventory (id/title/intent). Wait for it
+   to write `.autodocs/artifacts/prose/_product.json` — don't write this
+   prose yourself, same "never invent" discipline as `doc-scribe`. If dirty
+   only for `render`, skip this dispatch — the existing prose file is reused
+   as-is.
+3. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs"
+   ```
+   Assembles whichever pages `product-scribe` actually grounded (a page it
+   couldn't ground is skipped and reported, not padded with invented
+   content — this is **not** a hard stop, unlike a tour's own generation
+   failure; the other pages and every tour still ship), applies the current
+   `docs:`/design-style layout and frontmatter, preserves any human-edited
+   `<!-- autodocs:keep -->` regions, and writes
+   `docs/_sidebar.autodocs.json` (the ordered page/section structure
+   `init-site` wires the scaffolded site's sidebar to, if one exists). A
+   hash-mismatch refusal here (a human edited a page outside its keep-region)
+   is a hard stop, same as a tour's — never `--force` past it in this mode.
+4. **In `--review` mode:** stop here and report what was (re)generated, what
+   was skipped for lack of grounding, and anything that needs a look — don't
+   ship.
+   **Otherwise (default):** run **Step 6 (Ship)** under "Steps" below,
+   covering the product pages generated this run.
+5. Report what was generated/skipped and, in autonomous mode, the branch/PR
+   that shipped.
+
+This same dirty-check → dispatch → generate sequence is also folded into the
+normal (no-argument) pipeline's Steps 2–4 below — a plain `/document` run
+keeps the product pages in sync automatically, the same way it does for
+tours, without needing a separate `/document product` invocation every time.
+
 ## Validate a project
 
-Preflight-checks `autodocs.config.yaml` and every tour under `tours/` without
-launching a browser — catches problems that would otherwise only surface
-mid-run (an undefined `preconditions.auth` profile fails partway through
-`capture.mjs`, after it's already launched a browser). Run:
+Preflight-checks `autodocs.config.yaml`, every tour under `tours/`, and the
+product pages, without launching a browser — catches problems that would
+otherwise only surface mid-run (an undefined `preconditions.auth` profile
+fails partway through `capture.mjs`, after it's already launched a browser).
+Run:
 
 ```
 node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"
@@ -421,10 +489,16 @@ It reports, per tour: `ok`, or a list of `error`/`warn` findings — an
 undefined `preconditions.auth` profile is an **error** (capture would fail
 on it), while an empty `code_paths` glob match, a not-yet-recorded
 `storageStatePath` session, or a non-`role=`/`text=` interactive selector are
-**warnings** (things still run, just not as intended). Report the output
-plainly; don't silently fix a tour yourself — a human authored or confirmed
-it. Recommend running this after authoring/confirming a tour and before the
-normal pipeline, especially right after `propose` drafts one.
+**warnings** (things still run, just not as intended). It also reports one
+`_product` line — always `warn`, never `error`, since a thin grounding source
+means the generated pages will be thin, not that generation will fail: no
+`README.md`, a `product.sources` glob matching nothing, a `docs.sections`
+entry naming a tour that doesn't exist, or a confirmed tour in no
+`docs.sections` group. Report the output plainly; don't silently fix a tour
+or the config yourself — a human authored or confirmed it. Recommend running
+this after authoring/confirming a tour (or editing `product`/`docs.sections`
+config) and before the normal pipeline, especially right after `propose`
+drafts one.
 
 ## Scaffold a docs site
 
@@ -447,10 +521,14 @@ repo runs it):
      `site/package.json`'s dependencies already include
      `@easyops-cn/docusaurus-search-local`; if not, apply step 5 below
      (install + config) to this existing site now.
+   - **Backfill the sidebar wiring too, unconditionally — same reasoning.**
+     If `docs/_sidebar.autodocs.json` exists but `site/sidebars.js` still
+     uses the default `{type: 'autogenerated', ...}` array (no reference to
+     that file), apply step 6 below to this existing site now.
    - Then, if `--no-style` was passed this time too: rebuild (`cd site &&
      npm run build`, `npm install` first only if step 5 just added the
-     search dependency) if search was backfilled, otherwise there's nothing
-     left to do. Report accordingly and stop.
+     search dependency) if search and/or the sidebar wiring was backfilled,
+     otherwise there's nothing left to do. Report accordingly and stop.
    - Otherwise, re-run **"Apply the project's design skill"** below,
      ignoring its own "skip if `.autodocs/doc-style.json` already exists"
      shortcut so it actually re-detects and re-applies, then `cd site && npm
@@ -511,30 +589,54 @@ repo runs it):
    breaks search-result links, not a hypothetical (caught by actually
    building and checking `build/search-index.json`'s entries had `/docs/...`
    URLs, not `/...`). Indexes at build time into `site/build/search-index.json`
-   — confirm it actually worked by checking that file exists after step 8's
+   — confirm it actually worked by checking that file exists after step 9's
    build and contains an entry per generated tour page, same "verify by
    running it" discipline as the other fixes in this recipe. This also
    indexes anything under `docs/archive/` automatically — it's just more
    docs-plugin content, no separate config needed.
-6. **Fix `site/src/pages/index.js` — required, not optional, even with no
+6. **Wire the generated sidebar structure, if one exists.**
+   `generate-product-docs.mjs` writes `docs/_sidebar.autodocs.json` — a
+   plain, framework-neutral `{productPages, sections, unsectionedTours}`
+   payload — the first time at least one product page has been generated
+   (see "Document the product itself"). If that file doesn't exist yet (a
+   fresh project with no product/tour docs generated at all), leave
+   `site/sidebars.js` on its scaffolded default
+   (`{type: 'autogenerated', dirName: '.'}`) — there's nothing to build a
+   real sidebar from yet, and re-running `init-site` later, once docs exist,
+   picks this up on its own. If it does exist, replace `sidebars.js`'s
+   default export with one that reads it (`fs.readFileSync` + `JSON.parse` —
+   the file is plain JSON, and `sidebars.js` itself is ESM here, so
+   `require` doesn't apply) and builds an explicit array: `productPages`'
+   ids first, in the JSON's own order (they're already position-sorted),
+   then one `{type: 'category', label, items}` block per `sections` entry,
+   then `unsectionedTours`' ids appended flat at the end (still findable,
+   just not grouped). Read the file at build time (top of `sidebars.js`,
+   before the `export default`), not once and cached, so a later
+   regeneration is picked up on the site's next build with no further edit
+   needed here.
+7. **Fix `site/src/pages/index.js` — required, not optional, even with no
    tours yet.** The scaffolded homepage links to `/docs/intro`, a sample
    page that no longer exists once `docs.path` points at the real `docs/`
    (step 4) — the build fails on that broken link otherwise (verified: it
-   does, with exactly this error). Link to one of the project's actual
-   generated tour pages if any exist (e.g. `/docs/<some-tour-id>`); if none
-   exist yet, remove the link/button entirely rather than pointing it
-   anywhere.
-7. Unless `--no-style` was passed, run **"Apply the project's design
+   does, with exactly this error). Link to `/docs/overview` if
+   `docs/overview.md` exists (the product overview page — see "Document the
+   product itself" — is the right front door once it exists); otherwise to
+   one of the project's actual generated tour pages if any exist (e.g.
+   `/docs/<some-tour-id>`); if neither exists yet, remove the link/button
+   entirely rather than pointing it anywhere.
+8. Unless `--no-style` was passed, run **"Apply the project's design
    skill"** below now, before installing — it edits
    `site/src/css/custom.css`/`site/docusaurus.config.js`'s `themeConfig`,
    which the build in the next step should already reflect.
-8. `cd site && npm install && npm run build` — confirm it actually succeeds,
+9. `cd site && npm install && npm run build` — confirm it actually succeeds,
    don't just assume the edits were correct (this also verifies the theming
-   from step 7 and the search setup from step 5 didn't break the build).
-9. Report what was created and how to preview it (`cd site && npm start`),
-   and point at this plugin's own README section "Publishing a docs site"
-   for publishing it somewhere. Note which design skill (if any) was
-   applied, and that search is set up.
+   from step 8, the search setup from step 5, and the sidebar wiring from
+   step 6 didn't break the build).
+10. Report what was created and how to preview it (`cd site && npm start`),
+    and point at this plugin's own README section "Publishing a docs site"
+    for publishing it somewhere. Note which design skill (if any) was
+    applied, that search is set up, and whether the sidebar is wired to
+    `docs/_sidebar.autodocs.json` yet or still on the scaffolded default.
 
 ## Apply the project's design skill
 
@@ -597,7 +699,8 @@ it, e.g. after installing or changing a design skill).
 ## Steps
 
 Runs against whichever tour(s) were resolved above (one slug, or every
-`tours/*.yaml`). Unless `--no-style` was passed or
+`tours/*.yaml` plus the product pages, on a no-slug run — see Steps 2–4's
+call-outs below). Unless `--no-style` was passed or
 `.autodocs/doc-style.json` already exists, run **"Apply the project's design
 skill"** above first. In `--review` mode, stop after Step 5's summary — the
 same behavior as before autonomy existed. Otherwise (the default), continue
@@ -638,7 +741,10 @@ failure, report the exact fix (`gh auth login`) and stop.
    `lib/design.mjs`'s render hash) — its existing prose is still grounded.
    Only dirty tours need regeneration at all — this is the whole point of
    the gate: don't waste a subagent call or rewrite a page that hasn't
-   actually changed.
+   actually changed. **On a no-slug (whole-project) run only** — never for a
+   single `--tour <slug>` run — also read the report's `_product` line the
+   same way (see "Document the product itself" above for what its
+   `(inputs)`/`(render only)` annotations mean).
 
 3. **Generate prose for dirty tours that need it.** For each tour the drift
    check reports dirty for `screenshots` and/or `code` (not the render-only
@@ -648,7 +754,9 @@ failure, report the exact fix (`gh auth login`) and stop.
    write any prose yourself, that's the subagent's job, done in an isolated
    context so it doesn't pollute this session. A render-only dirty tour
    skips this step entirely — `generate-docs.mjs` (next step) reuses its
-   existing prose file as-is.
+   existing prose file as-is. **On a no-slug run, if `_product` was dirty for
+   `inputs`** (not render-only), also dispatch the `product-scribe` subagent
+   exactly as "Document the product itself" step 2 describes.
 
 4. **Assemble.** For every dirty tour (render-only ones included — their
    prose file already exists from a previous run), run:
@@ -662,7 +770,11 @@ failure, report the exact fix (`gh auth login`) and stop.
    tour's entry (including its render hash) in
    `.autodocs/artifacts/state.json`. A hash-mismatch refusal here (a human
    edited a page outside its `autodocs:keep` region) is a hard stop — never
-   `--force` past it.
+   `--force` past it. **On a no-slug run, if `_product` was dirty at all**,
+   also run
+   `node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs"` (no
+   `--tour` flag — it always covers every enabled product page in one call).
+   Same hash-mismatch hard stop applies per page.
 
 5. **Summarize.** Report, for this run:
    - which tours were regenerated (and a one-line reason: code changed
@@ -670,6 +782,8 @@ failure, report the exact fix (`gh auth login`) and stop.
      render/style layout changed)
    - which tours were skipped as clean, and which were skipped as
      draft/proposed/archived
+   - on a no-slug run: whether the product pages were regenerated (and why),
+     skipped as clean, or skipped for lack of grounding
    - anything that failed and why
 
    This summary is meant to double as the body of the docs PR — keep it
@@ -689,9 +803,11 @@ failure, report the exact fix (`gh auth login`) and stop.
       before it's pushed, and it becomes part of the commit/PR body.
    3. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
       `docs/archive/**` (any tour this run archived — see "Prune orphaned
-      tours"/"Map the whole app" step 5), any `tours/*.yaml` this run wrote,
-      confirmed, or archived, and — only if this run applied or changed one —
-      `.autodocs/doc-style.json` (committed, not gitignored) plus any
+      tours"/"Map the whole app" step 5), `docs/_sidebar.autodocs.json` (only
+      if this run wrote or changed it — see "Document the product itself"),
+      any `tours/*.yaml` this run wrote, confirmed, or archived, and — only
+      if this run applied or changed one — `.autodocs/doc-style.json`
+      (committed, not gitignored) plus any
       `site/src/css/custom.css`/`site/docusaurus.config.js` theming edits.
       Never stage `.autodocs/artifacts/` (gitignored; it's local working
       state, not a deliverable) or anything else in the working tree
