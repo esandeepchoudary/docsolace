@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { validateProject, validateTour } from '../validate.mjs';
+import { validateProduct, validateProject, validateTour } from '../validate.mjs';
 
 const tmpDirs = [];
 
@@ -255,5 +255,77 @@ describe('validateProject', () => {
 
     expect(findings).toHaveLength(2);
     expect(findings.map((f) => f.tour).sort()).toEqual(['a', 'b']);
+  });
+});
+
+describe('validateProduct', () => {
+  it('is clean when README.md exists and no docs.sections is configured', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    expect(validateProduct({}, [], { cwd: dir })).toEqual([]);
+  });
+
+  it('warns when README.md is missing', () => {
+    const dir = makeTmpDir();
+    const findings = validateProduct({}, [], { cwd: dir });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', tour: '_product', message: expect.stringContaining('No README.md') }),
+    );
+  });
+
+  it('warns when a product.sources glob matches nothing', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    const config = { product: { sources: ['docs-src/**/*.md'] } };
+    const findings = validateProduct(config, [], { cwd: dir });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: expect.stringContaining('docs-src/**/*.md') }),
+    );
+  });
+
+  it('is clean when a product.sources glob matches a real file', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    fs.mkdirSync(path.join(dir, 'docs-src'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'docs-src', 'a.md'), 'a');
+    const config = { product: { sources: ['docs-src/**/*.md'] } };
+    expect(validateProduct(config, [], { cwd: dir })).toEqual([]);
+  });
+
+  it('warns when docs.sections names a tour that does not exist', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    const config = { docs: { sections: [{ label: 'x', tours: ['ghost'] }] } };
+    const findings = validateProduct(config, [baseTour({ id: 'login' })], { cwd: dir });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ message: expect.stringContaining('"ghost"') }),
+    );
+  });
+
+  it('warns when a confirmed tour appears in no docs.sections group', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    const config = { docs: { sections: [{ label: 'x', tours: ['login'] }] } };
+    const tours = [baseTour({ id: 'login' }), baseTour({ id: 'orphan' })];
+    const findings = validateProduct(config, tours, { cwd: dir });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ message: expect.stringContaining('"orphan"') }),
+    );
+  });
+
+  it('does not warn about section coverage for a draft/proposed/archived tour', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    const config = { docs: { sections: [{ label: 'x', tours: ['login'] }] } };
+    const tours = [baseTour({ id: 'login' }), baseTour({ id: 'draft-one', maturity: 'draft' })];
+    const findings = validateProduct(config, tours, { cwd: dir });
+    expect(findings.some((f) => f.message.includes('draft-one'))).toBe(false);
+  });
+
+  it('is a no-op for section-coverage checks when docs.sections is not configured at all', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    const findings = validateProduct({}, [baseTour({ id: 'login' })], { cwd: dir });
+    expect(findings).toEqual([]);
   });
 });

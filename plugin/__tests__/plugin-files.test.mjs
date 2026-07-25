@@ -305,8 +305,31 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('--review');
   });
 
-  it('the shared Ship step stages docs/archive/** alongside docs/*.md', () => {
+  it('has a product mode that dispatches product-scribe and assembles via generate-product-docs.mjs', () => {
+    expect(frontmatter['argument-hint']).toContain('product');
+    expect(body).toContain('## Document the product itself');
+    expect(body).toContain('product-scribe');
+    expect(body).toContain('node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs"');
+    expect(body).toContain('_product.json');
+  });
+
+  it("product-scribe's grounding failure for one page is not a hard stop, unlike a tour's", () => {
+    expect(body.toLowerCase()).toContain('not a hard stop');
+    expect(body.toLowerCase()).toMatch(/product-scribe.*couldn't ground/);
+  });
+
+  it('folds product-page regeneration into the normal no-slug pipeline, not just its own mode', () => {
+    expect(body.toLowerCase()).toContain('no-slug');
+  });
+
+  it('the shared Ship step stages docs/archive/** and docs/_sidebar.autodocs.json alongside docs/*.md', () => {
     expect(body).toContain('docs/archive/**');
+    expect(body).toContain('docs/_sidebar.autodocs.json');
+  });
+
+  it('init-site wires the sidebar to docs/_sidebar.autodocs.json when it exists, and fixes the homepage link to /docs/overview', () => {
+    expect(body).toContain('sidebars.js');
+    expect(body).toContain('/docs/overview');
   });
 });
 
@@ -356,6 +379,61 @@ describe('agents/doc-scribe.md', () => {
   it("instructs grounding strictly in the a11y snapshot and never inventing UI", () => {
     expect(body.toLowerCase()).toContain('never describe');
     expect(body).toContain('a11y');
+  });
+});
+
+describe('agents/product-scribe.md', () => {
+  const markdown = fs.readFileSync(path.join(pluginRoot, 'agents/product-scribe.md'), 'utf8');
+  const { frontmatter, body } = parseFrontmatter(markdown);
+
+  it('is named "product-scribe" with a description and a model set', () => {
+    expect(frontmatter.name).toBe('product-scribe');
+    expect(frontmatter.description?.length).toBeGreaterThan(0);
+    expect(frontmatter.model).toBeTruthy();
+  });
+
+  it('has a bounded maxTurns', () => {
+    expect(typeof frontmatter.maxTurns).toBe('number');
+    expect(frontmatter.maxTurns).toBeGreaterThan(0);
+    expect(frontmatter.maxTurns).toBeLessThanOrEqual(30);
+  });
+
+  it('is restricted to exactly Read and Write — no Bash, Edit, or web access', () => {
+    const tools = parseToolList(frontmatter.tools);
+    expect(tools.sort()).toEqual(['Read', 'Write']);
+  });
+
+  it('does not declare mcpServers, hooks, or permissionMode (unsupported for plugin agents)', () => {
+    expect(frontmatter.mcpServers).toBeUndefined();
+    expect(frontmatter.hooks).toBeUndefined();
+    expect(frontmatter.permissionMode).toBeUndefined();
+  });
+
+  it('instructs grounding strictly in the given files/tour inventory and never inventing content', () => {
+    expect(body.toLowerCase()).toContain('ground every claim');
+    expect(body.toLowerCase()).toContain('never read anything outside the given file list');
+  });
+
+  it('never reads .env, key files, or anything under .auth/, even if it looks relevant', () => {
+    expect(body).toContain('.env');
+    expect(body).toContain('.auth/');
+  });
+
+  it('never copies a secret-looking value into a page', () => {
+    expect(body.toLowerCase()).toContain('secret');
+  });
+
+  it('omits a page rather than inventing content when it has no real grounding', () => {
+    expect(body.toLowerCase()).toContain('omit');
+  });
+
+  it('writes exactly one output file, .autodocs/artifacts/prose/_product.json', () => {
+    expect(body).toContain('.autodocs/artifacts/prose/_product.json');
+  });
+
+  it('is brand-neutral — no tagline or marketing voice, even if the README has one', () => {
+    expect(body.toLowerCase()).toContain('brand-neutral');
+    expect(body.toLowerCase()).toContain('tagline');
   });
 });
 

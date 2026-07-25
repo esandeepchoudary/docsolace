@@ -1,5 +1,9 @@
-const KEEP_START = '<!-- autodocs:keep -->';
-const KEEP_END = '<!-- /autodocs:keep -->';
+// Exported so lib/product.mjs's renderProductPage can emit the exact same
+// markers — every generated page (tour or product) shares one keep-region
+// implementation (extractKeepRegion/nonKeepContent/applyKeepRegion below),
+// never a second, subtly-different one.
+export const KEEP_START = '<!-- autodocs:keep -->';
+export const KEEP_END = '<!-- /autodocs:keep -->';
 const KEEP_REGION_SOURCE = '<!-- autodocs:keep -->([\\s\\S]*?)<!-- /autodocs:keep -->';
 const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE);
 
@@ -7,7 +11,9 @@ const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE);
 // folded into generate-docs.mjs's render hash (see lib/design.mjs) so the
 // drift gate re-renders every existing page the next time this changes,
 // instead of waiting for that tour's own screenshots or code_paths to move.
-export const RENDER_TEMPLATE_VERSION = 2;
+// v3: tour pages gained frontmatter (sidebar_position/sidebar_label) — see
+// renderTourPage's optional `frontmatter` argument.
+export const RENDER_TEMPLATE_VERSION = 3;
 
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
 // human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
@@ -92,7 +98,7 @@ function imageLines(imageMarkdownLine, figures) {
   return ['   <figure class="autodocs-figure">', '', imageMarkdownLine, '', '   </figure>', ''];
 }
 
-export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, style }) {
+export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, style, frontmatter }) {
   const {
     primaryViewport,
     collapseOtherViewports = true,
@@ -143,7 +149,7 @@ export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, st
     return lines.join('\n');
   });
 
-  return [
+  const body = [
     `# ${title}`,
     '',
     intent,
@@ -157,4 +163,12 @@ export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, st
     KEEP_END,
     '',
   ].join('\n');
+
+  // frontmatter (see lib/product.mjs's buildFrontmatter) already ends in its
+  // own trailing newline after the closing "---" — one more blank line here
+  // just separates it from the "# Title" heading, same spacing a human would
+  // write by hand. Optional: a project with no docs.sections configured never
+  // passes this, and every page renders exactly as it did before frontmatter
+  // support existed.
+  return frontmatter ? `${frontmatter}\n${body}` : body;
 }

@@ -126,7 +126,8 @@ there:
 | `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
 | `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
 | `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
-| `/autodocs:document validate` | Preflight-check config/tours, no browser — rarely needed by hand, mostly for CI |
+| `/autodocs:document product` | (Re)generate the overview/getting-started/concepts product pages (via the `product-scribe` subagent), then ship |
+| `/autodocs:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
 Every mode above except `validate` runs autonomously by default: draft or
@@ -173,6 +174,29 @@ you run it, it no longer stops to wait on you at every step: it carries the
 draft through to an opened PR by default (see "It ships a docs PR for you"
 above), unless it hits one of that section's hard stops. See
 `plugin/scripts/lib/session-guidance.mjs` for the exact wording.
+
+### It also documents the product itself
+
+Tours describe individual UI flows; a separate, smaller set of pages
+describes the product as a whole so a fresh reader lands somewhere that
+actually explains what they're looking at instead of an alphabetical list of
+tutorials. `/autodocs:document product` (re)generates up to three pages —
+`docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md` — via the
+`product-scribe` subagent, grounded strictly in files already in your repo:
+`README.md`, `package.json`, `.env.example`, `autodocs.config.yaml`, any
+extra globs you list under `product.sources`, and the confirmed tour
+inventory (id/title/intent) — never the running app, and never `.env`,
+key/credential files, or anything under a `.auth/` directory, even if a glob
+would otherwise match them. If a page has nothing real to ground it in (e.g.
+no `README.md` at all), it's skipped and reported rather than padded with
+invented content.
+
+This isn't a separate chore — the normal no-argument `/autodocs:document` run
+keeps these pages in sync automatically too, the same drift-gated way it
+already does for tours (see "How it works" below), so `/document product` is
+mainly for regenerating them on their own without touching any tour. See
+"Configuring tours and auth" below for `product.pages`/`product.sources`, and
+`docs.sections` for grouping tours in the generated sidebar.
 
 ## Keeping the plugin updated
 
@@ -224,6 +248,13 @@ below):
 4. **Publish** — the generated Markdown lives in `docs/`, viewable as-is or
    served through the bundled Docusaurus site (see "Publishing a docs site"
    below).
+
+Alongside tours, the same capture → drift → generate shape maintains the
+product-level overview/getting-started/concepts pages (see "It also
+documents the product itself" above) — except step 1 (capture) doesn't apply
+to them at all: there's no browser involved, their "ground truth" is the
+repo's own README/package.json/config/tour inventory instead of an
+accessibility snapshot.
 
 ## Configuring tours and auth
 
@@ -320,6 +351,36 @@ re-renders every existing page on the next `/document` run — no `--force`
 needed — because it changes each tour's render hash (part of what
 `drift.mjs` checks), independent of that tour's own screenshots or code.
 
+### Product pages and sidebar sections
+
+Two more optional `autodocs.config.yaml` sections, both consumed by
+`/document product` (and folded into the normal pipeline — see "It also
+documents the product itself" above):
+
+```yaml
+product:
+  name: "My App"                                  # optional; defaults to package.json's name
+  pages: [overview, getting-started, concepts]     # default: all three
+  sources:                                         # extra grounding files/globs, beyond the
+    - "docs-src/**/*.md"                           # standing README/package.json/.env.example/
+                                                    # autodocs.config.yaml set
+docs:
+  sections:                                        # groups tour pages in the generated sidebar
+    - label: "Getting started"                     # (docs/_sidebar.autodocs.json); a tour named
+      tours: [login]                               # in no section just sorts into one flat
+    - label: "Dashboard"                            # "everything else" group instead
+      tours: [dashboard-overview, dashboard-export]
+```
+
+Every tour page always gets a `sidebar_position` (the product pages pin
+above them at 1–3) so the sidebar sorts deterministically even without
+`docs.sections` — grouping into named categories is the opt-in part, not the
+ordering. `product.sources` entries must be project-relative globs (no
+absolute paths, no `..` segments) — `/document validate` warns if one
+matches nothing, or if `docs.sections` names a tour that doesn't exist.
+`product-scribe` never reads `.env`, key/credential files, or anything under
+a `.auth/` directory, no matter what a glob would otherwise match.
+
 ## Publishing a docs site
 
 The fastest path is **`/autodocs:document init-site`** (see "Use it in your
@@ -370,6 +431,15 @@ your last build/deploy, same as every other page on the site. Running
 `/autodocs:document init-site` again on an existing site (a "restyle run")
 backfills search onto a site scaffolded before this feature existed,
 independent of `--no-style` — it's a capability, not a styling choice.
+
+**Sidebar is generated, not autogenerated-alphabetical.** Once at least one
+product page exists, `generate-product-docs.mjs` writes
+`docs/_sidebar.autodocs.json` — a plain, framework-neutral ordering/grouping
+payload — and `init-site` wires `site/sidebars.js` to build the site's real
+sidebar from it (product pages first, then `docs.sections` groups, then
+everything else) instead of Docusaurus's default alphabetical-by-filename
+sidebar. Same backfill shape as search: re-running `init-site` on an
+existing site picks this up automatically once the file exists.
 
 ## Troubleshooting
 
@@ -818,6 +888,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
+| `npm run generate-product-docs` | Write/update the overview/getting-started/concepts pages from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
 | `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
 | `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
@@ -850,15 +921,22 @@ plugin/                    The self-contained, installable Claude Code plugin �
   skills/document/SKILL.md      /autodocs:document — bootstraps config/tours, runs the pipeline
   agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
   agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
+  agents/product-scribe.md      Writes grounded product-level prose from README/config/tour inventory
   scripts/                     The engine: capture.mjs, crawl.mjs, drift.mjs, generate-docs.mjs,
-                                review-diffs.mjs, design-scan.mjs (design-skill detection),
+                                generate-product-docs.mjs, review-diffs.mjs,
+                                design-scan.mjs (design-skill detection),
                                 prune.mjs (orphan-tour detection), archive-tour.mjs (archives one),
-                                lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs)
+                                lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs, product.mjs)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks
 autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold, docs layout
 docs/                      This repo's own generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
+docs/overview.md           Generated product overview page + linked tutorial index (see "It also
+                           documents the product itself" above)
+docs/getting-started.md   Generated install/run/config page
+docs/concepts.md           Generated core-vocabulary page
+docs/_sidebar.autodocs.json Generated ordering/grouping payload the scaffolded site's sidebar reads
 docs/archive/              Tutorials for removed features — see "Archiving a removed feature" above
 .autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)

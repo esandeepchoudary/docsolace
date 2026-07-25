@@ -10,6 +10,15 @@ import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty } from './lib/
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { loadState } from './lib/state.mjs';
+import {
+  PRODUCT_PAGE_IDS,
+  PRODUCT_STATE_KEY,
+  collectProductSources,
+  computeProductInputsHash,
+  getProductDirtyReasons,
+  isProductRenderOnlyDirty,
+  isPublishedTour,
+} from './lib/product.mjs';
 
 function main() {
   const config = loadConfig('autodocs.config.yaml');
@@ -33,17 +42,41 @@ function main() {
     .filter((f) => f.endsWith('.yaml'))
     .map((f) => f.replace(/\.yaml$/, ''));
 
+  // Loaded upfront (not per-iteration) — the product pages' tour index/
+  // inputs hash and each tour's own sidebar_position both need the whole
+  // inventory (see lib/product.mjs's computeProductInputsHash/
+  // computeTourSidebarPositions/isPublishedTour), regardless of that tour's
+  // own maturity/status, same as generate-product-docs.mjs's loadAllTours.
+  const allTours = tourIds.map((fileId) => loadTour('tours', fileId));
+  const tourInventory = allTours.filter(isPublishedTour).map((t) => t.id).sort();
+
   // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs
   // does, so this report and the actual regeneration never disagree about
-  // what counts as dirty (see lib/design.mjs's computeRenderHash).
+  // what counts as dirty (see lib/design.mjs's computeRenderHash). Two
+  // distinct hashes, not one shared value: a tour's render hash includes
+  // tourInventory (its sidebar_position depends on every sibling tour), but
+  // generate-product-docs.mjs's own render hash for the product pages does
+  // not (their position is fixed — see lib/product.mjs's PRODUCT_PAGES) —
+  // sharing one hash across both would make this report disagree with
+  // whichever of the two scripts actually persists it.
   const docsConfig = config.docs ?? {};
   const pageStyle = loadDocStyle(process.cwd()).page ?? {};
-  const currentRenderHash = computeRenderHash({ templateVersion: RENDER_TEMPLATE_VERSION, docsConfig, pageStyle });
+  const currentTourRenderHash = computeRenderHash({
+    templateVersion: RENDER_TEMPLATE_VERSION,
+    docsConfig,
+    pageStyle,
+    tourInventory,
+  });
+  const currentProductRenderHash = computeRenderHash({
+    templateVersion: RENDER_TEMPLATE_VERSION,
+    docsConfig,
+    pageStyle,
+  });
 
   let anyDirty = false;
 
-  for (const fileId of tourIds) {
-    const tour = loadTour('tours', fileId);
+  for (const [index, fileId] of tourIds.entries()) {
+    const tour = allTours[index];
 
     if (tour.maturity === 'draft') {
       console.log(`  draft    ${tour.id} (skipped by the gate)`);
@@ -68,7 +101,12 @@ function main() {
     const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
     const previousEntry = state[tour.id];
 
-    const reasons = getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash });
+    const reasons = getDirtyReasons({
+      previousEntry,
+      currentScreenshotHashes,
+      currentCodePathsHash,
+      currentRenderHash: currentTourRenderHash,
+    });
     const dirty = reasons.length > 0;
     if (dirty) anyDirty = true;
     // Flag render-only dirtiness explicitly — the /document skill's Step 3
@@ -77,6 +115,37 @@ function main() {
     // needs to re-run generate-docs.mjs to pick up the new template.
     const suffix = dirty ? (isRenderOnlyDirty(reasons) ? ' (render only — no new prose needed)' : ` (${reasons.join(', ')})`) : '';
     console.log(`  ${dirty ? 'dirty  ' : 'clean  '} ${tour.id}${suffix}`);
+  }
+
+  // Product pages (overview/getting-started/concepts) — same drift-hash
+  // shape as tours above, gated on grounding-file/tour-inventory inputs
+  // instead of screenshots (see lib/product.mjs). Skipped entirely when a
+  // project has disabled every page via config.product.pages.
+  const enabledProductPages = config.product?.pages ?? PRODUCT_PAGE_IDS;
+  if (enabledProductPages.length > 0) {
+    const sourceFiles = collectProductSources(process.cwd(), config);
+    const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours: allTours });
+    const previousProductEntry = state[PRODUCT_STATE_KEY];
+    const productReasons = getProductDirtyReasons({
+      previousEntry: previousProductEntry,
+      currentInputsHash,
+      currentRenderHash: currentProductRenderHash,
+    });
+    const productDirty = productReasons.length > 0;
+    if (productDirty) anyDirty = true;
+
+    const prosePath = path.join(config.outputDir, 'prose', '_product.json');
+    let suffix = '';
+    if (productDirty) {
+      if (isProductRenderOnlyDirty(productReasons)) {
+        suffix = ' (render only — no new prose needed)';
+      } else if (!fs.existsSync(prosePath)) {
+        suffix = ' (needs product-scribe — see /document product)';
+      } else {
+        suffix = ` (${productReasons.join(', ')})`;
+      }
+    }
+    console.log(`  ${productDirty ? 'dirty  ' : 'clean  '} _product (overview/getting-started/concepts)${suffix}`);
   }
 
   process.exit(anyDirty ? 1 : 0);

@@ -1,0 +1,227 @@
+// Assembles the product-level documentation layer (docs/overview.md,
+// docs/getting-started.md, docs/concepts.md, plus docs/_sidebar.autodocs.json)
+// from lib/product.mjs's helpers, gated by the same drift-hash shape
+// generate-docs.mjs uses for tour pages. Prose comes from whichever the
+// `product-scribe` subagent wrote to
+// .autodocs/artifacts/prose/_product.json (see plugin/agents/
+// product-scribe.md) — there's no hardcoded fallback the way
+// generate-docs.mjs has for the two demo tours, since a project's product
+// pages have no equivalent "runnable without a subagent" demo content.
+import fs from 'node:fs';
+import path from 'node:path';
+import { loadConfig } from './lib/config.mjs';
+import { loadTour } from './lib/tours.mjs';
+import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
+import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import {
+  PRODUCT_PAGES,
+  PRODUCT_PAGE_IDS,
+  PRODUCT_STATE_KEY,
+  buildFrontmatter,
+  buildSidebarStructure,
+  collectProductSources,
+  computeProductInputsHash,
+  getProductDirtyReasons,
+  isPublishedTour,
+  renderProductPage,
+} from './lib/product.mjs';
+import { sha256Buffer } from './lib/manifest.mjs';
+import { loadState, saveTourState } from './lib/state.mjs';
+import { writeFileAtomic } from './lib/fs-atomic.mjs';
+
+function parseArgs(argv) {
+  const args = { force: false, pages: [] };
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--force') args.force = true;
+    if (argv[i] === '--page') args.pages.push(argv[++i]);
+  }
+  return args;
+}
+
+function loadAllTours() {
+  if (!fs.existsSync('tours')) return [];
+  return fs
+    .readdirSync('tours')
+    .filter((f) => f.endsWith('.yaml'))
+    .map((f) => f.replace(/\.yaml$/, ''))
+    .map((id) => loadTour('tours', id));
+}
+
+function main() {
+  const { force, pages: requestedPages } = parseArgs(process.argv.slice(2));
+  const config = loadConfig('autodocs.config.yaml');
+  const tours = loadAllTours();
+
+  const enabledPageIds = config.product?.pages ?? PRODUCT_PAGE_IDS;
+  let pagesToGenerate = PRODUCT_PAGES.filter((p) => enabledPageIds.includes(p.id));
+
+  if (requestedPages.length > 0) {
+    const unknown = requestedPages.filter((id) => !PRODUCT_PAGE_IDS.includes(id));
+    if (unknown.length > 0) {
+      throw new Error(`Unknown --page value(s): ${unknown.join(', ')} — must be one of ${PRODUCT_PAGE_IDS.join(', ')}`);
+    }
+    pagesToGenerate = pagesToGenerate.filter((p) => requestedPages.includes(p.id));
+  }
+
+  if (pagesToGenerate.length === 0) {
+    console.log('No product pages enabled — check autodocs.config.yaml\'s "product.pages" or the --page flag.');
+    return;
+  }
+
+  const sourceFiles = collectProductSources(process.cwd(), config);
+  const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours });
+
+  // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs
+  // does for tour pages — a template or design-style change re-renders the
+  // product pages too, on the same schedule, from the same source of truth.
+  const docsConfig = config.docs ?? {};
+  const docStyle = loadDocStyle(process.cwd());
+  const pageStyle = docStyle.page ?? {};
+  const currentRenderHash = computeRenderHash({ templateVersion: RENDER_TEMPLATE_VERSION, docsConfig, pageStyle });
+
+  const statePath = path.join(config.outputDir, 'state.json');
+  const state = loadState(statePath);
+  const previousEntry = state[PRODUCT_STATE_KEY];
+
+  const reasons = getProductDirtyReasons({ previousEntry, currentInputsHash, currentRenderHash });
+  if (reasons.length === 0) {
+    console.log('Product pages are unchanged since the last generation — skipping.');
+    return;
+  }
+
+  const prosePath = path.join(config.outputDir, 'prose', '_product.json');
+  if (!fs.existsSync(prosePath)) {
+    throw new Error(
+      `No product-scribe prose found at "${prosePath}" — dispatch the product-scribe subagent first ` +
+        `(see plugin/skills/document/SKILL.md's "Document the product itself").`,
+    );
+  }
+  let prose;
+  try {
+    prose = JSON.parse(fs.readFileSync(prosePath, 'utf8'));
+  } catch (err) {
+    throw new Error(`"${prosePath}" is not valid JSON (${err.message})`);
+  }
+  if (!prose || typeof prose !== 'object' || Array.isArray(prose)) {
+    throw new Error(`"${prosePath}" must be a JSON object keyed by page id`);
+  }
+
+  const publishedTours = tours.filter(isPublishedTour);
+  const tourIndex = publishedTours
+    .map((t) => ({ id: t.id, title: t.title ?? t.id, intent: t.intent }))
+    .sort((a, b) => a.title.localeCompare(b.title));
+
+  const sidebarStructure = buildSidebarStructure({
+    pages: pagesToGenerate,
+    sections: config.docs?.sections,
+    tours,
+  });
+
+  const previousPages = previousEntry?.pages ?? {};
+  const newPagesState = {};
+  const written = [];
+  const skippedNoGrounding = [];
+  const refusals = [];
+
+  for (const page of pagesToGenerate) {
+    const pageProse = prose[page.id];
+    if (!pageProse) {
+      skippedNoGrounding.push(page.id);
+      continue;
+    }
+
+    const frontmatter = buildFrontmatter({
+      sidebarPosition: page.sidebarPosition,
+      sidebarLabel: page.sidebarLabel,
+      title: page.title,
+    });
+
+    const docPath = path.join('docs', `${page.id}.md`);
+    const previousMarkdown = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : undefined;
+    const previousPageEntry = previousPages[page.id];
+
+    // If a human edited this page outside its keep-region since the last
+    // generation, warn loudly instead of silently clobbering their edit —
+    // same guard generate-docs.mjs has for tour pages.
+    if (previousMarkdown !== undefined && previousPageEntry?.bodyHash) {
+      const currentBodyHash = sha256Buffer(Buffer.from(nonKeepContent(previousMarkdown)));
+      if (currentBodyHash !== previousPageEntry.bodyHash) {
+        if (!force) {
+          refusals.push(docPath);
+          continue;
+        }
+        console.warn(`"${page.id}": overwriting an edit made outside the keep-region (--force).`);
+      }
+    }
+
+    const newMarkdown = renderProductPage({
+      page,
+      prose: pageProse,
+      tourIndex: page.includeTourIndex ? tourIndex : undefined,
+      frontmatter,
+    });
+    const finalMarkdown = applyKeepRegion(newMarkdown, previousMarkdown);
+
+    fs.mkdirSync('docs', { recursive: true });
+    fs.writeFileSync(docPath, finalMarkdown);
+    written.push(docPath);
+    newPagesState[page.id] = { bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))) };
+  }
+
+  // Preserve state for pages untouched this run (skipped for lack of
+  // grounding, or a --page-scoped run that only targeted some pages) so a
+  // later run's drift check doesn't treat them as "never generated" again.
+  const mergedPages = { ...previousPages, ...newPagesState };
+
+  writeFileAtomic(path.join('docs', '_sidebar.autodocs.json'), `${JSON.stringify(sidebarStructure, null, 2)}\n`);
+
+  // Only advance the top-level inputsHash/renderHash when every page this
+  // run touched actually succeeded. If any page refused (hand-edited outside
+  // its keep-region, no --force), persisting the *new* hashes here would
+  // make the top-level drift gate at the top of this file see the whole
+  // product-doc set as "clean" on the next run — before that run's own
+  // --force flag ever gets a chance to matter — permanently masking the
+  // refused page's staleness behind a run that only partially succeeded.
+  // Keeping the previous entry's hashes (or omitting one if there wasn't a
+  // previous run) means the next invocation, --force or not, sees the same
+  // dirty reasons and gets another chance at every page, refused or not
+  // (mildly redundant for the ones that already succeeded, but harmless —
+  // deterministic re-render of unchanged inputs).
+  if (refusals.length === 0) {
+    saveTourState(statePath, PRODUCT_STATE_KEY, {
+      inputsHash: currentInputsHash,
+      renderHash: currentRenderHash,
+      pages: mergedPages,
+    });
+  } else if (previousEntry) {
+    saveTourState(statePath, PRODUCT_STATE_KEY, {
+      inputsHash: previousEntry.inputsHash,
+      renderHash: previousEntry.renderHash,
+      pages: mergedPages,
+    });
+  } else {
+    saveTourState(statePath, PRODUCT_STATE_KEY, { pages: mergedPages });
+  }
+
+  console.log(written.length > 0 ? `Generated: ${written.join(', ')}` : 'Generated: (nothing — see below)');
+  if (skippedNoGrounding.length > 0) {
+    console.log(`Skipped (product-scribe found no grounding): ${skippedNoGrounding.join(', ')}`);
+  }
+  console.log('Wrote docs/_sidebar.autodocs.json');
+
+  if (refusals.length > 0) {
+    console.error(
+      `${refusals.join(', ')} ${refusals.length === 1 ? 'was' : 'were'} edited outside its ` +
+        `<!-- autodocs:keep --> region since the last generation. Move the edit into the keep-region, or ` +
+        `re-run with --force to overwrite it.`,
+    );
+    process.exit(1);
+  }
+}
+
+try {
+  main();
+} catch (err) {
+  console.error(`Error: ${err.message}`);
+  process.exit(1);
+}
