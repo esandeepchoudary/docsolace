@@ -51,6 +51,17 @@ describe('pixelDiffRatio', () => {
     expect(pixelDiffRatio(a, '/nonexistent/path.png')).toBe(1);
     expect(pixelDiffRatio('/nonexistent/path.png', a)).toBe(1);
   });
+
+  it('throws an error naming the file path (not a bare pngjs message) for a corrupt/truncated PNG', () => {
+    const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
+    const corruptPath = path.join(os.tmpdir(), `autodocs-pixel-diff-corrupt-${Date.now()}-${Math.random()}.png`);
+    fs.writeFileSync(corruptPath, 'not actually a png');
+    tmpFiles.push(corruptPath);
+
+    expect(() => pixelDiffRatio(a, corruptPath)).toThrow(corruptPath);
+    expect(() => pixelDiffRatio(a, corruptPath)).toThrow(/not a readable PNG/);
+    expect(() => pixelDiffRatio(corruptPath, a)).toThrow(corruptPath);
+  });
 });
 
 describe('writeDiffImage', () => {
@@ -76,6 +87,15 @@ describe('writeDiffImage', () => {
     const diffPath = tmpDiffPath();
     expect(writeDiffImage(a, b, diffPath)).toBeNull();
     expect(fs.existsSync(diffPath)).toBe(false);
+  });
+
+  it('throws an error naming the file path (not a bare pngjs message) for a corrupt/truncated PNG', () => {
+    const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
+    const corruptPath = path.join(os.tmpdir(), `autodocs-diff-corrupt-${Date.now()}-${Math.random()}.png`);
+    fs.writeFileSync(corruptPath, 'not actually a png');
+    tmpFiles.push(corruptPath);
+
+    expect(() => writeDiffImage(a, corruptPath, tmpDiffPath())).toThrow(corruptPath);
   });
 
   it('returns null when either image is missing', () => {

@@ -40,3 +40,14 @@ export function flattenScreenshotHashes(captures) {
     ),
   );
 }
+
+// Adding a viewport to autodocs.config.yaml after a tour's last capture
+// otherwise means generate-docs.mjs silently renders that tour's docs
+// missing the new viewport — no error, no warning, just fewer screenshots
+// than configured. Returns the configured viewport names that appear in
+// none of this tour's captures, so the caller can warn the user to
+// recapture. Empty array when every configured viewport was captured.
+export function findMissingViewports(configuredViewportNames, captures) {
+  const capturedViewports = new Set(captures.flatMap((c) => Object.keys(c.viewports)));
+  return configuredViewportNames.filter((name) => !capturedViewports.has(name));
+}

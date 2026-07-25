@@ -9,7 +9,7 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPage } from './lib/docgen.mjs';
-import { flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
+import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
@@ -50,11 +50,34 @@ function main() {
   const config = loadConfig('autodocs.config.yaml');
   const tour = loadTour('tours', tourId);
 
+  // Checked before the manifest lookup below (not after) so a draft/
+  // proposed tour that's never been captured skips cleanly, matching
+  // drift.mjs's CLI and this gate's own doc comments — checking the
+  // manifest first would throw a confusing "run capture first" error for a
+  // tour the drift gate was never going to regenerate anyway.
+  if (tour.maturity === 'draft') {
+    console.log(`Skipping "${tour.id}": maturity is "draft" — drift gate never regenerates it.`);
+    process.exit(0);
+  }
+  if (tour.status === 'proposed') {
+    console.log(`Skipping "${tour.id}": status is "proposed" — needs human review before it's real.`);
+    process.exit(0);
+  }
+
   const manifestPath = path.join(config.outputDir, 'manifest.json');
   const manifest = loadManifest(manifestPath);
   const tourManifest = manifest[tour.id];
   if (!tourManifest) {
     throw new Error(`No manifest entry for tour "${tour.id}" — run \`npm run capture -- --tour ${tourId}\` first.`);
+  }
+
+  const missingViewports = findMissingViewports(Object.keys(config.viewports), tourManifest.captures);
+  if (missingViewports.length > 0) {
+    console.warn(
+      `"${tour.id}": configured viewport(s) ${missingViewports.join(', ')} have no captures yet — ` +
+        `re-run \`capture.mjs --tour ${tourId}\` to include them. Generating with only the viewports ` +
+        `that were captured.`,
+    );
   }
 
   const prosePath = path.join(config.outputDir, 'prose', `${tour.id}.json`);
@@ -80,15 +103,6 @@ function main() {
     docsConfig,
     pageStyle,
   });
-
-  if (tour.maturity === 'draft') {
-    console.log(`Skipping "${tour.id}": maturity is "draft" — drift gate never regenerates it.`);
-    process.exit(0);
-  }
-  if (tour.status === 'proposed') {
-    console.log(`Skipping "${tour.id}": status is "proposed" — needs human review before it's real.`);
-    process.exit(0);
-  }
 
   const dirty = isTourDirty({
     tour,

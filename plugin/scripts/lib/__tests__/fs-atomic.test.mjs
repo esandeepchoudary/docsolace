@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -79,6 +79,62 @@ describe('withFileLock', () => {
       }),
     ).toThrow('boom');
     expect(hasLockFile()).toBe(false);
+  });
+
+  it('records the acquiring process\'s PID in the lock file', () => {
+    const filePath = tmpPath('data.json');
+    const dir = path.dirname(filePath);
+    const lockPath = path.join(dir, '.data.json.lock');
+    let seenDuringHold;
+    withFileLock(filePath, () => {
+      seenDuringHold = fs.readFileSync(lockPath, 'utf8');
+    });
+    expect(seenDuringHold).toBe(String(process.pid));
+  });
+
+  it('self-heals a stale lock left by a process that no longer exists, instead of waiting out the full retry window', () => {
+    const filePath = tmpPath('data.json');
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    const lockPath = path.join(dir, '.data.json.lock');
+
+    // A PID guaranteed not to be running: spawn a child that exits
+    // immediately and use its pid once it's done.
+    const deadPid = spawnSync('node', ['-e', 'process.exit(0)']).pid;
+    fs.writeFileSync(lockPath, String(deadPid));
+
+    const start = Date.now();
+    expect(withFileLock(filePath, () => 'ok')).toBe('ok');
+    // Should self-heal almost immediately, not burn anywhere near the full
+    // ~4s default retry window (200 retries * 20ms).
+    expect(Date.now() - start).toBeLessThan(1000);
+  });
+
+  it('still waits (and eventually times out) for a lock genuinely held by a live process', () => {
+    const filePath = tmpPath('data.json');
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    const lockPath = path.join(dir, '.data.json.lock');
+    // This test process's own pid is, definitionally, alive.
+    fs.writeFileSync(lockPath, String(process.pid));
+
+    expect(() => withFileLock(filePath, () => 'ok', { retries: 3, retryDelayMs: 5 })).toThrow(
+      /Timed out waiting for lock/,
+    );
+    fs.rmSync(lockPath, { force: true });
+  });
+
+  it('falls back to the old wait-then-fail behavior for an unparseable legacy lock file (empty, pre-PID)', () => {
+    const filePath = tmpPath('data.json');
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    const lockPath = path.join(dir, '.data.json.lock');
+    fs.writeFileSync(lockPath, ''); // old-style empty lock file, no PID recorded
+
+    expect(() => withFileLock(filePath, () => 'ok', { retries: 3, retryDelayMs: 5 })).toThrow(
+      /Timed out waiting for lock/,
+    );
+    fs.rmSync(lockPath, { force: true });
   });
 
   it('serializes concurrent load-mutate-write updates across processes so no update is lost', async () => {
