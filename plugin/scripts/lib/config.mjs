@@ -1,6 +1,17 @@
 import fs from 'node:fs';
 import { load as parseYaml } from 'js-yaml';
 
+// Same lowercase-kebab-case constraint as tours.mjs's tour-id SLUG_RE.
+// Viewport names flow, unmodified, into a screenshot filename
+// (`${capture}@${viewportName}.png` — capture.mjs/generate-docs.mjs) and,
+// since this diff, into a raw HTML `<details class="...">` block in
+// generated markdown (lib/docgen.mjs's renderTourPage) — a config that let
+// a viewport name contain "/", "..", or HTML metacharacters would reach
+// either downstream unvalidated. Config is untrusted input for exactly this
+// reason (CLAUDE.md's SSDLC section), so it's constrained at load time here
+// rather than trusted to already be safe.
+const VIEWPORT_NAME_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
 const SCRIPTED_AUTH_FIELDS = [
   'loginUrl',
   'usernameSelector',
@@ -67,6 +78,13 @@ export function loadConfig(configPath) {
     throw new Error(`autodocs config at "${configPath}" needs at least one entry under "viewports"`);
   }
   for (const [name, size] of Object.entries(config.viewports)) {
+    if (!VIEWPORT_NAME_RE.test(name)) {
+      throw new Error(
+        `autodocs config at "${configPath}": viewport "${name}" is invalid — must be a lowercase kebab-case ` +
+          `name (letters, digits, hyphens only, no leading/trailing hyphen), since it's used to build file ` +
+          `names and rendered into generated docs`,
+      );
+    }
     if (!size || typeof size.width !== 'number' || typeof size.height !== 'number') {
       throw new Error(
         `autodocs config at "${configPath}": viewport "${name}" needs a numeric "width" and "height"`,
@@ -113,6 +131,9 @@ export function loadConfig(configPath) {
   if (config.crawl !== undefined) {
     assertValidCrawlConfig(configPath, config.crawl);
   }
+  if (config.docs !== undefined) {
+    assertValidDocsConfig(configPath, config.docs, config.viewports);
+  }
   return config;
 }
 
@@ -141,5 +162,32 @@ function assertValidCrawlConfig(configPath, crawl) {
   }
   if (crawl.allowInteractive !== undefined && typeof crawl.allowInteractive !== 'boolean') {
     throw new Error(`autodocs config at "${configPath}": "crawl.allowInteractive" must be a boolean`);
+  }
+}
+
+// Controls generate-docs.mjs's page layout — which viewport's screenshot
+// stays inline versus which get collapsed into a <details> block (see
+// lib/docgen.mjs's renderTourPage). A typo in primaryViewport would
+// otherwise silently collapse *every* viewport (renderTourPage falls back to
+// "first image" only when the named one isn't found among a step's images,
+// so this is caught here instead of failing quietly downstream).
+function assertValidDocsConfig(configPath, docs, viewports) {
+  if (!docs || typeof docs !== 'object' || Array.isArray(docs)) {
+    throw new Error(`autodocs config at "${configPath}": "docs" must be an object`);
+  }
+  if (docs.primaryViewport !== undefined) {
+    if (typeof docs.primaryViewport !== 'string' || !docs.primaryViewport) {
+      throw new Error(`autodocs config at "${configPath}": "docs.primaryViewport" must be a non-empty string`);
+    }
+    const knownViewports = Object.keys(viewports ?? {});
+    if (!knownViewports.includes(docs.primaryViewport)) {
+      throw new Error(
+        `autodocs config at "${configPath}": "docs.primaryViewport" ("${docs.primaryViewport}") must name ` +
+          `one of the configured "viewports" (${knownViewports.join(', ') || 'none configured'})`,
+      );
+    }
+  }
+  if (docs.collapseOtherViewports !== undefined && typeof docs.collapseOtherViewports !== 'boolean') {
+    throw new Error(`autodocs config at "${configPath}": "docs.collapseOtherViewports" must be a boolean`);
   }
 }

@@ -110,20 +110,22 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('$ARGUMENTS');
   });
 
-  it('pre-approves the git/gh/node/Edit surface the autonomous ship step needs', () => {
-    // capture/drift/generate-docs/review-diffs run via
+  it('pre-approves the git/gh/node/Edit/Read/Write/Skill surface the autonomous ship + styling steps need', () => {
+    // capture/drift/generate-docs/review-diffs/design-scan run via
     // node "${CLAUDE_PLUGIN_DATA}/scripts/*.mjs" — a specific per-script
     // pattern can't be used here because CLAUDE_PLUGIN_DATA isn't
     // substituted in allowed-tools (only CLAUDE_SKILL_DIR/CLAUDE_PROJECT_DIR
     // are), so the widened Bash(node *) is the only pattern that actually
     // matches. Bash(git *)/Bash(gh pr *) cover the Ship step's branch/commit/
     // push/PR commands; Edit covers the targeted status/maturity flip on a
-    // proposed tour. This is broader than before autonomy existed — Claude
-    // itself is still the one constructing every command, but this is the
-    // surface a security review should scrutinize (see CLAUDE.md's SSDLC
-    // section).
+    // proposed tour and site theme edits. Read/Write cover distilling a
+    // detected design skill into .autodocs/doc-style.json (see "Apply the
+    // project's design skill"); Skill invokes that detected skill. This is
+    // broader than before autonomy existed — Claude itself is still the one
+    // constructing every command, but this is the surface a security review
+    // should scrutinize (see CLAUDE.md's SSDLC section).
     const tools = parseToolList(frontmatter['allowed-tools']);
-    expect(tools).toEqual(['Bash(git *)', 'Bash(gh pr *)', 'Bash(node *)', 'Edit']);
+    expect(tools).toEqual(['Bash(git *)', 'Bash(gh pr *)', 'Bash(node *)', 'Edit', 'Read', 'Write', 'Skill']);
   });
 
   it('bootstraps autodocs.config.yaml/tours in a project on first use', () => {

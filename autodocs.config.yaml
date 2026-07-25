@@ -66,3 +66,13 @@ seeds:
 # every seed command declared above; capture.mjs also accepts
 # --allow-seed-commands as a one-off override without changing this file.
 allowSeedCommands: false
+
+# Controls generated page layout (see lib/docgen.mjs's renderTourPage).
+# desktop stays inline in every step; every other viewport's screenshot
+# collapses into a <details> block instead of stacking full-page screenshots
+# the reader has to scroll past. This repo has no design skill applied (its
+# own CLAUDE.md forbids inheriting the unrelated parent Mirai brand), so
+# there's no docs/doc-style.json — just the default plain layout.
+docs:
+  primaryViewport: desktop
+  collapseOtherViewports: true

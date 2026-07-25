@@ -270,6 +270,47 @@ Two things to set up, both by example in this repo:
   when something needs a moment to happen (see "Waiting for async content"
   below).
 
+### Page layout and design-skill styling
+
+Every capture is shot at each viewport in `autodocs.config.yaml`'s
+`viewports` map (see above). By default, only the first viewport's
+screenshot renders inline in a generated page — every other viewport's
+screenshot collapses into a `<details>`/`<summary>` block the reader can
+expand, instead of stacking every viewport's full-page screenshot one after
+another. `autodocs.config.yaml`'s optional `docs:` section controls which
+viewport stays inline:
+
+```yaml
+docs:
+  primaryViewport: desktop        # must name a key under `viewports`; default = first key
+  collapseOtherViewports: true    # false restores the old flat, all-inline layout
+```
+
+**Design-skill styling.** If your project has a design/brand skill installed
+(under `.claude/skills/` or an installed plugin, project- or user-scoped —
+e.g. a company brand-guide skill), `/document` auto-detects it before
+generating docs and applies it to two places, presentation only — it never
+touches what `doc-scribe` writes or which UI a tour describes:
+
+- The scaffolded Docusaurus site's theme (`site/src/css/custom.css`,
+  `site/docusaurus.config.js`'s `themeConfig` — colors, fonts, logo,
+  favicon).
+- A small set of page-layout knobs, distilled into a committed
+  `.autodocs/doc-style.json`: the "Steps" heading text, per-viewport summary
+  labels for the collapsed blocks above (e.g. "On your phone" instead of
+  "Mobile view"), and whether each screenshot is wrapped in a
+  `<figure class="autodocs-figure">` for the theme to style further.
+
+No design skill installed (the common case) means nothing changes — plain,
+unbranded docs, same as before this feature existed. Append `--no-style` to
+any `/document` invocation to skip detection for that run regardless; run
+`/document restyle` to re-detect and re-apply after installing a different
+skill or changing the existing one. A change to the `docs:` block or to
+`doc-style.json` automatically re-renders every existing page on the next
+`/document` run — no `--force` needed — because it changes each tour's
+render hash (part of what `drift.mjs` checks), independent of that tour's
+own screenshots or code.
+
 ### Uploading a file
 
 If a flow requires uploading a file — a CSV importer, an image, a sample
@@ -731,12 +772,14 @@ plugin/                    The self-contained, installable Claude Code plugin �
   agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
   agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
   scripts/                     The engine: capture.mjs, crawl.mjs, drift.mjs, generate-docs.mjs,
-                                review-diffs.mjs, lib/ (unit-tested helpers)
+                                review-diffs.mjs, design-scan.mjs (design-skill detection),
+                                lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks
-autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold
+autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold, docs layout
 docs/                      This repo's own generated tutorials (images + markdown); edits inside
                            `<!-- autodocs:keep -->` blocks survive regeneration
+.autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
 .github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" above

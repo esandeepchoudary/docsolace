@@ -6,13 +6,14 @@ Show what a signed-out user sees before authenticating.
 
 1. **Login form, signed out**
 
-   *desktop*
+   ![Login form, signed out](images/login/login-full@desktop.png)
 
-   ![Login form, signed out (desktop)](images/login/login-full@desktop.png)
-
-   *mobile*
+   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <summary>Mobile view</summary>
 
    ![Login form, signed out (mobile)](images/login/login-full@mobile.png)
+
+   </details>
 
    The sign-in form is the first thing a signed-out visitor sees. It asks for a username and password and has a single primary action, the "Sign in" button.
 

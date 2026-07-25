@@ -1,8 +1,8 @@
 ---
 name: document
-description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover every feature of an app via an authenticated dynamic crawl (every configured auth profile, plus a signed-out pass) combined with a code review and a direct visit of every source-declared route, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] [--review] | propose <slug> \"<description>\" [--review] | map [--interactive] [--review] | validate | init-site"
-allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit
+description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover every feature of an app via an authenticated dynamic crawl (every configured auth profile, plus a signed-out pass) combined with a code review and a direct visit of every source-declared route, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Append "--no-style" to any mode to skip design-skill detection for that run. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder, themed from whatever design/brand skill the project already has (if any). Invoke as "/document restyle" to re-detect and re-apply that skill to an already-scaffolded site. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
+argument-hint: "[tour-id] [--review] [--no-style] | propose <slug> \"<description>\" [--review] [--no-style] | map [--interactive] [--review] [--no-style] | validate | init-site | restyle"
+allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
 Arguments: $ARGUMENTS
@@ -94,21 +94,28 @@ the first time `/document` has run here. Before anything else:
 If `autodocs.config.yaml` already exists, skip straight to the arguments
 below.
 
-Parse `--review` out of the arguments wherever it appears (it's a flag, not
-positional) before matching what's left against the modes below — its
-presence puts this run in review mode (stop-and-ask, matching every behavior
-before autonomy existed); its absence means autonomous mode, the default
-described in "Autonomy" above. This applies to every mode below, not just the
-normal pipeline.
+Parse `--review` and `--no-style` out of the arguments wherever they appear
+(both are flags, not positional) before matching what's left against the
+modes below. `--review`'s presence puts this run in review mode (stop-and-
+ask, matching every behavior before autonomy existed); its absence means
+autonomous mode, the default described in "Autonomy" above. `--no-style`'s
+presence skips **"Apply the project's design skill"** below entirely for
+this run (the escape hatch for a project that deliberately wants plain,
+unbranded docs — this repo is one, per its own `CLAUDE.md`). Both apply to
+every mode below, not just the normal pipeline.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
 If the arguments are `validate`, follow **"Validate a project"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
-Otherwise: run the AutoDocs pipeline — capture → drift gate → dispatch dirty
-tours to the `doc-scribe` subagent → regenerate → summarize → ship. If a tour
-file slug was given, operate on just `tours/<slug>.yaml`; with no argument,
-operate on every `*.yaml` file in `tours/`.
+If the arguments are `restyle`, follow **"Restyle an existing docs site"**
+below.
+Otherwise: run the AutoDocs pipeline — apply the project's design skill (once,
+if not already applied and `--no-style` wasn't given) → capture → drift gate
+→ dispatch dirty tours needing new prose to the `doc-scribe` subagent →
+regenerate → summarize → ship. If a tour file slug was given, operate on just
+`tours/<slug>.yaml`; with no argument, operate on every `*.yaml` file in
+`tours/`.
 
 ## Propose a new tour
 
@@ -358,18 +365,98 @@ repo runs it):
    generated tour pages if any exist (e.g. `/docs/<some-tour-id>`); if none
    exist yet, remove the link/button entirely rather than pointing it
    anywhere.
-6. `cd site && npm install && npm run build` — confirm it actually succeeds,
-   don't just assume the edits were correct.
-7. Report what was created and how to preview it (`cd site && npm start`),
+6. Unless `--no-style` was passed, run **"Apply the project's design
+   skill"** below now, before installing — it edits
+   `site/src/css/custom.css`/`site/docusaurus.config.js`'s `themeConfig`,
+   which the build in the next step should already reflect.
+7. `cd site && npm install && npm run build` — confirm it actually succeeds,
+   don't just assume the edits were correct (this also verifies the theming
+   from step 6 didn't break the build).
+8. Report what was created and how to preview it (`cd site && npm start`),
    and point at this plugin's own README section "Deploying your docs" for
-   publishing it somewhere.
+   publishing it somewhere. Note which design skill (if any) was applied.
+
+## Restyle an existing docs site
+
+`restyle` re-runs **"Apply the project's design skill"** below against an
+already-scaffolded `site/` — for when the project's design skill changed, a
+new one was installed, or the theme was never applied on the original
+`init-site` run (e.g. `--no-style` was used then).
+
+1. If `${CLAUDE_PROJECT_DIR}/site/` doesn't exist yet, stop and say so —
+   `init-site` runs the initial scaffold; there's nothing here to restyle.
+2. Run **"Apply the project's design skill"** below, ignoring any
+   already-exists check on `.autodocs/doc-style.json` (this mode always
+   re-detects and re-applies, that's the point).
+3. `cd site && npm run build` — confirm the new theme still builds.
+4. Report which skill was applied (or that none was found, in which case
+   nothing changed) and remind the user that generated pages themselves
+   only pick up a layout/style change (e.g. a new `stepsHeading`) the next
+   time `/document` runs — the render hash in
+   `.autodocs/artifacts/state.json` makes that automatic, no `--force`
+   needed.
+
+## Apply the project's design skill
+
+Presentation only — see `CLAUDE.md`'s "Scope guardrail": this only ever
+changes how generated docs *look* (the Docusaurus theme; page-layout knobs
+like heading text, per-viewport summary labels, and whether a screenshot is
+wrapped in a `<figure>`), never what `doc-scribe` writes or which UI a tour
+describes, and it never injects a tagline or marketing copy into a generated
+page. Runs once per invocation of the normal pipeline/`propose`/`map`,
+immediately before Step 1 (Capture) under "Steps" below — skip it entirely
+if `--no-style` was passed, or if `.autodocs/doc-style.json` already exists
+(nothing to redo; `restyle` above is the explicit way to redo it).
+
+1. Run:
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/design-scan.mjs"
+   ```
+   Prints ranked design/brand-skill candidates found under this project's
+   `.claude/skills/`/`.claude/plugins/` and the current user's own
+   `~/.claude/` equivalents (`plugin/scripts/lib/design.mjs`'s
+   `discoverDesignSkills`) — project-scoped candidates always outrank
+   user-scoped ones. It deliberately never reads a parent directory's
+   `CLAUDE.md`, so a project that opts out of an ambient parent brand (like
+   this repo's own `CLAUDE.md` does) stays opted out.
+2. **No candidates:** report that no design skill was found and proceed
+   without styling — the common case, not an error.
+3. **One or more candidates:** invoke the top-ranked one with the `Skill`
+   tool. Read what it returns: color palette, fonts, logo/favicon asset
+   paths, and any layout guidance it states. If more than one candidate was
+   found, name which one was chosen and why in the run's final report.
+4. Distill what the skill actually returned — never invent a value it
+   didn't specify — into:
+   - `Write` `.autodocs/doc-style.json` (committed, not gitignored —
+     generated docs depend on it):
+     `{ "skill": "<name>", "page": { ... } }`. The `page` object may set
+     `stepsHeading`, `viewportLabels` (per-viewport summary text for the
+     collapsed blocks non-primary viewports render into — see
+     `autodocs.config.yaml`'s `docs:` section for which viewport stays
+     primary), and `figures` (wraps each screenshot in
+     `<figure class="autodocs-figure">` for the theme to style — leave this
+     `false` unless the skill's own guidance calls for a captioned/framed
+     screenshot treatment). Every value here passes through
+     `lib/design.mjs`'s `loadDocStyle` validation (plain single-line labels,
+     no markup) — keep well within those bounds; it isn't there to fight
+     against.
+   - If `site/` exists (see "Scaffold a docs site"), `Edit` its theme:
+     `site/src/css/custom.css` (Infima's `--ifm-color-primary` ramp and
+     fonts) and `site/docusaurus.config.js`'s `themeConfig` (logo — use the
+     skill's own light/dark-safe asset, never recreate one — and favicon),
+     plus CSS rules for the `.autodocs-viewport`/`.autodocs-figure` classes
+     `lib/docgen.mjs` emits (style the `<summary>` and the collapsed block;
+     don't fight `<details>`'s native disclosure behavior).
+5. Report which skill (if any) was applied.
 
 ## Steps
 
 Runs against whichever tour(s) were resolved above (one slug, or every
-`tours/*.yaml`). In `--review` mode, stop after Step 5's summary — the same
-behavior as before autonomy existed. Otherwise (the default), continue into
-Step 6 and ship a PR.
+`tours/*.yaml`). Unless `--no-style` was passed or
+`.autodocs/doc-style.json` already exists, run **"Apply the project's design
+skill"** above first. In `--review` mode, stop after Step 5's summary — the
+same behavior as before autonomy existed. Otherwise (the default), continue
+into Step 6 and ship a PR.
 
 1. **Capture.** For each target tour, run:
    ```
@@ -390,30 +477,42 @@ Step 6 and ship a PR.
    node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
    ```
    to see which tours are dirty, clean, or draft/proposed (skipped
-   entirely). Only dirty tours need regeneration — this is the whole point
-   of the gate: don't waste a subagent call or rewrite a page that hasn't
+   entirely). A dirty tour is annotated with why: `(screenshots, code)`
+   means its content changed, while `(render only — no new prose needed)`
+   means only the template/`docs:` layout/design-style changed (see
+   `lib/design.mjs`'s render hash) — its existing prose is still grounded.
+   Only dirty tours need regeneration at all — this is the whole point of
+   the gate: don't waste a subagent call or rewrite a page that hasn't
    actually changed.
 
-3. **Generate prose for dirty tours.** For each tour the drift check reports
-   as dirty, invoke the `doc-scribe` subagent with that tour's file slug as
-   its task input. Wait for it to write
+3. **Generate prose for dirty tours that need it.** For each tour the drift
+   check reports dirty for `screenshots` and/or `code` (not the render-only
+   ones), invoke the `doc-scribe` subagent with that tour's file slug as its
+   task input. Wait for it to write
    `.autodocs/artifacts/prose/<tour-id>.json` before continuing — do not
    write any prose yourself, that's the subagent's job, done in an isolated
-   context so it doesn't pollute this session.
+   context so it doesn't pollute this session. A render-only dirty tour
+   skips this step entirely — `generate-docs.mjs` (next step) reuses its
+   existing prose file as-is.
 
-4. **Assemble.** For each dirty tour, once its prose file exists, run:
+4. **Assemble.** For every dirty tour (render-only ones included — their
+   prose file already exists from a previous run), run:
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/generate-docs.mjs" --tour <slug>
    ```
-   This reads the prose the subagent wrote, applies the pixel-diff gate to
-   screenshots, preserves any human-edited `<!-- autodocs:keep -->` regions,
-   and advances that tour's entry in `.autodocs/artifacts/state.json`. A
-   hash-mismatch refusal here (a human edited a page outside its
-   `autodocs:keep` region) is a hard stop — never `--force` past it.
+   This reads whatever prose exists (freshly written by doc-scribe, or
+   reused as-is for a render-only tour), applies the pixel-diff gate to
+   screenshots, applies the current `docs:`/design-style layout, preserves
+   any human-edited `<!-- autodocs:keep -->` regions, and advances that
+   tour's entry (including its render hash) in
+   `.autodocs/artifacts/state.json`. A hash-mismatch refusal here (a human
+   edited a page outside its `autodocs:keep` region) is a hard stop — never
+   `--force` past it.
 
 5. **Summarize.** Report, for this run:
    - which tours were regenerated (and a one-line reason: code changed
-     under their `code_paths`, or their screenshots changed)
+     under their `code_paths`, their screenshots changed, or only the
+     render/style layout changed)
    - which tours were skipped as clean, and which were skipped as draft
    - anything that failed and why
 
@@ -433,7 +532,10 @@ Step 6 and ship a PR.
       its report — it's the only place a screenshot change is visible
       before it's pushed, and it becomes part of the commit/PR body.
    3. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
-      and any `tours/*.yaml` this run wrote or confirmed. Never stage
+      any `tours/*.yaml` this run wrote or confirmed, and — only if this run
+      applied or changed one — `.autodocs/doc-style.json` (committed, not
+      gitignored) plus any `site/src/css/custom.css`/
+      `site/docusaurus.config.js` theming edits. Never stage
       `.autodocs/artifacts/` (gitignored; it's local working state, not a
       deliverable) or anything else in the working tree unrelated to this
       run.
