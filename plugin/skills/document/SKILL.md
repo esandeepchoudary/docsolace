@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures the current project's tours, regenerates docs for whichever tours actually changed via the doc-scribe subagent, and ships the result as a docs PR — by default, end-to-end, without stopping for review at each step (never auto-merged). Invoke with a tour's file slug to limit the run to one tour (e.g. "/document dashboard"); with no argument, runs across every tour in tours/*.yaml. Invoke as "/document propose <slug> \"<description>\"" to draft a new candidate tour for a feature you just implemented via the tour-scout subagent, then — unless tour-scout flags something it couldn't ground — auto-validate, auto-confirm it, and carry it through capture/generate/ship in the same invocation. Invoke as "/document map" (optionally "/document map --interactive") to automatically discover every feature of an app via an authenticated dynamic crawl (every configured auth profile, plus a signed-out pass) combined with a code review and a direct visit of every source-declared route, draft tours for every discovered gap, and ship them the same way. Append "--review" to the normal run, propose, or map to fall back to the old stop-and-ask-at-each-step behavior instead. Append "--no-style" to any mode to skip design-skill detection for that run. Invoke as "/document validate" to preflight-check config/tours (undefined auth profiles, empty code_paths globs, non-role selectors) without launching a browser. Invoke as "/document init-site" to scaffold a Docusaurus site serving this project's docs/ folder, themed from whatever design/brand skill the project already has (if any). Invoke as "/document restyle" to re-detect and re-apply that skill to an already-scaffolded site. Works in any project — it bootstraps autodocs.config.yaml and tours/ the first time it's run there.
-argument-hint: "[tour-id] [--review] [--no-style] | propose <slug> \"<description>\" [--review] [--no-style] | map [--interactive] [--review] [--no-style] | validate | init-site | restyle"
+description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review) and drafts tours for every gap. "validate" preflight-checks config/tours with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | validate | init-site   (any mode: [--review] [--no-style])"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
@@ -107,9 +107,9 @@ every mode below, not just the normal pipeline.
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
 If the arguments are `validate`, follow **"Validate a project"** below.
-If the arguments are `init-site`, follow **"Scaffold a docs site"** below.
-If the arguments are `restyle`, follow **"Restyle an existing docs site"**
-below.
+If the arguments are `init-site`, follow **"Scaffold a docs site"** below —
+this also covers re-applying styling to an already-scaffolded site, so
+there's no separate "restyle" mode.
 Otherwise: run the AutoDocs pipeline — apply the project's design skill (once,
 if not already applied and `--no-style` wasn't given) → capture → drift gate
 → dispatch dirty tours needing new prose to the `doc-scribe` subagent →
@@ -337,8 +337,23 @@ exactly the kind of thing you're better suited for than a brittle script.
 Follow the exact recipe below — it's proven, not a guess (this plugin's own
 repo runs it):
 
-1. If `${CLAUDE_PROJECT_DIR}/site/` already exists, stop and ask rather than
-   overwrite it.
+1. **If `${CLAUDE_PROJECT_DIR}/site/` already exists, this is a restyle run,
+   not a fresh scaffold** — nothing here is destructive, so running
+   `init-site` again is always safe, and it's also how you pick up a
+   newly-installed or changed design skill, or apply one that `--no-style`
+   skipped originally: just run `init-site` again.
+   - If `--no-style` was passed this time too, there's nothing to do —
+     report that (site already exists, no styling requested) and stop.
+   - Otherwise, re-run **"Apply the project's design skill"** below,
+     ignoring its own "skip if `.autodocs/doc-style.json` already exists"
+     shortcut so it actually re-detects and re-applies, then
+     `cd site && npm run build` (no `npm install` needed — the site's deps
+     are already there) to confirm the refreshed theme still builds. Report
+     "site already existed — refreshed styling" (naming which skill, if
+     any) instead of scaffolding from scratch.
+
+   Otherwise (no `site/` yet), continue with steps 2–8 below for a fresh
+   scaffold.
 2. Scaffold: `npx create-docusaurus@latest site classic --javascript --skip-install`.
 3. Remove the sample content you don't want: `site/blog/`, `site/docs/`
    (the site reads the project's real `docs/` instead — see step 4), and any
@@ -376,26 +391,6 @@ repo runs it):
    and point at this plugin's own README section "Deploying your docs" for
    publishing it somewhere. Note which design skill (if any) was applied.
 
-## Restyle an existing docs site
-
-`restyle` re-runs **"Apply the project's design skill"** below against an
-already-scaffolded `site/` — for when the project's design skill changed, a
-new one was installed, or the theme was never applied on the original
-`init-site` run (e.g. `--no-style` was used then).
-
-1. If `${CLAUDE_PROJECT_DIR}/site/` doesn't exist yet, stop and say so —
-   `init-site` runs the initial scaffold; there's nothing here to restyle.
-2. Run **"Apply the project's design skill"** below, ignoring any
-   already-exists check on `.autodocs/doc-style.json` (this mode always
-   re-detects and re-applies, that's the point).
-3. `cd site && npm run build` — confirm the new theme still builds.
-4. Report which skill was applied (or that none was found, in which case
-   nothing changed) and remind the user that generated pages themselves
-   only pick up a layout/style change (e.g. a new `stepsHeading`) the next
-   time `/document` runs — the render hash in
-   `.autodocs/artifacts/state.json` makes that automatic, no `--force`
-   needed.
-
 ## Apply the project's design skill
 
 Presentation only — see `CLAUDE.md`'s "Scope guardrail": this only ever
@@ -406,7 +401,8 @@ describes, and it never injects a tagline or marketing copy into a generated
 page. Runs once per invocation of the normal pipeline/`propose`/`map`,
 immediately before Step 1 (Capture) under "Steps" below — skip it entirely
 if `--no-style` was passed, or if `.autodocs/doc-style.json` already exists
-(nothing to redo; `restyle` above is the explicit way to redo it).
+(nothing to redo; re-running `init-site` above is the explicit way to redo
+it, e.g. after installing or changing a design skill).
 
 1. Run:
    ```
@@ -447,7 +443,11 @@ if `--no-style` was passed, or if `.autodocs/doc-style.json` already exists
      plus CSS rules for the `.autodocs-viewport`/`.autodocs-figure` classes
      `lib/docgen.mjs` emits (style the `<summary>` and the collapsed block;
      don't fight `<details>`'s native disclosure behavior).
-5. Report which skill (if any) was applied.
+5. Report which skill (if any) was applied. A generated page itself only
+   picks up a layout/style change (e.g. a new `stepsHeading`) the next time
+   `/document` runs against it — the render hash in
+   `.autodocs/artifacts/state.json` makes that automatic, no `--force`
+   needed (see "Check drift" under "Steps" below).
 
 ## Steps
 

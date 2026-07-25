@@ -127,8 +127,10 @@ function assertSafeLabel(value, label) {
 // Returns {} when the file doesn't exist, so every caller behaves exactly as
 // it did before this feature existed. The `site` section (free-form
 // Docusaurus theming notes) is intentionally never read here — it's consumed
-// only by the prompt-driven init-site/restyle steps, never by a script that
-// feeds output into a generated markdown page.
+// only by the prompt-driven "Scaffold a docs site" step (init-site is
+// idempotent: re-running it on an already-scaffolded site re-applies
+// styling instead of a separate mode), never by a script that feeds output
+// into a generated markdown page.
 export function loadDocStyle(projectDir) {
   const stylePath = path.join(projectDir, DOC_STYLE_FILENAME);
   if (!fs.existsSync(stylePath)) return {};

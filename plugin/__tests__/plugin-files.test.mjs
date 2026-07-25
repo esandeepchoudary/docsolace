@@ -182,6 +182,16 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain("docs.path: '../docs'");
   });
 
+  it('init-site is idempotent — re-running it on an existing site restyles instead of refusing, no separate restyle mode', () => {
+    // restyle used to be its own top-level mode; folded into init-site so
+    // there's one fewer thing to remember (see plugin/scripts/lib/design.mjs's
+    // loadDocStyle comment, which points back at this same section).
+    expect(frontmatter['argument-hint']).not.toContain('restyle');
+    expect(body).not.toContain('## Restyle');
+    expect(body.toLowerCase()).toContain('restyle run');
+    expect(body).toContain('already existed — refreshed styling');
+  });
+
   it('has a map mode that discovers features, drafting every gap by default but only on --review\'s say-so otherwise', () => {
     expect(frontmatter['argument-hint']).toContain('map');
     expect(body).toContain('Map the whole app');
