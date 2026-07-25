@@ -51,6 +51,23 @@ const config = {
     ],
   ],
 
+  // Self-contained, zero-external-service search — no Algolia account/API
+  // key to set up, which matters for a plugin whose whole pitch is "install
+  // once, works in any project". Indexes at build time (site/build/) rather
+  // than a hosted crawler, so search results are only ever as fresh as the
+  // last build/deploy, same staleness window as everything else on the site.
+  themes: [
+    [
+      '@easyops-cn/docusaurus-search-local',
+      /** @type {import('@easyops-cn/docusaurus-search-local').PluginOptions} */
+      ({
+        hashed: true,
+        indexDocs: true,
+        indexBlog: false,
+      }),
+    ],
+  ],
+
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
