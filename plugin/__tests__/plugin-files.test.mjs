@@ -221,6 +221,25 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain("docs.path: '../docs'");
   });
 
+  it('init-site wires up self-contained local search, not Algolia (no external account needed)', () => {
+    expect(body).toContain('@easyops-cn/docusaurus-search-local');
+    expect(body.toLowerCase()).toContain('not optional');
+    // The non-obvious mistake this codifies: docsRouteBasePath must be left
+    // unset (it defaults to /docs, matching the docs plugin's own route) —
+    // setting it to '/' silently breaks every search-result link, caught by
+    // actually building and checking search-index.json's URLs.
+    expect(body).toContain('docsRouteBasePath');
+    expect(body).toContain('search-index.json');
+    expect(body.toLowerCase()).toContain('algolia');
+  });
+
+  it('backfills search on a restyle run of a site scaffolded before search existed, unconditionally', () => {
+    // Search is a capability, not a style — must not be gated behind
+    // --no-style the way theme/logo/font application is.
+    expect(body.toLowerCase()).toContain('backfill search');
+    expect(body.toLowerCase()).toContain('unconditionally');
+  });
+
   it('init-site is idempotent — re-running it on an existing site restyles instead of refusing, no separate restyle mode', () => {
     // restyle used to be its own top-level mode; folded into init-site so
     // there's one fewer thing to remember (see plugin/scripts/lib/design.mjs's

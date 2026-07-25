@@ -359,6 +359,18 @@ once connected.
 Whichever you use, the docs site itself is a plain static build — nothing
 about it is AutoDocs-specific once it's built.
 
+**Search is built in.** `init-site` wires up
+[`@easyops-cn/docusaurus-search-local`](https://github.com/easyops-cn/docusaurus-search-local)
+— self-contained, indexed at build time into `site/build/search-index.json`,
+no external account or API key needed (deliberately not Algolia DocSearch,
+which requires both). It picks up every generated tutorial automatically,
+including anything under `docs/archive/` (see "Archiving a removed feature"
+above) — nothing to configure per tour. Search results are only as fresh as
+your last build/deploy, same as every other page on the site. Running
+`/autodocs:document init-site` again on an existing site (a "restyle run")
+backfills search onto a site scaffolded before this feature existed,
+independent of `--no-style` — it's a capability, not a styling choice.
+
 ## Troubleshooting
 
 - **`/plugin` isn't recognized** — your Claude Code install is out of date;
