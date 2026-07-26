@@ -12,7 +12,7 @@ import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPag
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
-import { buildFrontmatter, computeTourSidebarPositions, isPublishedTour, resolveTourLinks } from './lib/product.mjs';
+import { buildFrontmatter, buildTourInventory, computeTourSidebarPositions, resolveTourLinks } from './lib/product.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { pixelDiffRatio, writeDiffImage } from './lib/pixel-diff.mjs';
 
@@ -130,21 +130,16 @@ function main() {
   // which changes every *other* tour's render hash too — including ones
   // that link to it — so the next run re-resolves and re-renders those
   // links against the current inventory rather than leaving a stale title
-  // or a dead link for lib/verify.mjs to catch later. tourInventory carries
-  // {id, title} pairs (not just ids) specifically because of this — a
-  // title-only edit wouldn't otherwise change anything sidebar_position
-  // alone cared about. drift.mjs computes this identically; the two must
-  // never disagree about what's in it, or its report would drift from what
-  // this script actually persists.
+  // or a dead link for lib/verify.mjs to catch later. lib/product.mjs's
+  // buildTourInventory is the single shared builder for this — drift.mjs and
+  // status.mjs both call it too, rather than each computing their own copy,
+  // after two of the three previously drifted out of sync with each other.
   const allTours = fs
     .readdirSync('tours')
     .filter((f) => f.endsWith('.yaml'))
     .map((f) => f.replace(/\.yaml$/, ''))
     .map((id) => loadTour('tours', id));
-  const tourInventory = allTours
-    .filter(isPublishedTour)
-    .map((t) => ({ id: t.id, title: t.title ?? null }))
-    .sort((a, b) => a.id.localeCompare(b.id));
+  const tourInventory = buildTourInventory(allTours);
 
   const currentRenderHash = computeRenderHash({
     templateVersion: RENDER_TEMPLATE_VERSION,
