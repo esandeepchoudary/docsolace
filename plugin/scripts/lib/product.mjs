@@ -13,6 +13,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { globSync } from 'glob';
 import { computeCodePathsHash } from './drift.mjs';
 import { KEEP_END, KEEP_START } from './docgen.mjs';
@@ -20,11 +21,18 @@ import { KEEP_END, KEEP_START } from './docgen.mjs';
 // Ordered spec for the product-level pages generate-product-docs.mjs can
 // produce. Positions start at 1 so these always sort above tour pages, which
 // start at 10 (see generate-docs.mjs) — leaving headroom without the two
-// numbering schemes needing to coordinate.
+// numbering schemes needing to coordinate. configuration/troubleshooting/
+// changelog are enabled by default like the original three — an ungrounded
+// one is simply skipped and reported (see agents/product-scribe.md), never
+// padded, so a project with no CHANGELOG.md/troubleshooting section pays
+// nothing beyond "skipped" showing up in the run summary.
 export const PRODUCT_PAGES = [
   { id: 'overview', title: 'Overview', sidebarLabel: 'Overview', sidebarPosition: 1, includeTourIndex: true },
   { id: 'getting-started', title: 'Getting started', sidebarLabel: 'Getting started', sidebarPosition: 2, includeTourIndex: false },
   { id: 'concepts', title: 'Concepts', sidebarLabel: 'Concepts', sidebarPosition: 3, includeTourIndex: false },
+  { id: 'configuration', title: 'Configuration', sidebarLabel: 'Configuration', sidebarPosition: 4, includeTourIndex: false },
+  { id: 'troubleshooting', title: 'Troubleshooting', sidebarLabel: 'Troubleshooting', sidebarPosition: 5, includeTourIndex: false },
+  { id: 'changelog', title: 'Changelog', sidebarLabel: 'Changelog', sidebarPosition: 6, includeTourIndex: false },
 ];
 
 export const PRODUCT_PAGE_IDS = PRODUCT_PAGES.map((p) => p.id);
@@ -58,8 +66,29 @@ function isDeniedSource(relPath) {
 
 // Standing "what does this project say about itself" documents, included
 // whenever they actually exist — the common case for any project, no config
-// needed.
-const DEFAULT_SOURCES = ['README.md', 'package.json', '.env.example', 'autodocs.config.yaml'];
+// needed. CHANGELOG.md is the changelog page's preferred ground truth (see
+// listGitTags below for its fallback when this doesn't exist).
+const DEFAULT_SOURCES = ['README.md', 'package.json', '.env.example', 'autodocs.config.yaml', 'CHANGELOG.md'];
+
+// Best-effort list of tag names, newest-created first — the changelog
+// page's fallback ground truth when a project has no CHANGELOG.md. Unlike
+// every other product-page source, a new tag isn't a *file* change
+// computeCodePathsHash's git-blob hashing would ever catch on its own —
+// that's why computeProductInputsHash below takes it as a separate,
+// explicit input rather than folding it into sourceFiles. Falls back to an
+// empty list outside a git repo or before any tag exists — same
+// "never guess, degrade gracefully" posture as lib/drift.mjs's own
+// git-failure fallbacks.
+export function listGitTags(cwd = process.cwd()) {
+  try {
+    return execFileSync('git', ['tag', '--sort=-creatordate'], { cwd, encoding: 'utf8' })
+      .split('\n')
+      .map((t) => t.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
 
 // Glob-noise/safety exclusion for config.product.sources — these directories
 // are never meaningfully "about the product" and can be huge (node_modules)
@@ -128,7 +157,15 @@ export function collectProductSources(cwd, config) {
 // itself) plus a summary of the confirmed tour inventory, so adding,
 // renaming, retitling, or archiving a tour marks the pages dirty too, not
 // just an edit to README.md.
-export function computeProductInputsHash({ cwd, sourceFiles, tours }) {
+//
+// `gitTags` (optional — see listGitTags above) is the changelog page's own
+// extra dirty signal: pass it only when the changelog page is enabled *and*
+// there's no CHANGELOG.md (the caller's job — generate-product-docs.mjs/
+// drift.mjs, which both know the enabled page set and can check the file
+// exists), so a project not using the changelog page, or one with a real
+// CHANGELOG.md already covered by sourceFiles, never pays for an extra git
+// call or extra hash churn from tags it doesn't render anything from.
+export function computeProductInputsHash({ cwd, sourceFiles, tours, gitTags }) {
   const sourcesHash = computeCodePathsHash(sourceFiles, cwd);
   const tourSummary = (tours ?? [])
     .map((t) => ({
@@ -142,7 +179,25 @@ export function computeProductInputsHash({ cwd, sourceFiles, tours }) {
   const hash = createHash('sha256');
   hash.update(`sources:${sourcesHash}\n`);
   hash.update(`tours:${JSON.stringify(tourSummary)}\n`);
+  if (gitTags !== undefined) {
+    hash.update(`gitTags:${JSON.stringify(gitTags)}\n`);
+  }
   return hash.digest('hex');
+}
+
+// The one "is changelog enabled, and does it need the git-tags fallback"
+// check, shared so generate-product-docs.mjs and drift.mjs can't disagree
+// about when to pay for the extra git call / fold tags into the hash — both
+// must compute computeProductInputsHash's gitTags input identically, or
+// drift.mjs's report would drift from what generate-product-docs.mjs
+// actually persists. Gated on `enabledPageIds` (config.product.pages, or
+// every id by default), not a --page-scoped run's narrower target list —
+// the shared inputsHash covers every enabled page regardless of which ones
+// a given invocation happens to write.
+export function resolveChangelogGitTags({ cwd, enabledPageIds }) {
+  if (!enabledPageIds.includes('changelog')) return undefined;
+  if (fs.existsSync(path.join(cwd, 'CHANGELOG.md'))) return undefined;
+  return listGitTags(cwd);
 }
 
 // Same shape as lib/drift.mjs's getDirtyReasons, simplified: the product
