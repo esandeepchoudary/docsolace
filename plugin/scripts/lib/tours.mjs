@@ -178,5 +178,24 @@ export function loadTour(toursDir, tourId) {
     assertSafeFixturePath(tour.preconditions.voice, `Tour "${tourId}"'s "preconditions.voice" field`);
   }
 
+  assertSafeTourIdList(tour.prerequisites, `Tour "${tourId}"'s "prerequisites" field`);
+  assertSafeTourIdList(tour.see_also, `Tour "${tourId}"'s "see_also" field`);
+
   return tour;
+}
+
+// prerequisites/see_also (both optional) name other tours to cross-link
+// from this one's generated page (see lib/docgen.mjs's renderTourPage) —
+// mechanical rendering, not a subagent, so the only thing this needs to
+// enforce is "a list of real, safe slugs"; lib/validate.mjs separately
+// checks that each id actually resolves to a real, published tour (a
+// load-time structural check here can't know about sibling tour files).
+function assertSafeTourIdList(value, label) {
+  if (value === undefined) return;
+  if (!Array.isArray(value)) {
+    throw new Error(`${label} must be a list of tour ids`);
+  }
+  for (const id of value) {
+    assertSafeSlug(id, `${label} entry`);
+  }
 }

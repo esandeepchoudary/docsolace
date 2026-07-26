@@ -17,6 +17,7 @@ import {
   isProductRenderOnlyDirty,
   isPublishedTour,
   renderProductPage,
+  resolveTourLinks,
 } from '../product.mjs';
 
 const tmpDirs = [];
@@ -429,6 +430,39 @@ describe('isPublishedTour', () => {
 
   it('is false for an archived tour', () => {
     expect(isPublishedTour({ status: 'archived' })).toBe(false);
+  });
+});
+
+describe('resolveTourLinks', () => {
+  const login = { id: 'login', title: 'Login page' };
+  const dashboard = { id: 'dashboard', title: 'Dashboard' };
+  const draft = { id: 'wip', title: 'Work in progress', maturity: 'draft' };
+  const proposed = { id: 'proposed-tour', title: 'Proposed', status: 'proposed' };
+  const archived = { id: 'gone', title: 'Gone', status: 'archived' };
+  const allTours = [login, dashboard, draft, proposed, archived];
+
+  it('resolves ids to {id, title} pairs, in the order given', () => {
+    expect(resolveTourLinks(['dashboard', 'login'], allTours)).toEqual([
+      { id: 'dashboard', title: 'Dashboard' },
+      { id: 'login', title: 'Login page' },
+    ]);
+  });
+
+  it('drops a dangling id (no matching tour)', () => {
+    expect(resolveTourLinks(['login', 'ghost'], allTours)).toEqual([{ id: 'login', title: 'Login page' }]);
+  });
+
+  it('drops a draft/proposed/archived tour, even though it exists', () => {
+    expect(resolveTourLinks(['wip', 'proposed-tour', 'gone'], allTours)).toEqual([]);
+  });
+
+  it('falls back to the id when a resolved tour has no title', () => {
+    expect(resolveTourLinks(['untitled'], [{ id: 'untitled' }])).toEqual([{ id: 'untitled', title: 'untitled' }]);
+  });
+
+  it('returns an empty array for undefined/empty ids', () => {
+    expect(resolveTourLinks(undefined, allTours)).toEqual([]);
+    expect(resolveTourLinks([], allTours)).toEqual([]);
   });
 });
 

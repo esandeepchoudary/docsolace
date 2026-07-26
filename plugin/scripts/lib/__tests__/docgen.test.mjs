@@ -277,6 +277,68 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
   });
 });
 
+describe('renderTourPage cross-links (prerequisites/seeAlso)', () => {
+  const baseArgs = {
+    title: 'Dashboard',
+    intent: 'Shows the dashboard.',
+    steps: [{ description: 'Step', imagePath: 'a.png', paragraph: 'Paragraph.' }],
+  };
+
+  it('renders a "Before you start" block from prerequisites, linking to <id>.md', () => {
+    const page = renderTourPage({ ...baseArgs, prerequisites: [{ id: 'login', title: 'Login page' }] });
+    expect(page).toContain('**Before you start:**');
+    expect(page).toContain('- [Login page](login.md)');
+  });
+
+  it('renders a "See also" block from seeAlso, linking to <id>.md', () => {
+    const page = renderTourPage({ ...baseArgs, seeAlso: [{ id: 'dashboard-export', title: 'Export dashboard activity' }] });
+    expect(page).toContain('**See also:**');
+    expect(page).toContain('- [Export dashboard activity](dashboard-export.md)');
+  });
+
+  it('renders multiple entries in the order given', () => {
+    const page = renderTourPage({
+      ...baseArgs,
+      seeAlso: [
+        { id: 'a', title: 'A tour' },
+        { id: 'b', title: 'B tour' },
+      ],
+    });
+    const seeAlsoIndex = page.indexOf('**See also:**');
+    const aIndex = page.indexOf('- [A tour](a.md)');
+    const bIndex = page.indexOf('- [B tour](b.md)');
+    expect(seeAlsoIndex).toBeGreaterThan(-1);
+    expect(aIndex).toBeGreaterThan(seeAlsoIndex);
+    expect(bIndex).toBeGreaterThan(aIndex);
+  });
+
+  it('omits both blocks entirely when neither is given (unchanged output)', () => {
+    const page = renderTourPage(baseArgs);
+    expect(page).not.toContain('Before you start');
+    expect(page).not.toContain('See also');
+  });
+
+  it('omits a block when the list is empty rather than rendering an empty heading', () => {
+    const page = renderTourPage({ ...baseArgs, prerequisites: [], seeAlso: [] });
+    expect(page).not.toContain('Before you start');
+    expect(page).not.toContain('See also');
+  });
+
+  it('"Before you start" appears before the intent, "See also" appears after the steps', () => {
+    const page = renderTourPage({
+      ...baseArgs,
+      prerequisites: [{ id: 'login', title: 'Login page' }],
+      seeAlso: [{ id: 'export', title: 'Export' }],
+    });
+    const beforeIndex = page.indexOf('Before you start');
+    const intentIndex = page.indexOf(baseArgs.intent);
+    const stepsIndex = page.indexOf('## Steps');
+    const seeAlsoIndex = page.indexOf('See also');
+    expect(beforeIndex).toBeLessThan(intentIndex);
+    expect(stepsIndex).toBeLessThan(seeAlsoIndex);
+  });
+});
+
 describe('RENDER_TEMPLATE_VERSION', () => {
   it('is exported as a stable integer other modules can hash', () => {
     expect(Number.isInteger(RENDER_TEMPLATE_VERSION)).toBe(true);

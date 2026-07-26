@@ -25,7 +25,9 @@ const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 // instead of waiting for that tour's own screenshots or code_paths to move.
 // v3: tour pages gained frontmatter (sidebar_position/sidebar_label) — see
 // renderTourPage's optional `frontmatter` argument.
-export const RENDER_TEMPLATE_VERSION = 3;
+// v4: tour pages gained "Before you start"/"See also" cross-link blocks —
+// see renderTourPage's optional `prerequisites`/`seeAlso` arguments.
+export const RENDER_TEMPLATE_VERSION = 4;
 
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
 // human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
@@ -110,7 +112,20 @@ function imageLines(imageMarkdownLine, figures) {
   return ['   <figure class="autodocs-figure">', '', imageMarkdownLine, '', '   </figure>', ''];
 }
 
-export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, style, frontmatter }) {
+// Renders a "**<label>:**" bullet list of already-resolved {id, title} tour
+// links (see generate-docs.mjs, which resolves a tour's prerequisites/
+// see_also ids against the live tour inventory before calling this — only
+// real, published tours ever reach here; a dangling or unpublished id is a
+// validate.mjs finding, not something this renderer decides). Each link is a
+// same-directory relative reference ("<id>.md"), matching the exact pattern
+// lib/product.mjs's renderProductPage already uses for the overview page's
+// own tour index.
+function crossLinkBlock(label, tours) {
+  if (!tours || tours.length === 0) return [];
+  return [`**${label}:**`, '', ...tours.map((t) => `- [${t.title}](${t.id}.md)`), ''];
+}
+
+export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, style, frontmatter, prerequisites, seeAlso }) {
   const {
     primaryViewport,
     collapseOtherViewports = true,
@@ -164,12 +179,14 @@ export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, st
   const body = [
     `# ${title}`,
     '',
+    ...crossLinkBlock('Before you start', prerequisites),
     intent,
     '',
     `## ${stepsHeading}`,
     '',
     stepBlocks.join('\n\n'),
     '',
+    ...crossLinkBlock('See also', seeAlso),
     KEEP_START,
     keepRegionPlaceholder ?? '<!-- Notes added here are preserved across regeneration. -->',
     KEEP_END,
