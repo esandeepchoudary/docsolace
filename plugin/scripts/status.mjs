@@ -9,7 +9,6 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { loadManifest } from './lib/manifest.mjs';
-import { getProductDirtyReasons } from './lib/product.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { loadState } from './lib/state.mjs';
@@ -17,9 +16,11 @@ import { computeTourStatus, computeProductPageStatus, findAnomalies } from './li
 import {
   PRODUCT_PAGE_IDS,
   PRODUCT_STATE_KEY,
+  buildTourInventory,
   collectProductSources,
   computeProductInputsHash,
-  isPublishedTour,
+  getProductDirtyReasons,
+  resolveChangelogGitTags,
 } from './lib/product.mjs';
 
 function formatGenerated({ generatedAt, generatedAtCommit, hasPage }) {
@@ -67,7 +68,13 @@ function main() {
     .filter((f) => f.endsWith('.yaml'))
     .map((f) => f.replace(/\.yaml$/, ''));
   const allTours = tourIds.map((fileId) => loadTour('tours', fileId));
-  const tourInventory = allTours.filter(isPublishedTour).map((t) => t.id).sort();
+  // lib/product.mjs's shared builder — must match generate-docs.mjs's/
+  // drift.mjs's own tourInventory exactly. This used to be computed inline
+  // here as a plain ids-only array; centralizing it fixed a real bug where
+  // it silently drifted out of sync with the {id, title} shape the other
+  // two use, making this report permanently show every published tour as
+  // "dirty (render)" even immediately after a genuinely clean generation.
+  const tourInventory = buildTourInventory(allTours);
 
   // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs and
   // drift.mjs's CLI both use — see their own comments on why this can't be
@@ -102,7 +109,15 @@ function main() {
   if (enabledPages.length > 0) {
     console.log('\nProduct pages:');
     const sourceFiles = collectProductSources(process.cwd(), config);
-    const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours: allTours });
+    // Must match drift.mjs/generate-product-docs.mjs's own inputsHash
+    // computation exactly, gitTags included — omitting it here would make
+    // this report permanently disagree with a real run's actual clean/dirty
+    // determination on any project with the changelog page enabled (the
+    // default) and no CHANGELOG.md (the common case), not just on an actual
+    // tag change. Confirmed as a real, always-reproducible bug against this
+    // repo's own state before this fix, not a hypothetical.
+    const gitTags = resolveChangelogGitTags({ cwd: process.cwd(), enabledPageIds });
+    const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours: allTours, gitTags });
     const previousProductEntry = state[PRODUCT_STATE_KEY];
     const productReasons = getProductDirtyReasons({
       previousEntry: previousProductEntry,
