@@ -2,21 +2,22 @@
 sidebar_position: 1
 sidebar_label: "Overview"
 title: "Overview"
+description: "AutoDocs is a Claude Code plugin that drives a running web app with Playwright, takes screenshots, and writes tutorial-style Markdown documentation that stays…"
 ---
 
 # Overview
 
 ## What it is
 
-AutoDocs writes and maintains an app's tutorials by actually using the app. Instead of a person clicking through the UI, taking screenshots, and writing prose that goes stale the moment the UI changes, AutoDocs drives a real headless browser against a running app, takes the screenshots itself, and writes tutorial-style documentation grounded in what it actually observed on the page. It ships primarily as a Claude Code plugin, installed from this repository acting as its own private plugin marketplace, and its underlying pipeline is also a set of plain Node scripts that can be run directly without Claude Code at all.
+AutoDocs is a Claude Code plugin that drives a running web app with Playwright, takes screenshots, and writes tutorial-style Markdown documentation that stays in sync as the app changes. Instead of a person clicking through an app, taking screenshots, and writing "here's how the dashboard works" prose that goes stale the moment the UI changes, AutoDocs drives a real headless browser against the app's actual running instance, takes the screenshots itself, and writes grounded, tutorial-style docs from what it actually saw. It ships as a Claude Code plugin, which is its primary way of being used, and this repository also doubles as a private Claude Code plugin marketplace containing that one plugin.
 
 ## Who it's for
 
-It is built for solo developers documenting their own projects: one person runs it themselves whenever a feature is worth documenting, rather than a team-scale pipeline that regenerates docs automatically on every merge. Consistent with that, the optional GitHub Actions workflow for CI is parked on a manual trigger (workflow_dispatch) rather than firing automatically.
+AutoDocs is built for solo developers: one person runs it themselves whenever a feature is worth documenting, rather than a team-scale pipeline that regenerates docs on every merge. The bundled CI workflow (.github/workflows/docs.yml) reflects this — it exists and can run the full pipeline, but is deliberately parked on manual trigger (workflow_dispatch) instead of firing automatically, because running things yourself is the default posture, not something to set up before using the tool.
 
 ## What it does
 
-The pipeline runs in four stages. Capture drives a headless browser through a tour (a YAML file describing pages to visit, actions to take, and where to screenshot) against the real running app, taking a screenshot and an accessibility snapshot at each capture point, at every configured viewport size. The drift check compares a new capture against the last one and, if a tour's screenshots and underlying source files are both unchanged, skips regenerating that tour's page. Generate writes tutorial prose for anything flagged as changed, grounded strictly in the accessibility snapshot captured in step one, and preserves any hand-written content inside an `<!-- autodocs:keep -->` region across regenerations. Publish is the resulting Markdown under `docs/`, viewable as-is or served through an optional scaffolded Docusaurus site. The same capture-to-generate shape (minus the browser-driven capture step) also produces this smaller set of product-level pages, grounded in the repository's own README, package.json, .env.example, autodocs.config.yaml, the companion CONFIGURATION.md/PUBLISHING.md/TROUBLESHOOTING.md/ADVANCED.md/CONTRIBUTING.md pages, and the confirmed tour inventory rather than the running app.
+It drives a real running app headlessly: a declarative YAML "tour" describes a feature walk, and Playwright clicks through the actual app — no fixtures, no hand-authored mockups. Every screenshot is captured together with an accessibility snapshot of the page at that moment, and that snapshot becomes the grounding for any prose written about it, so nothing is invented. A drift check compares a fresh capture's screenshots and the tour's underlying source (code_paths) against the last run, so regeneration only touches tours that actually changed. Hand-written content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` blocks survives every regeneration untouched. Generated output lands in docs/, staged and pushed as a pull request for a human to review and merge — it is never merged automatically. The generated docs/ folder can be served as a real docs site through a bundled Docusaurus scaffold, with built-in local search.
 
 ## Tutorials
 

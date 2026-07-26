@@ -2,29 +2,30 @@
 sidebar_position: 4
 sidebar_label: "Configuration"
 title: "Configuration"
+description: "The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in autodocs.config.yaml:…"
 ---
 
 # Configuration
 
 ## Environment variables (.env.example)
 
-`AUTODOCS_STANDARD_USER_USERNAME` and `AUTODOCS_STANDARD_USER_PASSWORD` map to the `usernameEnv`/`passwordEnv` fields of `autodocs.config.yaml`'s auth profiles. Copy `.env.example` to `.env` and fill in real values — `.env` is gitignored and real credentials must never be committed.
+The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in autodocs.config.yaml: AUTODOCS_STANDARD_USER_USERNAME and AUTODOCS_STANDARD_USER_PASSWORD. The file is meant to be copied to .env and filled in; .env is gitignored and real credentials should never be committed.
 
-## Core autodocs.config.yaml fields
+## autodocs.config.yaml — core fields
 
-`baseUrl` is the app's local base URL. `viewports` is a map of named viewport sizes (this repository uses `desktop` at 1280x800 and `mobile` at 390x844) that every capture point is shot at, in the same page/session, with the first entry used as the primary one for the login flow. `outputDir` sets where capture artifacts are written (`.autodocs/artifacts` here). `defaultMask` lists selectors masked on every capture in addition to a tour's own `mask` list, keeping common volatile regions (this repository masks `.timestamp` and `.user-avatar`) out of every tour spec. `runTrigger` records the intended cadence for the docs pipeline (`manual-only` here, since this is a solo-developer tool) — informational only, since `.github/workflows/docs.yml`'s trigger must be kept in sync by hand. `pixelDiffThreshold` (`0.005` here) is the fraction of changed pixels a recaptured screenshot must exceed before it replaces the committed one, keeping insignificant re-renders out of git history.
+baseUrl is the app's local base URL. viewports is a map of named viewport sizes (this repo defines desktop and mobile); every capture point is shot once per entry in this map, and the first entry is the "primary" viewport used for the login flow itself. outputDir sets where capture artifacts are written (.autodocs/artifacts here). defaultMask lists selectors masked on every capture in addition to a tour's own mask list, keeping common volatile regions like timestamps and avatars out of every tour spec. runTrigger is an informational field describing the intended cadence for the docs pipeline (manual-only, merge-to-main, or release-tag) — it doesn't itself control GitHub Actions, since workflow triggers are static YAML that must be kept in sync by hand in .github/workflows/docs.yml. pixelDiffThreshold is the fraction of changed pixels a recaptured screenshot must exceed before it replaces the committed one in docs/images/, keeping binary git churn out of history for visually-insignificant re-renders.
 
-## Auth, seeds, and allowSeedCommands
+## Auth, seeds, and the seed-command gate
 
-The `auth` map declares login profiles referenced by tours' `preconditions.auth`, either scripted username/password fields or a `storageStatePath` for a pre-recorded session (needed for OAuth/SSO/2FA/magic-link logins). The `seeds` map declares named fixtures referenced by tours' `preconditions.seed`; a seed can optionally include a `command`, but commands only run when `allowSeedCommands` is set to `true` in config (or `--allow-seed-commands` is passed to `capture`) — off by default so a fresh clone can never execute a command just because a seed declares one.
+auth is a map of named profiles referenced by a tour's preconditions.auth; storage state from a successful login is cached under <outputDir>/.auth/<profile-id>.json and reused across runs. seeds is a map of named fixtures referenced by a tour's preconditions.seed; a seed with only a description and no command is treated as a no-op (as with this repo's own demo-baseline, since the demo app's data is static). allowSeedCommands (default false) is the explicit, off-by-default gate that must be set to true — or overridden per-run with --allow-seed-commands — before any seed's declared command is actually executed, since a seed command is config and config is exactly as reachable by an unreviewed change as tour YAML is.
 
-## docs section
+## docs: page layout and styling
 
-`docs.primaryViewport` names which viewport's screenshot stays inline in a generated page (others collapse into a `<details>` block); `docs.collapseOtherViewports` toggles that behavior (`false` restores the old flat, all-inline layout); `docs.stampVerified` (opt-in, default off) stamps each page's frontmatter with a `last_verified` date and commit, advancing only when the page is actually regenerated. `docs.sections` groups tour pages into named categories in the generated sidebar.
+The docs section controls generated page layout: primaryViewport names which viewport's screenshot stays inline in a generated page (every other viewport's screenshot collapses into a details/summary block); collapseOtherViewports (default true) can be set to false to restore a flat, all-inline layout; stampVerified (opt-in, default off) stamps each page's frontmatter with a last_verified date/commit, only advancing when the page is actually regenerated. Separately, every generated page always gets a description frontmatter field — a tour's own intent, or product-scribe's own first section, stripped of markdown and truncated — so each page's search/answer-engine meta description is specific to that page instead of a site-wide tagline; this needs no configuration and is simply omitted when there's nothing to ground it in.
 
-## product section
+## product: sources, pages, and sidebar sections
 
-`product.name` optionally overrides the product name used in generated pages (defaults to `package.json`'s name). `product.pages` lists which of the six product pages to generate (default: all six — configuration/troubleshooting/changelog are simply skipped when there's nothing to ground them in). `product.sources` lists extra project-relative glob paths providing additional grounding for product-scribe beyond the standing README/package.json/.env.example/autodocs.config.yaml/CHANGELOG.md set — in this project it currently lists CONFIGURATION.md, PUBLISHING.md, TROUBLESHOOTING.md, ADVANCED.md, and CONTRIBUTING.md, since the README was split into these companion files.
+product.sources lists extra project-relative globs of files that feed the product-scribe subagent beyond the standing README.md/package.json/.env.example/autodocs.config.yaml/CHANGELOG.md set — this repo's own config lists CONFIGURATION.md, PUBLISHING.md, TROUBLESHOOTING.md, ADVANCED.md, and CONTRIBUTING.md, since its README was split into these companion pages. product.pages and product.name (both documented in CONFIGURATION.md) let a project pick which of the six product pages to generate and override the product's displayed name, defaulting to all six and to package.json's name respectively. docs.sections groups tour pages into labeled sections in the generated sidebar (docs/_sidebar.autodocs.json); a tour named in no section sorts into a flat "everything else" group instead. product-scribe never reads .env, key/credential-shaped files, or anything under a .auth/ directory, regardless of what a configured glob would otherwise match.
 
 <!-- autodocs:keep -->
 <!-- Notes added here are preserved across regeneration. -->

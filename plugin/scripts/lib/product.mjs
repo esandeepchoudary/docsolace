@@ -241,19 +241,73 @@ export function isProductRenderOnlyDirty(reasons) {
 // enforcing here is "a real, boundedly-sized string".
 const MAX_FRONTMATTER_VALUE_LENGTH = 100;
 
-function assertFrontmatterValue(value, label) {
+// Looser than MAX_FRONTMATTER_VALUE_LENGTH above — a search-engine/answer-
+// engine meta description conventionally runs up to ~155-160 characters
+// before truncation, well past what a sidebar label or title should ever
+// need. deriveMetaDescription below already truncates to this bound, so in
+// practice this is a safety net, not the primary truncation path.
+const MAX_DESCRIPTION_LENGTH = 160;
+
+function assertFrontmatterValue(value, label, maxLength = MAX_FRONTMATTER_VALUE_LENGTH) {
   if (typeof value !== 'string' || !value.trim()) {
     throw new Error(`${label} must be a non-empty string`);
   }
-  if (value.length > MAX_FRONTMATTER_VALUE_LENGTH) {
-    throw new Error(`${label} must be ${MAX_FRONTMATTER_VALUE_LENGTH} characters or fewer`);
+  if (value.length > maxLength) {
+    throw new Error(`${label} must be ${maxLength} characters or fewer`);
   }
 }
 
-// Serializes a minimal YAML frontmatter block: only these four whitelisted
+// Turns a chunk of already-grounded prose (a tour's own `intent`, or
+// product-scribe's first written section) into a plain-text, page-specific
+// meta description — for a citation snippet in an answer engine (Perplexity/
+// ChatGPT/Claude search) or a classic search result to be accurate to *this*
+// page, instead of every generated page sharing one site-wide tagline (see
+// site/docusaurus.config.js's `tagline`, the fallback Docusaurus uses when a
+// page sets no `description` frontmatter).
+//
+// Deliberately mechanical extraction, not new content: strips markdown
+// syntax that would otherwise show up literally inside an HTML <meta>
+// attribute (code spans, bold/italic markers, link/image syntax — keeping a
+// link's visible text), collapses whitespace, and truncates at a word
+// boundary. Never invents or paraphrases; the source text is always either a
+// human/tour-scout-authored `intent` or product-scribe's own grounded prose.
+//
+// Known limitation: the single-`_`/single-`*` italic strip below can
+// misfire on a bare snake_case identifier with two underscores in running
+// prose (rare in practice — this codebase's real prose wraps identifiers in
+// backticks, stripped separately above); accepted rather than a heavier
+// markdown parser for what is, worst case, a cosmetic truncation artifact in
+// a meta tag.
+export function deriveMetaDescription(text, maxLength = MAX_DESCRIPTION_LENGTH) {
+  if (typeof text !== 'string') return '';
+  let plain = text
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '') // images — drop entirely, no visible text to keep
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1') // links — keep the visible text
+    .replace(/`([^`]*)`/g, '$1') // code spans
+    .replace(/\*\*([^*]+)\*\*/g, '$1') // bold (**)
+    .replace(/__([^_]+)__/g, '$1') // bold (__)
+    .replace(/\*([^*]+)\*/g, '$1') // italic (*)
+    .replace(/_([^_]+)_/g, '$1') // italic (_)
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!plain) return '';
+  if (plain.length <= maxLength) return plain;
+  const truncated = plain.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(' ');
+  return `${(lastSpace > 0 ? truncated.slice(0, lastSpace) : truncated).trim()}…`;
+}
+
+// Serializes a minimal YAML frontmatter block: only these five whitelisted
 // keys, ever. Values are JSON-quoted — JSON string syntax is a valid YAML
 // flow scalar (same trick bootstrap.mjs's safeYamlBaseUrl uses) — so this
 // sidesteps YAML-injection without a bespoke escaping routine.
+//
+// description (new — see deriveMetaDescription above) maps directly to
+// Docusaurus's per-doc `description` frontmatter, which it renders as both
+// the page's <meta name="description"> and its og:description, overriding
+// the site-wide tagline fallback. Omitted entirely (never emitted empty)
+// when the caller has nothing to ground it in, which just means that page
+// keeps falling back to the site tagline, same as before this field existed.
 //
 // lastVerified (opt-in — config.docs.stampVerified, see lib/config.mjs) is
 // the caller-formatted "<date> (<short-sha>)" string generate-docs.mjs/
@@ -265,7 +319,7 @@ function assertFrontmatterValue(value, label) {
 // on a clean run with nothing to do — bumping it on every run regardless of
 // change would mean re-writing every page every time just to touch a
 // timestamp, defeating the whole point of the drift gate.
-export function buildFrontmatter({ sidebarPosition, sidebarLabel, title, lastVerified } = {}) {
+export function buildFrontmatter({ sidebarPosition, sidebarLabel, title, description, lastVerified } = {}) {
   const lines = ['---'];
   if (sidebarPosition !== undefined) {
     if (typeof sidebarPosition !== 'number' || !Number.isFinite(sidebarPosition)) {
@@ -280,6 +334,14 @@ export function buildFrontmatter({ sidebarPosition, sidebarLabel, title, lastVer
   if (title !== undefined) {
     assertFrontmatterValue(title, 'title');
     lines.push(`title: ${JSON.stringify(title)}`);
+  }
+  // Unlike sidebarLabel/title (always expected to be real, non-empty
+  // strings), an empty description is the normal "nothing to ground it in"
+  // case — deriveMetaDescription returns '' for that rather than throwing,
+  // so it's silently omitted here too, not treated as a caller error.
+  if (description) {
+    assertFrontmatterValue(description, 'description', MAX_DESCRIPTION_LENGTH);
+    lines.push(`description: ${JSON.stringify(description)}`);
   }
   if (lastVerified !== undefined) {
     assertFrontmatterValue(lastVerified, 'last_verified');

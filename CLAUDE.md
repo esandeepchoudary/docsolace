@@ -151,6 +151,21 @@ other brand. Do not apply any brand styling here even if a parent-directory
   TODO, never a live field) when it needed an existing auth profile's login
   flow to reach a feature — same "suggest, never auto-fill" discipline as
   `preconditions.seed`/`mask`.
+- **Per-page meta description**: every generated page (tour or product)
+  carries a `description` frontmatter field — `lib/product.mjs`'s
+  `deriveMetaDescription`, fed a tour's own `intent` or product-scribe's
+  first written section, strips markdown and truncates to ~160 chars.
+  Docusaurus renders this as that page's `<meta name="description">`/
+  `og:description`, overriding the site-wide `tagline` fallback
+  (`site/docusaurus.config.js`) — so a search/answer engine citing one
+  specific tutorial gets an accurate, page-specific snippet instead of the
+  same generic sentence on every page. Purely mechanical extraction from
+  already-grounded content, same "no new hallucination surface" discipline
+  as cross-links above; omitted (never emitted empty) when there's nothing
+  to derive it from. Bumping `docgen.mjs`'s `RENDER_TEMPLATE_VERSION` is what
+  makes this land on every already-generated page automatically, the same
+  render-only mechanism described under "Page layout vs. design-skill
+  styling" below.
 - **Surgical updates**: regenerating a tour's page only touches that page;
   content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` is
   human-owned and must survive every regeneration untouched. If a human edits

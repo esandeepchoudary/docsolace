@@ -22,6 +22,7 @@ import {
   buildSidebarStructure,
   collectProductSources,
   computeProductInputsHash,
+  deriveMetaDescription,
   getProductDirtyReasons,
   isPublishedTour,
   renderProductPage,
@@ -148,6 +149,7 @@ function main() {
       sidebarPosition: page.sidebarPosition,
       sidebarLabel: page.sidebarLabel,
       title: page.title,
+      description: deriveMetaDescription(pageProse.sections?.[0]?.body ?? ''),
       lastVerified: docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined,
     });
 

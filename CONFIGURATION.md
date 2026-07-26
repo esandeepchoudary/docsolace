@@ -122,6 +122,13 @@ where nothing changed, so it can't be used to prove "someone checked this
 today," only "this is what changed and when." Flipping it re-renders every
 existing page once, through the normal drift gate — no extra step needed.
 
+Every generated page also always gets a `description` frontmatter field —
+a tour's own `intent`, or product-scribe's own first section, mechanically
+stripped of markdown and truncated (`lib/product.mjs`'s
+`deriveMetaDescription`) — so each page's search/answer-engine meta
+description is specific to that page instead of the site-wide `tagline`.
+No config needed; omitted automatically if there's nothing to ground it in.
+
 **Design-skill styling.** If your project has a design/brand skill installed
 (under `.claude/skills/` or an installed plugin, project- or user-scoped —
 e.g. a company brand-guide skill), `/document` auto-detects it before

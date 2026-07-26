@@ -12,7 +12,13 @@ import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPag
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
-import { buildFrontmatter, buildTourInventory, computeTourSidebarPositions, resolveTourLinks } from './lib/product.mjs';
+import {
+  buildFrontmatter,
+  buildTourInventory,
+  computeTourSidebarPositions,
+  deriveMetaDescription,
+  resolveTourLinks,
+} from './lib/product.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { pixelDiffRatio, writeDiffImage } from './lib/pixel-diff.mjs';
 
@@ -220,6 +226,7 @@ function main() {
   const frontmatter = buildFrontmatter({
     sidebarPosition: sidebarPositions.get(tour.id),
     sidebarLabel: tour.title,
+    description: deriveMetaDescription(tour.intent ?? ''),
     lastVerified: docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined,
   });
 
