@@ -1,4 +1,50 @@
 User-agent: *
 Allow: /
 
+# Explicit allow-list for AI crawlers, on top of the wildcard rule above
+# (which already permits everyone). Several of these bots specifically look
+# for their own named User-agent block before falling back to `*` — this
+# just removes any ambiguity for them. Reflects publicly documented crawler
+# names as of 2026; revisit if a name is added or retired.
+
+# OpenAI (ChatGPT / web search)
+User-agent: GPTBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+# Anthropic (Claude)
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: Claude-SearchBot
+Allow: /
+
+# Perplexity
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+# Broader AI-training feeders that many answer engines draw on downstream
+User-agent: Google-Extended
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
 Sitemap: https://esandeepchoudary.github.io/autodocs/sitemap.xml

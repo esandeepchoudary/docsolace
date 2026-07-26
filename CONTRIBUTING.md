@@ -42,6 +42,11 @@ docs/archive/              Tutorials for removed features — see "Archiving a r
 .autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
 .autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
+llms.txt                   Hand-maintained llms.txt (https://llmstxt.org/) link index for LLMs/agents —
+                           copied verbatim to site/static/llms.txt. Not auto-generated (a deliberate
+                           choice, unlike everything else in docs/): update both copies when a tour or
+                           product page is added/renamed/removed. __tests__/llms-txt-sync.test.mjs
+                           fails CI if either copy falls out of sync with the real tour/page inventory.
 .github/workflows/docs.yml Optional CI: parked on manual trigger — see "CI" in ADVANCED.md
 ```
 

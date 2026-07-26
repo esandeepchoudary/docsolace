@@ -13,6 +13,7 @@ import {
   collectProductSources,
   computeProductInputsHash,
   computeTourSidebarPositions,
+  deriveMetaDescription,
   getProductDirtyReasons,
   isProductDirty,
   isProductRenderOnlyDirty,
@@ -453,6 +454,93 @@ describe('buildFrontmatter', () => {
 
   it('throws when lastVerified is an empty string', () => {
     expect(() => buildFrontmatter({ lastVerified: '' })).toThrow(/non-empty string/);
+  });
+
+  it('JSON-quotes a description value', () => {
+    const fm = buildFrontmatter({ description: 'Shows a "quoted" flow.' });
+    expect(fm).toContain('description: "Shows a \\"quoted\\" flow."');
+  });
+
+  it('omits description entirely when it is an empty string (the "nothing to ground it in" case, not an error)', () => {
+    const fm = buildFrontmatter({ sidebarPosition: 1, description: '' });
+    expect(fm).not.toContain('description');
+  });
+
+  it('omits description when not given at all', () => {
+    const fm = buildFrontmatter({ sidebarPosition: 1 });
+    expect(fm).not.toContain('description');
+  });
+
+  it('throws when description exceeds its own (looser than title/label) length cap', () => {
+    expect(() => buildFrontmatter({ description: 'x'.repeat(161) })).toThrow(/160 characters or fewer/);
+  });
+
+  it('accepts a description right at the 160-character cap', () => {
+    expect(() => buildFrontmatter({ description: 'x'.repeat(160) })).not.toThrow();
+  });
+});
+
+describe('deriveMetaDescription', () => {
+  it('returns grounded plain text unchanged when already short', () => {
+    expect(deriveMetaDescription('Show what a signed-out user sees before authenticating.')).toBe(
+      'Show what a signed-out user sees before authenticating.',
+    );
+  });
+
+  it('strips code spans, keeping the inner text', () => {
+    expect(deriveMetaDescription('Set `usernameEnv` in `autodocs.config.yaml`.')).toBe(
+      'Set usernameEnv in autodocs.config.yaml.',
+    );
+  });
+
+  it('strips bold/italic markers, keeping the inner text', () => {
+    expect(deriveMetaDescription('A **stable** tour vs. a *draft* one.')).toBe('A stable tour vs. a draft one.');
+    expect(deriveMetaDescription('A __stable__ tour vs. a _draft_ one.')).toBe('A stable tour vs. a draft one.');
+  });
+
+  it('replaces a markdown link with its visible text', () => {
+    expect(deriveMetaDescription('See [the README](./README.md) for more.')).toBe('See the README for more.');
+  });
+
+  it('drops a markdown image entirely (no visible text to keep)', () => {
+    expect(deriveMetaDescription('A screenshot: ![Dashboard](./img.png) shown above.')).toBe(
+      'A screenshot: shown above.',
+    );
+  });
+
+  it('collapses newlines/repeated whitespace into single spaces', () => {
+    expect(deriveMetaDescription('Line one.\n\n  Line   two.')).toBe('Line one. Line two.');
+  });
+
+  it('returns an empty string for empty, whitespace-only, or non-string input', () => {
+    expect(deriveMetaDescription('')).toBe('');
+    expect(deriveMetaDescription('   ')).toBe('');
+    expect(deriveMetaDescription(undefined)).toBe('');
+    expect(deriveMetaDescription(null)).toBe('');
+  });
+
+  it('truncates at a word boundary and appends an ellipsis when over the max length', () => {
+    const long = 'word '.repeat(50).trim(); // well over 160 chars, all real word boundaries
+    const result = deriveMetaDescription(long);
+    expect(result.length).toBeLessThanOrEqual(161); // 160 + the ellipsis character
+    expect(result.endsWith('…')).toBe(true);
+    expect(result.endsWith(' …')).toBe(false); // trimmed before the ellipsis, no dangling space
+  });
+
+  it('hard-truncates with no word boundary when the text has no spaces at all', () => {
+    const result = deriveMetaDescription('x'.repeat(200));
+    expect(result).toBe(`${'x'.repeat(160)}…`);
+  });
+
+  it('respects a custom maxLength', () => {
+    const result = deriveMetaDescription('one two three four five', 10);
+    expect(result.length).toBeLessThanOrEqual(11);
+    expect(result.endsWith('…')).toBe(true);
+  });
+
+  it('does not truncate text exactly at the max length', () => {
+    const exact = 'x'.repeat(160);
+    expect(deriveMetaDescription(exact)).toBe(exact);
   });
 });
 

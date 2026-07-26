@@ -2,29 +2,34 @@
 sidebar_position: 3
 sidebar_label: "Concepts"
 title: "Concepts"
+description: "A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title,…"
 ---
 
 # Concepts
 
-## Tour
+## Tours
 
-A tour is a YAML file under `tours/` describing one feature walk: which pages to visit, what actions to take, and where to take screenshots. Each tour has an `id`, `title`, and `intent`, a `maturity` (`stable` or `draft`), a `status` (`confirmed`, `proposed`, or `archived`), a list of `steps`, and `code_paths` naming the source files that, if changed, mark the tour dirty. A step's action is one of `goto`, `click`, `fill`, `type`, `select`, `check`, `press`, `hover`, `upload`, or `wait`, or a bare capture point that takes a screenshot and accessibility snapshot (optionally with a `highlight` locator outlining the relevant element). A tour can also declare `prerequisites` and `see_also` — lists of other tour ids rendered as mechanical link lists on its generated page. The confirmed tours in this repository are `login` ("Login page" — what a signed-out user sees before authenticating), `dashboard-overview` ("Dashboard overview" — what the main dashboard displays and how to read it), and `dashboard-export` ("Export dashboard activity" — exporting the current activity table as a CSV).
+A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title, and intent, a maturity (draft = still churning and skipped until flipped, stable = ready), a status (confirmed = ready to use, proposed = drafted but not yet reviewed, archived = the feature looks removed), a list of steps, and code_paths naming the source files that, if changed, mark the tour dirty. A step's action can be goto, click, fill, type, select, check, press, hover, upload, wait, or a capture (screenshot plus accessibility snapshot) with an optional description and highlight locator. A tour can also declare prerequisites and see_also, both lists of other tour ids, rendered as mechanical "Before you start"/"See also" links on its generated page. The confirmed tours in this repository are login ("Login page" — what a signed-out user sees before authenticating), dashboard-overview ("Dashboard overview" — what the main dashboard displays and how to read it), and dashboard-export ("Export dashboard activity" — exporting the current activity table as a CSV).
 
-## Capture, drift, and generate
+## The capture, drift, generate, publish pipeline
 
-Capture is the stage that drives a headless browser through a tour against the real running app and records a screenshot plus an accessibility snapshot at each capture point, at every configured viewport. The drift check compares a new capture against the previous one and skips regenerating a tour's page when neither its screenshots nor its `code_paths` have changed, so the more expensive generate step only runs for tours that actually changed. Generate writes the tutorial prose for a dirty tour, grounded strictly in the accessibility snapshot from capture.
+Capture drives a headless browser through a tour against the real running app, taking a screenshot and an accessibility snapshot at each capture step, at every configured viewport. Drift check compares a fresh capture against the last one — if a tour's screenshots and code_paths are both unchanged, there's nothing to regenerate, which is what keeps repeated runs cheap. Generate writes tutorial prose only for tours the drift check flagged as changed, grounded strictly in the accessibility snapshot from capture — never anything invented, however plausible. Publish means the generated Markdown lives in docs/, viewable as-is or served through the bundled Docusaurus site. The same capture-less shape (drift and generate only) also maintains the product-level pages, grounded in the repo's own README/package.json/config/tour inventory instead of a browser snapshot.
 
-## Keep-region
+## Keep-regions
 
-A keep-region is hand-written content placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` markers in a generated page. Content inside these markers is preserved untouched across every future regeneration of that page; an edit made outside a keep-region is detected via a hash mismatch and the generator refuses to overwrite it silently.
+Content a human writes inside a page's `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` block is preserved untouched across every future regeneration. If a human edits a generated page outside that region, the generator detects the resulting hash mismatch against the last generation and refuses to overwrite the page silently.
 
 ## Auth profiles and seeds
 
-An auth profile, declared under `autodocs.config.yaml`'s `auth` map, describes how to sign in for tours that need an authenticated session — either scripted username/password fields (`loginUrl`, `usernameSelector`, `passwordSelector`, `submitSelector`, `usernameEnv`, `passwordEnv`, `successUrlPattern`, as in this repository's `standard-user` profile) or a pre-recorded session via `storageStatePath` for logins scripting can't cover (OAuth, SSO, magic links, 2FA). A seed, declared under the `seeds` map and referenced by a tour's `preconditions.seed`, names a data fixture a tour depends on; it may be a no-op description (as with this repository's `demo-baseline`, since the demo app's data is static) or declare an actual `command`, which only runs when `allowSeedCommands` is explicitly set to `true`.
+An auth profile under autodocs.config.yaml's auth map lets a tour reach pages that require signing in. One shape is scripted login (loginUrl, usernameSelector, passwordSelector, submitSelector, usernameEnv/passwordEnv pointing at environment variables, successUrlPattern); the other is storageStatePath, which reuses a previously recorded browser session instead — used for logins too varied to script reliably (OAuth, SSO, magic links, 2FA). A seed, declared under the seeds map and referenced by a tour's preconditions.seed, names a data fixture; a seed can optionally declare a command that resets/seeds the app's data before capture, but that command only runs when allowSeedCommands is explicitly set to true (or --allow-seed-commands is passed), off by default.
 
-## Product pages
+## Masking and highlighting
 
-Product pages are the overview, getting-started, concepts, configuration, troubleshooting, and changelog pages describing the product as a whole, as distinct from the per-tour tutorial pages that describe individual UI flows. They are grounded in the repository's own README, package.json, .env.example, autodocs.config.yaml, any extra files listed under `product.sources` (in this repository, CONFIGURATION.md, PUBLISHING.md, TROUBLESHOOTING.md, ADVANCED.md, and CONTRIBUTING.md), and the confirmed tour inventory, never in the running app. A page with nothing real to ground it is skipped and reported rather than padded with invented content.
+Masking redacts a volatile region (a timestamp, an avatar, live data) from both the saved screenshot and its hash, so drift detection doesn't fire on content that changes every run regardless of real UI changes — configured either in autodocs.config.yaml's defaultMask (applied to every capture) or a capture step's own mask list. A capture step's optional highlight field is a role=/text= locator that outlines the element that step is about directly in the screenshot, checked fresh per viewport.
+
+## Product-level pages
+
+Tours describe individual UI flows; a separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, and changelog — describes the product as a whole, generated by the product-scribe subagent and grounded strictly in README.md, package.json, .env.example, autodocs.config.yaml, CHANGELOG.md (if present), any extra files listed under product.sources, and the confirmed tour inventory. A page with nothing real to ground it in is skipped and reported rather than padded with invented content.
 
 <!-- autodocs:keep -->
 <!-- Notes added here are preserved across regeneration. -->

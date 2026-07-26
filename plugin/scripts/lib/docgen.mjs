@@ -19,15 +19,23 @@ export const KEEP_END = '<!-- /autodocs:keep -->';
 const KEEP_REGION_SOURCE = '^<!-- autodocs:keep -->$\\n([\\s\\S]*?)\\n^<!-- /autodocs:keep -->$';
 const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 
-// Bumped whenever renderTourPage's output *shape* changes (not its inputs) —
-// folded into generate-docs.mjs's render hash (see lib/design.mjs) so the
-// drift gate re-renders every existing page the next time this changes,
-// instead of waiting for that tour's own screenshots or code_paths to move.
+// Bumped whenever a generated page's output *shape* changes (not its
+// inputs) — renderTourPage's here, but also renderProductPage's and
+// buildFrontmatter's (both lib/product.mjs), since generate-product-docs.mjs
+// folds this same constant into its own render hash. Folded into
+// generate-docs.mjs's/generate-product-docs.mjs's render hash (see
+// lib/design.mjs) so the drift gate re-renders every existing page the next
+// time this changes, instead of waiting for that tour's own screenshots or
+// code_paths to move.
 // v3: tour pages gained frontmatter (sidebar_position/sidebar_label) — see
 // renderTourPage's optional `frontmatter` argument.
 // v4: tour pages gained "Before you start"/"See also" cross-link blocks —
 // see renderTourPage's optional `prerequisites`/`seeAlso` arguments.
-export const RENDER_TEMPLATE_VERSION = 4;
+// v5: every page (tour and product) gained a `description` frontmatter
+// field — see lib/product.mjs's deriveMetaDescription/buildFrontmatter —
+// for a page-specific search/answer-engine meta description instead of every
+// page sharing the site-wide tagline.
+export const RENDER_TEMPLATE_VERSION = 5;
 
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
 // human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
