@@ -16,7 +16,9 @@ import {
   isProductDirty,
   isProductRenderOnlyDirty,
   isPublishedTour,
+  listGitTags,
   renderProductPage,
+  resolveChangelogGitTags,
   resolveTourLinks,
 } from '../product.mjs';
 
@@ -41,8 +43,15 @@ function commitAll(dir, message) {
 }
 
 describe('PRODUCT_PAGES / PRODUCT_PAGE_IDS / PRODUCT_STATE_KEY', () => {
-  it('has exactly overview, getting-started, concepts, in that order', () => {
-    expect(PRODUCT_PAGE_IDS).toEqual(['overview', 'getting-started', 'concepts']);
+  it('has exactly overview, getting-started, concepts, configuration, troubleshooting, changelog, in that order', () => {
+    expect(PRODUCT_PAGE_IDS).toEqual([
+      'overview',
+      'getting-started',
+      'concepts',
+      'configuration',
+      'troubleshooting',
+      'changelog',
+    ]);
   });
 
   it('only overview includes the tour index', () => {
@@ -67,8 +76,14 @@ describe('collectProductSources', () => {
     const dir = makeTmpDir();
     fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
     fs.writeFileSync(path.join(dir, 'package.json'), '{}');
-    // No .env.example, no autodocs.config.yaml.
+    // No .env.example, no autodocs.config.yaml, no CHANGELOG.md.
     expect(collectProductSources(dir, {})).toEqual(['README.md', 'package.json']);
+  });
+
+  it('includes CHANGELOG.md when it exists — the changelog page\'s preferred ground truth', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## 1.0.0\n- Initial release');
+    expect(collectProductSources(dir, {})).toEqual(['CHANGELOG.md']);
   });
 
   it('adds files matched by config.product.sources globs', () => {
@@ -253,6 +268,89 @@ describe('computeProductInputsHash', () => {
       tours: [{ id: 'b', status: 'confirmed' }, { id: 'a', status: 'confirmed' }],
     });
     expect(a).toBe(b);
+  });
+
+  it('omits gitTags entirely from the hash input when not given (back-compat)', () => {
+    const dir = makeTmpDir();
+    const withUndefined = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [] });
+    const withExplicitUndefined = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [], gitTags: undefined });
+    expect(withUndefined).toBe(withExplicitUndefined);
+  });
+
+  it('changes when gitTags differs, even with identical sources/tours', () => {
+    const dir = makeTmpDir();
+    const before = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [], gitTags: ['v1.0.0'] });
+    const after = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [], gitTags: ['v1.0.0', 'v1.1.0'] });
+    expect(after).not.toBe(before);
+  });
+
+  it('is independent of gitTags order (same set, different order, is a real change here — order carries meaning: newest first)', () => {
+    // Unlike tours (explicitly sorted before hashing), tag order from
+    // listGitTags is meaningful (newest-created first) and deliberately not
+    // normalized here — a real reordering (e.g. a backdated tag) is a real
+    // change worth marking dirty.
+    const dir = makeTmpDir();
+    const a = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [], gitTags: ['v1.1.0', 'v1.0.0'] });
+    const b = computeProductInputsHash({ cwd: dir, sourceFiles: [], tours: [], gitTags: ['v1.0.0', 'v1.1.0'] });
+    expect(a).not.toBe(b);
+  });
+});
+
+describe('listGitTags', () => {
+  it('returns tags newest-created first', () => {
+    // --sort=-creatordate falls back to a lightweight tag's *commit* date —
+    // two commits made back-to-back in a test can land in the same
+    // second (git's commit-date resolution), making sort order ambiguous.
+    // Explicit, clearly-separated dates make this a real test of the sort
+    // flag instead of a timing-dependent guess.
+    const dir = makeTmpDir();
+    initGitRepo(dir);
+    const commitAt = (message, isoDate) => {
+      fs.writeFileSync(path.join(dir, 'a.txt'), message);
+      execFileSync('git', ['add', '-A'], { cwd: dir });
+      execFileSync('git', ['commit', '-q', '-m', message], {
+        cwd: dir,
+        env: { ...process.env, GIT_AUTHOR_DATE: isoDate, GIT_COMMITTER_DATE: isoDate },
+      });
+    };
+    commitAt('first', '2020-01-01T00:00:00Z');
+    execFileSync('git', ['tag', 'v1.0.0'], { cwd: dir });
+    commitAt('second', '2021-01-01T00:00:00Z');
+    execFileSync('git', ['tag', 'v1.1.0'], { cwd: dir });
+    expect(listGitTags(dir)).toEqual(['v1.1.0', 'v1.0.0']);
+  });
+
+  it('returns an empty array for a repo with no tags', () => {
+    const dir = makeTmpDir();
+    initGitRepo(dir);
+    expect(listGitTags(dir)).toEqual([]);
+  });
+
+  it('returns an empty array outside a git repo, rather than throwing', () => {
+    const dir = makeTmpDir();
+    expect(listGitTags(dir)).toEqual([]);
+  });
+});
+
+describe('resolveChangelogGitTags', () => {
+  it('returns undefined when changelog is not among the enabled pages', () => {
+    const dir = makeTmpDir();
+    expect(resolveChangelogGitTags({ cwd: dir, enabledPageIds: ['overview'] })).toBeUndefined();
+  });
+
+  it('returns undefined when CHANGELOG.md exists, even if changelog is enabled', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog');
+    expect(resolveChangelogGitTags({ cwd: dir, enabledPageIds: ['changelog'] })).toBeUndefined();
+  });
+
+  it('returns the tag list when changelog is enabled and there is no CHANGELOG.md', () => {
+    const dir = makeTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(dir + '/a.txt', 'a');
+    commitAll(dir, 'first');
+    execFileSync('git', ['tag', 'v1.0.0'], { cwd: dir });
+    expect(resolveChangelogGitTags({ cwd: dir, enabledPageIds: ['changelog'] })).toEqual(['v1.0.0']);
   });
 });
 
@@ -478,7 +576,14 @@ describe('buildSidebarStructure', () => {
 
   it('lists product pages in the given order', () => {
     const structure = buildSidebarStructure({ pages: PRODUCT_PAGES, sections: undefined, tours: [] });
-    expect(structure.productPages).toEqual(['overview', 'getting-started', 'concepts']);
+    expect(structure.productPages).toEqual([
+      'overview',
+      'getting-started',
+      'concepts',
+      'configuration',
+      'troubleshooting',
+      'changelog',
+    ]);
   });
 
   it('groups tours into configured sections, in order', () => {
