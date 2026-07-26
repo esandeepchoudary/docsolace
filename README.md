@@ -126,7 +126,7 @@ there:
 | `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
 | `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
 | `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
-| `/autodocs:document product` | (Re)generate the overview/getting-started/concepts product pages (via the `product-scribe` subagent), then ship |
+| `/autodocs:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog where grounded (via the `product-scribe` subagent), then ship |
 | `/autodocs:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
 | `/autodocs:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
@@ -181,16 +181,21 @@ above), unless it hits one of that section's hard stops. See
 Tours describe individual UI flows; a separate, smaller set of pages
 describes the product as a whole so a fresh reader lands somewhere that
 actually explains what they're looking at instead of an alphabetical list of
-tutorials. `/autodocs:document product` (re)generates up to three pages —
-`docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md` — via the
-`product-scribe` subagent, grounded strictly in files already in your repo:
-`README.md`, `package.json`, `.env.example`, `autodocs.config.yaml`, any
-extra globs you list under `product.sources`, and the confirmed tour
-inventory (id/title/intent) — never the running app, and never `.env`,
-key/credential files, or anything under a `.auth/` directory, even if a glob
-would otherwise match them. If a page has nothing real to ground it in (e.g.
-no `README.md` at all), it's skipped and reported rather than padded with
-invented content.
+tutorials. `/autodocs:document product` (re)generates up to six pages —
+`docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md`,
+`docs/configuration.md`, `docs/troubleshooting.md`, `docs/changelog.md` — via
+the `product-scribe` subagent, grounded strictly in files already in your
+repo: `README.md`, `package.json`, `.env.example`, `autodocs.config.yaml`,
+`CHANGELOG.md` (if present), any extra globs you list under
+`product.sources`, and the confirmed tour inventory (id/title/intent) — never
+the running app, and never `.env`, key/credential files, or anything under a
+`.auth/` directory, even if a glob would otherwise match them. If a page has
+nothing real to ground it in (e.g. no `README.md` at all, no troubleshooting
+section, no changelog), it's skipped and reported rather than padded with
+invented content — the last three pages are exactly this by default on a
+project that doesn't have their grounding, no config needed to turn them
+off. With no `CHANGELOG.md`, the changelog page falls back to your repo's own
+git tags (newest first) as a bare version history instead of being skipped.
 
 This isn't a separate chore — the normal no-argument `/autodocs:document` run
 keeps these pages in sync automatically too, the same drift-gated way it
@@ -410,10 +415,12 @@ documents the product itself" above):
 ```yaml
 product:
   name: "My App"                                  # optional; defaults to package.json's name
-  pages: [overview, getting-started, concepts]     # default: all three
+  pages: [overview, getting-started, concepts,     # default: all six — configuration/
+    configuration, troubleshooting, changelog]     # troubleshooting/changelog just get skipped
+                                                    # when there's nothing to ground them in
   sources:                                         # extra grounding files/globs, beyond the
     - "docs-src/**/*.md"                           # standing README/package.json/.env.example/
-                                                    # autodocs.config.yaml set
+                                                    # autodocs.config.yaml/CHANGELOG.md set
 docs:
   sections:                                        # groups tour pages in the generated sidebar
     - label: "Getting started"                     # (docs/_sidebar.autodocs.json); a tour named

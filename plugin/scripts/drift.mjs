@@ -18,6 +18,7 @@ import {
   getProductDirtyReasons,
   isProductRenderOnlyDirty,
   isPublishedTour,
+  resolveChangelogGitTags,
 } from './lib/product.mjs';
 
 function main() {
@@ -131,7 +132,8 @@ function main() {
   const enabledProductPages = config.product?.pages ?? PRODUCT_PAGE_IDS;
   if (enabledProductPages.length > 0) {
     const sourceFiles = collectProductSources(process.cwd(), config);
-    const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours: allTours });
+    const gitTags = resolveChangelogGitTags({ cwd: process.cwd(), enabledPageIds: enabledProductPages });
+    const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours: allTours, gitTags });
     const previousProductEntry = state[PRODUCT_STATE_KEY];
     const productReasons = getProductDirtyReasons({
       previousEntry: previousProductEntry,

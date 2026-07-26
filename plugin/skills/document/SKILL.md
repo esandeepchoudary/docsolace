@@ -426,14 +426,19 @@ yourself. No browser is launched unless a previous `/document map` run left
 ## Document the product itself
 
 Parses as `product [--review]`. Tours and `doc-scribe` describe individual UI
-flows; this generates the layer above them — `docs/overview.md`,
-`docs/getting-started.md`, `docs/concepts.md` (whichever are enabled — see
-`autodocs.config.yaml`'s `product.pages`) — describing what the product **is**,
-grounded in the repo itself (README, `package.json`, `.env.example`,
-`autodocs.config.yaml`, any extra `product.sources` globs, and the confirmed
-tour inventory), never the running app. This needs no browser and no tours,
-so it's runnable immediately after Step 0's bootstrap — a brand-new project
-can get a real landing page before its first tour exists.
+flows; this generates the layer above them — up to six pages, `overview`,
+`getting-started`, `concepts`, `configuration`, `troubleshooting`, `changelog`
+(whichever are enabled — see `autodocs.config.yaml`'s `product.pages`,
+default all six) — describing what the product **is**, grounded in the repo
+itself (README, `package.json`, `.env.example`, `autodocs.config.yaml`,
+`CHANGELOG.md` if present, any extra `product.sources` globs, and the
+confirmed tour inventory), never the running app. This needs no browser and
+no tours, so it's runnable immediately after Step 0's bootstrap — a
+brand-new project can get a real landing page before its first tour exists.
+The three newer pages degrade gracefully on a project that doesn't have
+their grounding — no troubleshooting/FAQ section in the README, no
+`CHANGELOG.md`/git tags, nothing configurable documented — `product-scribe`
+just omits them, same as any other ungrounded page.
 
 1. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"` (or just read its
    `_product` line if you already ran it this session) to see whether the
@@ -442,15 +447,26 @@ can get a real landing page before its first tour exists.
    `(render only — no new prose needed)` means only the template/`docs:`
    layout/design-style changed, so the existing prose is still grounded and
    only needs re-assembling; clean means nothing to do.
-2. **If dirty for `inputs` (or never generated):** dispatch the
-   `product-scribe` subagent with: which pages to generate (`product.pages`,
-   default all three), the grounding file list (`collectProductSources` —
-   README/package.json/.env.example/autodocs.config.yaml plus any
-   `product.sources` globs, already filtered to exclude `.env`/key files/
-   `.auth/`), and the confirmed tour inventory (id/title/intent). Wait for it
-   to write `.autodocs/artifacts/prose/_product.json` — don't write this
-   prose yourself, same "never invent" discipline as `doc-scribe`. If dirty
-   only for `render`, skip this dispatch — the existing prose file is reused
+2. **If dirty for `inputs` (or never generated):** first, **if `changelog` is
+   enabled and the project has no `CHANGELOG.md`**, run
+   `git tag --sort=-creatordate` yourself (you have `Bash(git *)`;
+   `product-scribe` doesn't — it only ever gets a file list, never runs
+   anything) and write the output, one tag per line, to
+   `.autodocs/artifacts/git-tags.txt` — this is what lets the changelog page
+   ground in a real version history instead of being silently omitted on a
+   project with no changelog file. Skip this step entirely for any other
+   page combination; it's changelog-specific.
+
+   Then dispatch the `product-scribe` subagent with: which pages to generate
+   (`product.pages`, default all six), the grounding file list
+   (`collectProductSources` — README/package.json/.env.example/
+   autodocs.config.yaml/CHANGELOG.md plus any `product.sources` globs,
+   already filtered to exclude `.env`/key files/`.auth/` — plus
+   `.autodocs/artifacts/git-tags.txt` too, if you just wrote it), and the
+   confirmed tour inventory (id/title/intent). Wait for it to write
+   `.autodocs/artifacts/prose/_product.json` — don't write this prose
+   yourself, same "never invent" discipline as `doc-scribe`. If dirty only
+   for `render`, skip this dispatch — the existing prose file is reused
    as-is.
 3. Run:
    ```
