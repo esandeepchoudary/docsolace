@@ -167,6 +167,54 @@ describe('validateTour — selectors', () => {
   });
 });
 
+describe('validateTour — highlight', () => {
+  it('warns when a highlight selector is plain CSS, not a role=/text= locator', () => {
+    const tour = baseTour({ steps: [{ capture: 'shot', description: 'x', highlight: '.export-button' }] });
+
+    const findings = validateTour({}, tour);
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: expect.stringContaining('.export-button') }),
+    );
+  });
+
+  it('is clean for a role= highlight locator', () => {
+    const tour = baseTour({ steps: [{ capture: 'shot', description: 'x', highlight: "role=button[name='Export']" }] });
+    expect(validateTour({}, tour)).toEqual([]);
+  });
+
+  it('warns when the highlight selector is also in the merged mask list (config default)', () => {
+    const config = { defaultMask: ["role=button[name='Export']"] };
+    const tour = baseTour({ steps: [{ capture: 'shot', description: 'x', highlight: "role=button[name='Export']" }] });
+
+    const findings = validateTour(config, tour);
+
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: expect.stringContaining('also in this capture\'s mask list') }),
+    );
+  });
+
+  it('warns when the highlight selector is also in the step\'s own mask list', () => {
+    const tour = baseTour({
+      steps: [{ capture: 'shot', description: 'x', highlight: "role=button[name='Export']", mask: ["role=button[name='Export']"] }],
+    });
+
+    const findings = validateTour({}, tour);
+
+    expect(findings).toContainEqual(expect.objectContaining({ level: 'warn' }));
+  });
+
+  it('is clean when the highlight selector does not overlap the mask list', () => {
+    const config = { defaultMask: ['.timestamp'] };
+    const tour = baseTour({ steps: [{ capture: 'shot', description: 'x', highlight: "role=button[name='Export']" }] });
+    expect(validateTour(config, tour)).toEqual([]);
+  });
+
+  it('is a no-op for a capture step with no highlight', () => {
+    expect(validateTour({}, baseTour())).toEqual([]);
+  });
+});
+
 describe('validateTour — upload', () => {
   it('errors when an upload step\'s fixture file does not exist', () => {
     const dir = makeTmpDir();

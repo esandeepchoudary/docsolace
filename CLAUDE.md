@@ -121,6 +121,20 @@ told otherwise.
   `viewports` map, same page/session — don't add per-viewport steps to a
   tour, the capture runner already loops over all configured viewports at
   each capture point.
+- **Highlighting**: a capture step's optional `highlight` field (a role=/text=
+  locator, same convention as `Selectors` above) outlines that element in the
+  screenshot itself — deterministic CSS (`capture.mjs`'s `buildHighlightCss`),
+  never anything animated, so the masked hash stays stable run to run. Checked
+  fresh per viewport (an element visible at desktop may be hidden at mobile)
+  and never fails the capture — a missing/hidden target just means that
+  viewport's shot has no highlight, logged as a warning. Only valid on a
+  capture step, not an action step. Adding or changing a `highlight` changes
+  that step's screenshot pixels, so it goes through the normal pixel-diff
+  gate like any other visual change — run `npm run review-diffs` before
+  shipping. The color is a neutral default, overridable per-project via
+  `.autodocs/doc-style.json`'s `page.highlightColor` (a design skill's accent
+  color) — presentation only, same guardrail as everything else that file
+  touches.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.

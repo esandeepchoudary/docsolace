@@ -108,6 +108,16 @@ const DOC_STYLE_FILENAME = path.join('.autodocs', 'doc-style.json');
 const UNSAFE_LABEL_CHARS_RE = /[<>[\]()|\r\n]/;
 const MAX_LABEL_LENGTH = 60;
 const VIEWPORT_KEY_RE = /^[a-z0-9-]+$/;
+// A capture step's highlight (see lib/tours.mjs) gets outlined in the
+// *actual screenshot pixels* capture.mjs takes — the one place this
+// codebase lets doc-style.json reach past markdown presentation into what a
+// browser renders. That raw value is injected verbatim into a live page's
+// `<style>` tag (capture.mjs's addStyleTag), a categorically more sensitive
+// embedding than assertSafeLabel's markdown/HTML-metacharacter bar below —
+// a free-form string there could break out of the intended CSS rule
+// entirely (e.g. "red; } body { display:none } /*"). Restricted to exactly
+// a 3- or 6-digit hex color, nothing else.
+const HEX_COLOR_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 // Exported so other generated-content producers (lib/product.mjs's
 // frontmatter/section labels) can reuse this exact bar instead of forking a
@@ -183,6 +193,14 @@ export function loadDocStyle(projectDir) {
       throw new Error(`${DOC_STYLE_FILENAME}: "page.figures" must be a boolean`);
     }
     style.figures = page.figures;
+  }
+  if (page.highlightColor !== undefined) {
+    if (typeof page.highlightColor !== 'string' || !HEX_COLOR_RE.test(page.highlightColor)) {
+      throw new Error(
+        `${DOC_STYLE_FILENAME}: "page.highlightColor" must be a 3- or 6-digit hex color (e.g. "#FF3B30")`,
+      );
+    }
+    style.highlightColor = page.highlightColor;
   }
 
   return { skill: typeof raw.skill === 'string' ? raw.skill : undefined, page: style };
