@@ -25,6 +25,7 @@ import {
   getProductDirtyReasons,
   isPublishedTour,
   renderProductPage,
+  resolveChangelogGitTags,
 } from './lib/product.mjs';
 import { sha256Buffer } from './lib/manifest.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
@@ -79,7 +80,8 @@ function main() {
   }
 
   const sourceFiles = collectProductSources(process.cwd(), config);
-  const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours });
+  const gitTags = resolveChangelogGitTags({ cwd: process.cwd(), enabledPageIds });
+  const currentInputsHash = computeProductInputsHash({ cwd: process.cwd(), sourceFiles, tours, gitTags });
 
   // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs
   // does for tour pages — a template or design-style change re-renders the
@@ -120,12 +122,6 @@ function main() {
   const tourIndex = publishedTours
     .map((t) => ({ id: t.id, title: t.title ?? t.id, intent: t.intent }))
     .sort((a, b) => a.title.localeCompare(b.title));
-
-  const sidebarStructure = buildSidebarStructure({
-    pages: enabledPages,
-    sections: config.docs?.sections,
-    tours,
-  });
 
   const previousPages = previousEntry?.pages ?? {};
   const newPagesState = {};
@@ -195,6 +191,22 @@ function main() {
   // grounding, or a --page-scoped run that only targeted some pages) so a
   // later run's drift check doesn't treat them as "never generated" again.
   const mergedPages = { ...previousPages, ...newPagesState };
+
+  // Checked against the filesystem *after* the write loop above, not just
+  // "enabled in config" — site/sidebars.js spreads productPages directly as
+  // literal Docusaurus sidebar item ids, and a listed id with no matching
+  // docs/<id>.md **fails the site build**, not just a broken link. An
+  // enabled-but-ungrounded page (configuration/troubleshooting/changelog on
+  // a project without their grounding — the expected case, not an edge
+  // case, now that those three default on) is real and correctly excluded
+  // here; this also naturally keeps a page from a *previous* run that still
+  // has a file (skipped this run, not deleted) correctly included.
+  const enabledPagesWithFile = enabledPages.filter((p) => fs.existsSync(path.join('docs', `${p.id}.md`)));
+  const sidebarStructure = buildSidebarStructure({
+    pages: enabledPagesWithFile,
+    sections: config.docs?.sections,
+    tours,
+  });
 
   writeFileAtomic(path.join('docs', '_sidebar.autodocs.json'), `${JSON.stringify(sidebarStructure, null, 2)}\n`);
 
