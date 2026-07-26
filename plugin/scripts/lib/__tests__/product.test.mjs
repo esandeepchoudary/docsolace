@@ -9,6 +9,7 @@ import {
   PRODUCT_STATE_KEY,
   buildFrontmatter,
   buildSidebarStructure,
+  buildTourInventory,
   collectProductSources,
   computeProductInputsHash,
   computeTourSidebarPositions,
@@ -528,6 +529,41 @@ describe('isPublishedTour', () => {
 
   it('is false for an archived tour', () => {
     expect(isPublishedTour({ status: 'archived' })).toBe(false);
+  });
+});
+
+describe('buildTourInventory', () => {
+  it('returns {id, title} pairs for published tours, sorted by id', () => {
+    const tours = [
+      { id: 'dashboard', title: 'Dashboard', status: 'confirmed', maturity: 'stable' },
+      { id: 'login', title: 'Login page', status: 'confirmed', maturity: 'stable' },
+    ];
+    expect(buildTourInventory(tours)).toEqual([
+      { id: 'dashboard', title: 'Dashboard' },
+      { id: 'login', title: 'Login page' },
+    ]);
+  });
+
+  it('excludes draft/proposed/archived tours', () => {
+    const tours = [
+      { id: 'a', maturity: 'draft' },
+      { id: 'b', status: 'proposed' },
+      { id: 'c', status: 'archived' },
+      { id: 'd', status: 'confirmed', maturity: 'stable', title: 'D' },
+    ];
+    expect(buildTourInventory(tours)).toEqual([{ id: 'd', title: 'D' }]);
+  });
+
+  it('falls back to null for a tour with no title', () => {
+    expect(buildTourInventory([{ id: 'x', status: 'confirmed', maturity: 'stable' }])).toEqual([
+      { id: 'x', title: null },
+    ]);
+  });
+
+  it('returns an empty array for no tours, undefined, or all-excluded input', () => {
+    expect(buildTourInventory([])).toEqual([]);
+    expect(buildTourInventory(undefined)).toEqual([]);
+    expect(buildTourInventory([{ id: 'a', maturity: 'draft' }])).toEqual([]);
   });
 });
 
