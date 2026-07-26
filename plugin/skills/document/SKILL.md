@@ -39,6 +39,11 @@ stops and reports instead of pushing through:
 - `generate-docs.mjs` (or `generate-product-docs.mjs`, for a product page)
   refuses because a page was hand-edited outside a `<!-- autodocs:keep -->`
   region (hash mismatch) — never `--force` past this; a human needs to look.
+- `verify-docs.mjs` (Step 6 Ship's first sub-step) reports an **`error`**
+  finding — a broken image reference or a dead internal link/anchor
+  somewhere under `docs/`, not necessarily on a page this run touched. Never
+  push docs with a known-broken reference; `warn` findings (e.g. an orphan
+  image) don't block.
 - `map --interactive` still requires the out-loud dev-environment
   confirmation in its own preflight step before crawling with synthetic form
   submission — required in both autonomous and `--review` mode, never
@@ -815,17 +820,25 @@ failure, report the exact fix (`gh auth login`) and stop.
 
 6. **Ship.** Skipped entirely if nothing was regenerated in step 4 (nothing
    to commit), or if this run stopped at a hard stop above. Otherwise:
-   1. Run `git rev-parse --abbrev-ref HEAD`. If the current branch matches
+   1. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/verify-docs.mjs"` — checks
+      every image reference and internal link across the *whole* `docs/`
+      tree resolves, not just this run's own pages (a rename or archive can
+      break a link on a page this run didn't touch). An `error` finding is a
+      hard stop (see "Autonomy" above): report it and stop before staging or
+      committing anything — never push docs that reference a screenshot or
+      page that isn't there. `warn` findings (e.g. an orphan image under
+      `docs/images/`) don't block; fold them into the step 5 summary.
+   2. Run `git rev-parse --abbrev-ref HEAD`. If the current branch matches
       `feat/*` or `fix/*`, commit onto it directly — docs follow the feature
       they document, landing in the same PR as the code. If it's
       `main`/`master` (or anything else that isn't a feature/fix branch),
       create and switch to a new `docs/<slug>` branch first (or a name
       summarizing the run, for a no-slug or `map` run) — never commit
       generated docs directly to `main`/`master`.
-   2. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/review-diffs.mjs"` and keep
+   3. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/review-diffs.mjs"` and keep
       its report — it's the only place a screenshot change is visible
       before it's pushed, and it becomes part of the commit/PR body.
-   3. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
+   4. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
       `docs/archive/**` (any tour this run archived — see "Prune orphaned
       tours"/"Map the whole app" step 5), `docs/_sidebar.autodocs.json` (only
       if this run wrote or changed it — see "Document the product itself"),
@@ -836,12 +849,12 @@ failure, report the exact fix (`gh auth login`) and stop.
       Never stage `.autodocs/artifacts/` (gitignored; it's local working
       state, not a deliverable) or anything else in the working tree
       unrelated to this run.
-   4. Commit (message: which tour(s) changed and why — code, screenshots, or
+   5. Commit (message: which tour(s) changed and why — code, screenshots, or
       archived), then push. If the branch has no open PR yet, `gh pr
       create` against `main` with the step 5 summary plus the review-diffs
       report as the body; if one already exists for this branch, the push
       alone updates it — don't open a second PR.
-   5. **Never merge the PR.** Opening or updating it is the end of this
+   6. **Never merge the PR.** Opening or updating it is the end of this
       skill's job — merging into `main` stays the human's explicit call,
       same as the brief's own "never auto-merge generated docs" principle.
 
