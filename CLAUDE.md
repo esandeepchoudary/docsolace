@@ -290,7 +290,14 @@ told otherwise.
   repo a private marketplace with one entry (`source: "./plugin"`) — that's
   how `claude plugin marketplace add <this-repo>` +
   `claude plugin install autodocs@autodocs-marketplace` work without a
-  public listing.
+  public listing. Its own embedded plugin entry also carries a `version`
+  field — Claude Code always resolves the real version from
+  `plugin.json` (this one's a non-binding fallback with no functional
+  effect either way), but keep it bumped in step with `plugin.json` anyway;
+  `plugin/__tests__/plugin-files.test.mjs` enforces this after it was
+  caught silently stale for a long stretch (`1.7.0` next to a `plugin.json`
+  already several versions past it) — sloppy to anyone diffing the two
+  manifests, even though functionally harmless.
 - **Two auth-profile shapes, not one.** The scripted-login fields
   (`usernameSelector`/`passwordSelector`/`submitSelector`/etc.) only cover a
   plain username+password form. A profile with `storageStatePath` instead

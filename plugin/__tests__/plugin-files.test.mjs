@@ -108,6 +108,18 @@ describe('.claude-plugin/marketplace.json (repo root)', () => {
     expect(entry).toBeTruthy();
     expect(entry.source).toBe('./plugin');
   });
+
+  it('keeps its embedded plugin version in sync with plugin.json', () => {
+    // Claude Code always resolves the real version from
+    // plugin/.claude-plugin/plugin.json (this field is a non-binding
+    // fallback), so a stale copy here has no functional effect — but it did
+    // drift to 1.7.0 while plugin.json moved on to 1.29.0+ unnoticed, which
+    // reads as sloppy to anyone diffing the two manifests. Catching that
+    // here beats relying on remembering to bump both by hand.
+    const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, '.claude-plugin/plugin.json'), 'utf8'));
+    const entry = marketplace.plugins.find((p) => p.name === 'autodocs');
+    expect(entry.version).toBe(manifest.version);
+  });
 });
 
 describe('skills/document/SKILL.md', () => {

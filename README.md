@@ -1042,3 +1042,7 @@ Root `package.json`'s `npm run capture`/`drift`/`generate-docs` scripts
 (used throughout "Running it without Claude Code" above) call the exact
 same code under `plugin/scripts/` — they're how this repo dogfoods its own
 plugin against the bundled demo app, without needing a real install.
+
+## License
+
+[ISC](LICENSE)
