@@ -128,6 +128,7 @@ there:
 | `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
 | `/autodocs:document product` | (Re)generate the overview/getting-started/concepts product pages (via the `product-scribe` subagent), then ship |
 | `/autodocs:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
+| `/autodocs:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
 Every mode above except `validate` runs autonomously by default: draft or
@@ -323,7 +324,16 @@ viewport stays inline:
 docs:
   primaryViewport: desktop        # must name a key under `viewports`; default = first key
   collapseOtherViewports: true    # false restores the old flat, all-inline layout
+  stampVerified: false            # true stamps each page's frontmatter with "last_verified: <date> (<commit>)"
 ```
+
+`stampVerified` (opt-in, default off) writes the same date/commit
+`npm run status`/`/document status` already reads out of `state.json` onto
+the page itself, so a reader can see how fresh a tutorial is without leaving
+it. It only advances when the page is actually regenerated — never on a run
+where nothing changed, so it can't be used to prove "someone checked this
+today," only "this is what changed and when." Flipping it re-renders every
+existing page once, through the normal drift gate — no extra step needed.
 
 **Design-skill styling.** If your project has a design/brand skill installed
 (under `.claude/skills/` or an installed plugin, project- or user-scoped —
@@ -887,6 +897,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run validate` | Preflight-check config/tours (undefined auth profiles, empty `code_paths` matches, non-role selectors) without launching a browser |
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run drift` | Show which tours changed, without generating anything |
+| `npm run status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
 | `npm run generate-product-docs` | Write/update the overview/getting-started/concepts pages from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |

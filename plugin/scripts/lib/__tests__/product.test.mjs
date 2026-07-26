@@ -340,6 +340,20 @@ describe('buildFrontmatter', () => {
     const fm = buildFrontmatter();
     expect(fm).toBe('---\n---\n');
   });
+
+  it('JSON-quotes an opt-in lastVerified value', () => {
+    const fm = buildFrontmatter({ lastVerified: '2026-07-25 (a1b2c3d)' });
+    expect(fm).toContain('last_verified: "2026-07-25 (a1b2c3d)"');
+  });
+
+  it('omits last_verified when lastVerified is not given (the default — no stampVerified opt-in)', () => {
+    const fm = buildFrontmatter({ sidebarPosition: 1 });
+    expect(fm).not.toContain('last_verified');
+  });
+
+  it('throws when lastVerified is an empty string', () => {
+    expect(() => buildFrontmatter({ lastVerified: '' })).toThrow(/non-empty string/);
+  });
 });
 
 describe('renderProductPage', () => {

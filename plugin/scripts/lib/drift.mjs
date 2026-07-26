@@ -29,6 +29,20 @@ export function computeCodePathsHash(codePaths, cwd = process.cwd()) {
   return hash.digest('hex');
 }
 
+// Best-effort short commit SHA for "when was this page last generated, and
+// against which commit" reporting (state.json's generatedAtCommit — see
+// generate-docs.mjs/generate-product-docs.mjs and lib/status.mjs). Falls
+// back to 'unknown' outside a git repo or before the first commit — same
+// "never guess, degrade gracefully" posture computeCodePathsHash's own
+// git-failure fallback above already has.
+export function resolveShortHeadCommit(cwd = process.cwd()) {
+  try {
+    return execFileSync('git', ['rev-parse', '--short', 'HEAD'], { cwd, encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
 // A tour is dirty if it has never been generated, or if its screenshot
 // hashes, its code_paths hash, or its render hash (template/docs-layout/
 // design-style — see lib/design.mjs's computeRenderHash) changed since the
