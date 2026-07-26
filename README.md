@@ -131,9 +131,10 @@ there:
 | `/autodocs:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
-Every mode above except `validate` runs autonomously by default: draft or
-capture → generate → open a docs PR, without stopping for review at each
-step — that PR (never auto-merged) is the review point. A short list of hard
+Every mode above except `validate` and `status` (both read-only reports, no
+browser, no PR) runs autonomously by default: draft or capture → generate →
+open a docs PR, without stopping for review at each step — that PR (never
+auto-merged) is the review point. A short list of hard
 stops still halts a run and asks rather than pushing through: `tour-scout`
 couldn't ground the feature, a voice/microphone flow (always reported
 `unverified`), a `validate` error, an auth session that needs a real human at
@@ -152,13 +153,17 @@ goes through MCP.
 ### It ships a docs PR for you
 
 Once a run has something to commit, it opens (or updates) a PR itself: it
-runs `review-diffs` first and folds that report into the commit/PR body (the
-only place a screenshot change is visible before it's pushed), stages just
-`docs/` and `tours/*.yaml`, and commits **onto whatever branch you're already
-on** if it's a `feat/*` or `fix/*` branch — docs land in the same PR as the
-feature they document. From `main`/`master` it creates a fresh `docs/<slug>`
-branch instead; it never commits generated docs straight to `main`. It never
-merges anything — opening or updating the PR is the end of its job.
+runs `verify-docs` first — every image reference and internal link/anchor
+under the *whole* `docs/` tree has to resolve, not just this run's own pages,
+since a rename or archive can break a link on a page the run never touched —
+and stops instead of pushing if anything's actually broken. Then it runs
+`review-diffs` and folds that report into the commit/PR body (the only place
+a screenshot change is visible before it's pushed), stages just `docs/` and
+`tours/*.yaml`, and commits **onto whatever branch you're already on** if
+it's a `feat/*` or `fix/*` branch — docs land in the same PR as the feature
+they document. From `main`/`master` it creates a fresh `docs/<slug>` branch
+instead; it never commits generated docs straight to `main`. It never merges
+anything — opening or updating the PR is the end of its job.
 
 ### It nudges you when a feature looks worth documenting
 
@@ -431,7 +436,7 @@ docs:
 ```
 
 Every tour page always gets a `sidebar_position` (the product pages pin
-above them at 1–3) so the sidebar sorts deterministically even without
+above them at 1–6) so the sidebar sorts deterministically even without
 `docs.sections` — grouping into named categories is the opt-in part, not the
 ordering. `product.sources` entries must be project-relative globs (no
 absolute paths, no `..` segments) — `/document validate` warns if one
@@ -985,9 +990,14 @@ plugin/                    The self-contained, installable Claude Code plugin �
   agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
   agents/product-scribe.md      Writes grounded product-level prose from README/config/tour inventory
   scripts/                     The engine: capture.mjs, crawl.mjs, drift.mjs, generate-docs.mjs,
-                                generate-product-docs.mjs, review-diffs.mjs,
+                                generate-product-docs.mjs, review-diffs.mjs, validate.mjs,
+                                verify-docs.mjs (checks image refs/links before a docs PR),
+                                status.mjs (read-only dirty/clean report),
                                 design-scan.mjs (design-skill detection),
                                 prune.mjs (orphan-tour detection), archive-tour.mjs (archives one),
+                                init-project.mjs (bootstrap), save-auth-state.mjs (records a
+                                storageStatePath session — the one script meant to be run by
+                                hand, in your own terminal, not by Claude),
                                 lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs, product.mjs)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks
@@ -1014,11 +1024,18 @@ app that happens to use its own product).
 
 Every phase of the original build plan is done: capture, drift gating,
 grounded generation, plugin packaging, publishing, hardening (multi-viewport,
-default masks, diff review, edit-safety guard), and assisted tour discovery.
-See `autodocs-implementation-brief.md` for the phase-by-phase acceptance
-criteria this was built against. Since then: orphan-tour detection and
-archiving (`/document prune`, folded into `map`) — the reverse of assisted
-discovery, for when a feature is removed instead of added.
+default masks, diff review, edit-safety guard), assisted tour discovery, and
+orphan-tour detection/archiving. See `autodocs-implementation-brief.md` for
+the phase-by-phase acceptance criteria this was built against. Since then:
+a `verify-docs` preflight before every docs PR (broken image references and
+dead internal links, not just a broken build); `/document status`, a
+read-only freshness report, plus an opt-in `last_verified` page stamp;
+resilient multi-tour capture (`--continue-on-error`, pooled `--all`/repeated
+`--tour`, per-tour failure isolation and history); capture-step highlighting,
+so a screenshot shows *which* element a step is about; `prerequisites`/
+`see_also` cross-links between tour pages; and three more product page
+types — configuration, troubleshooting, changelog (the last with a git-tag
+fallback when there's no `CHANGELOG.md`).
 
 ## Learn more
 
