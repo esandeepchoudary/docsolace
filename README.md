@@ -330,6 +330,26 @@ Two things to set up, both by example in this repo:
   edit — it goes through the normal pixel-diff gate, so check
   `npm run review-diffs` before shipping.
 
+  A tour also takes two optional top-level fields — `prerequisites` and
+  `see_also`, both lists of other tour ids — that render as "Before you
+  start"/"See also" link lists on the generated page:
+
+  ```yaml
+  id: dashboard-export
+  prerequisites:
+    - login              # rendered above the intent, linking to login.md
+  see_also:
+    - dashboard-overview  # rendered after the steps, linking to dashboard-overview.md
+  ```
+
+  Purely mechanical — the link text is the target tour's own `title`, no
+  subagent involved, so there's nothing here that can hallucinate. `npm run
+  validate` errors if an id doesn't match a real tour under `tours/`, and
+  warns if it matches one that isn't published yet (`maturity: draft` or
+  `status: proposed`/`archived`). Renaming, retitling, or archiving *any*
+  tour re-renders every page that links to it automatically on the next run
+  — no extra step needed.
+
 ### Page layout and design-skill styling
 
 Every capture is shot at each viewport in `autodocs.config.yaml`'s

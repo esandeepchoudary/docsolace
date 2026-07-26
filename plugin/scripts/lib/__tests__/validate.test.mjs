@@ -215,6 +215,60 @@ describe('validateTour — highlight', () => {
   });
 });
 
+describe('validateTour — cross-links (prerequisites/see_also)', () => {
+  it('is a no-op when allTours is not passed, even if the tour has prerequisites', () => {
+    // No load-time way to know whether "login" exists without the sibling
+    // inventory — skipped rather than treated as a failure (see the
+    // function's own comment on this).
+    const tour = baseTour({ prerequisites: ['login'] });
+    expect(validateTour({}, tour)).toEqual([]);
+  });
+
+  it('errors when prerequisites names a tour that does not exist', () => {
+    const tour = baseTour({ id: 'dashboard', prerequisites: ['ghost'] });
+    const findings = validateTour({}, tour, { allTours: [tour] });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('"prerequisites" names tour "ghost"') }),
+    );
+  });
+
+  it('errors when see_also names a tour that does not exist', () => {
+    const tour = baseTour({ id: 'dashboard', see_also: ['ghost'] });
+    const findings = validateTour({}, tour, { allTours: [tour] });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'error', message: expect.stringContaining('"see_also" names tour "ghost"') }),
+    );
+  });
+
+  it('is clean when prerequisites names a real, published tour', () => {
+    const login = baseTour({ id: 'login' });
+    const dashboard = baseTour({ id: 'dashboard', prerequisites: ['login'] });
+    expect(validateTour({}, dashboard, { allTours: [login, dashboard] })).toEqual([]);
+  });
+
+  it('warns when a linked tour exists but is not published (draft)', () => {
+    const draft = baseTour({ id: 'wip-feature', maturity: 'draft' });
+    const dashboard = baseTour({ id: 'dashboard', see_also: ['wip-feature'] });
+    const findings = validateTour({}, dashboard, { allTours: [draft, dashboard] });
+    expect(findings).toContainEqual(expect.objectContaining({ level: 'warn', message: expect.stringContaining('wip-feature') }));
+  });
+
+  it('warns when a linked tour exists but is proposed, not confirmed', () => {
+    const proposed = baseTour({ id: 'draft-feature', status: 'proposed' });
+    const dashboard = baseTour({ id: 'dashboard', prerequisites: ['draft-feature'] });
+    const findings = validateTour({}, dashboard, { allTours: [proposed, dashboard] });
+    expect(findings).toContainEqual(expect.objectContaining({ level: 'warn' }));
+  });
+
+  it('warns on a tour listing itself', () => {
+    const tour = baseTour({ id: 'dashboard', see_also: ['dashboard'] });
+    const findings = validateTour({}, tour, { allTours: [tour] });
+    expect(findings).toContainEqual(
+      expect.objectContaining({ level: 'warn', message: expect.stringContaining('lists this tour itself') }),
+    );
+  });
+});
+
 describe('validateTour — upload', () => {
   it('errors when an upload step\'s fixture file does not exist', () => {
     const dir = makeTmpDir();
@@ -303,6 +357,11 @@ describe('validateProject', () => {
 
     expect(findings).toHaveLength(2);
     expect(findings.map((f) => f.tour).sort()).toEqual(['a', 'b']);
+  });
+
+  it('wires the full tour list through so cross-link checks see sibling tours', () => {
+    const tours = [baseTour({ id: 'login' }), baseTour({ id: 'dashboard', prerequisites: ['login'] })];
+    expect(validateProject({}, tours)).toEqual([]);
   });
 });
 

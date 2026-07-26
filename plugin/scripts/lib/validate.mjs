@@ -23,7 +23,15 @@ function isLocatorStyle(selector) {
 // an already-loaded config. Returns a list of {level, tour, message}
 // findings — 'error' means capture/generate would fail or silently misbehave,
 // 'warn' means it'll work but deviates from a stated convention.
-export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
+//
+// `allTours` (optional — every tour under tours/, loaded the same way this
+// one was) is what lets the prerequisites/see_also cross-link check below
+// tell "names a real tour" apart from "names nothing" — lib/tours.mjs's own
+// load-time check can only confirm each entry is a *safe slug*, not that a
+// sibling tour by that name actually exists. Omitted, that one check is
+// skipped rather than treated as a failure — every other check here still
+// runs on just this one tour, same as before this field existed.
+export function validateTour(config, tour, { cwd = process.cwd(), allTours } = {}) {
   const findings = [];
   const push = (level, message) => findings.push({ level, tour: tour.id, message });
 
@@ -69,6 +77,31 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
         `code_paths matched no files — the drift gate can never mark this tour dirty from a code change, ` +
           `only from a screenshot change.`,
       );
+    }
+  }
+
+  if (allTours) {
+    for (const field of ['prerequisites', 'see_also']) {
+      for (const targetId of tour[field] ?? []) {
+        if (targetId === tour.id) {
+          push('warn', `"${field}" lists this tour itself ("${targetId}") — remove the self-reference.`);
+          continue;
+        }
+        const target = allTours.find((t) => t.id === targetId);
+        if (!target) {
+          push(
+            'error',
+            `"${field}" names tour "${targetId}", which doesn't exist under tours/ — generate-docs.mjs would ` +
+              `render a dead link.`,
+          );
+        } else if (!isPublishedTour(target)) {
+          push(
+            'warn',
+            `"${field}" names tour "${targetId}", which exists but isn't published yet (draft/proposed/` +
+              `archived) — the link would point at a page that doesn't exist until it is.`,
+          );
+        }
+      }
     }
   }
 
@@ -131,7 +164,7 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
 // (e.g. a test asserting on total counts); the CLI validates tour-by-tour
 // so it can print a per-tour report.
 export function validateProject(config, tours, { cwd = process.cwd() } = {}) {
-  return tours.flatMap((tour) => validateTour(config, tour, { cwd }));
+  return tours.flatMap((tour) => validateTour(config, tour, { cwd, allTours: tours }));
 }
 
 // Preflight checks for the product-documentation layer (see lib/product.mjs)
