@@ -10,7 +10,7 @@ import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPage } from './lib/docgen.mjs';
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
-import { computeCodePathsHash, isTourDirty } from './lib/drift.mjs';
+import { computeCodePathsHash, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { buildFrontmatter, computeTourSidebarPositions, isPublishedTour } from './lib/product.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
@@ -187,11 +187,17 @@ function main() {
     });
 
   // sidebar_label only when the tour actually has a title — loadTour doesn't
-  // require one.
+  // require one. generatedAt/generatedAtCommit are computed once here and
+  // reused for both the (opt-in) frontmatter stamp below and the state.json
+  // entry saved further down — one source of truth for "when was this last
+  // generated" (see lib/product.mjs's buildFrontmatter and lib/status.mjs).
   const sidebarPositions = computeTourSidebarPositions({ sections: config.docs?.sections, tours: allTours });
+  const generatedAt = new Date().toISOString();
+  const generatedAtCommit = resolveShortHeadCommit();
   const frontmatter = buildFrontmatter({
     sidebarPosition: sidebarPositions.get(tour.id),
     sidebarLabel: tour.title,
+    lastVerified: docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined,
   });
 
   const newMarkdown = renderTourPage({
@@ -231,6 +237,8 @@ function main() {
     codePathsHash: currentCodePathsHash,
     bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
     renderHash: currentRenderHash,
+    generatedAt,
+    generatedAtCommit,
   });
 
   console.log(`Generated ${docPath}`);
