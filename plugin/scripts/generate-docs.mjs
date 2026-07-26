@@ -75,6 +75,19 @@ function main() {
   if (!tourManifest) {
     throw new Error(`No manifest entry for tour "${tour.id}" — run \`npm run capture -- --tour ${tourId}\` first.`);
   }
+  // capture.mjs --continue-on-error can save a manifest entry for a tour
+  // whose capture only partially succeeded (some steps/captures failed, see
+  // lib/manifest.mjs's buildManifest). Diagnostics only — rendering it here
+  // would produce a tutorial silently missing whatever steps failed, with no
+  // signal to the reader that anything's wrong. Re-run capture (fix the
+  // underlying failure, or drop --continue-on-error) until it succeeds fully.
+  if (tourManifest.partial) {
+    throw new Error(
+      `Manifest entry for tour "${tour.id}" is partial (captured with --continue-on-error and at least one ` +
+        `step failure) — re-run \`capture.mjs --tour ${tourId}\` until it succeeds fully before generating ` +
+        `its docs. Step failures: ${(tourManifest.stepFailures ?? []).map((f) => `step ${f.index} (${f.message})`).join('; ')}`,
+    );
+  }
 
   const missingViewports = findMissingViewports(Object.keys(config.viewports), tourManifest.captures);
   if (missingViewports.length > 0) {
@@ -232,6 +245,14 @@ function main() {
 
   fs.mkdirSync('docs', { recursive: true });
   fs.writeFileSync(docPath, finalMarkdown);
+  // saveTourState replaces this tour's whole state.json entry, not just
+  // these fields — carry forward capture.mjs's own lastCaptureError/
+  // consecutiveFailures (see lib/state.mjs's recordCaptureResult) instead of
+  // silently dropping them here. Generating docs from an existing manifest
+  // doesn't mean the *next* capture attempt succeeded; if a later capture
+  // for this tour genuinely failed after this manifest was recorded, that's
+  // still worth `/document status` surfacing even though the page rendered
+  // fine from older, still-good data.
   saveTourState(statePath, tour.id, {
     screenshotHashes: currentScreenshotHashes,
     codePathsHash: currentCodePathsHash,
@@ -239,6 +260,8 @@ function main() {
     renderHash: currentRenderHash,
     generatedAt,
     generatedAtCommit,
+    lastCaptureError: previousEntry?.lastCaptureError ?? null,
+    consecutiveFailures: previousEntry?.consecutiveFailures ?? 0,
   });
 
   console.log(`Generated ${docPath}`);

@@ -896,6 +896,8 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 |---|---|
 | `npm run validate` | Preflight-check config/tours (undefined auth profiles, empty `code_paths` matches, non-role selectors) without launching a browser |
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
+| `npm run capture -- --tour <id> --tour <id2> ...` / `npm run capture -- --all` | Screenshot several tours in one run: one shared browser, batched with bounded concurrency (`--concurrency <n>`, default 3 — a tour with `preconditions.seed` always runs alone, never concurrently with another tour). Each tour's failure is isolated from its siblings; exits non-zero if any tour failed |
+| `npm run capture -- --tour <id> --continue-on-error` | Keep going after a step fails instead of aborting the whole tour — the resulting manifest is marked `partial` (only the captures that actually succeeded) and `generate-docs.mjs` refuses to render it until a clean re-capture succeeds. Still exits non-zero |
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |

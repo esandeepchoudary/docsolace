@@ -21,12 +21,21 @@ export function saveManifestEntry(manifestPath, manifest) {
   });
 }
 
-export function buildManifest(tourId, captures, generatedAt = new Date().toISOString()) {
-  return {
-    tourId,
-    generatedAt,
-    captures,
-  };
+// stepFailures (optional — capture.mjs's --continue-on-error, see
+// runTour) marks the resulting manifest entry `partial: true` and carries
+// the failure list along, so generate-docs.mjs can refuse to render a
+// tutorial silently missing whatever steps failed instead of treating a
+// partial capture the same as a clean one. Omitted (or empty) entirely
+// when there were no failures, so every existing 2/3-arg call site's output
+// shape is unchanged — no stray `partial`/`stepFailures` keys on a normal,
+// fully-successful manifest.
+export function buildManifest(tourId, captures, generatedAt = new Date().toISOString(), { stepFailures } = {}) {
+  const manifest = { tourId, generatedAt, captures };
+  if (stepFailures && stepFailures.length > 0) {
+    manifest.partial = true;
+    manifest.stepFailures = stepFailures;
+  }
+  return manifest;
 }
 
 // Flattens a tour manifest's per-capture, per-viewport hashes into one map

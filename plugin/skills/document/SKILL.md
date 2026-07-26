@@ -783,6 +783,14 @@ failure, report the exact fix (`gh auth login`) and stop.
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/capture.mjs" --tour <slug>
    ```
+   one invocation per tour, exactly as above — not `capture.mjs`'s own
+   `--all`/repeated-`--tour` bulk mode (see the README's "Everyday commands"
+   for that). A single-tour invocation's failure names exactly which tour
+   and step it came from, unambiguously, which is what the hard-stop relay
+   immediately below depends on; a bulk multi-tour run isolates each tour's
+   failure from its siblings (useful for a human running it directly) at the
+   cost of that same precision, so it stays a manual/advanced option rather
+   than how this skill drives capture itself.
    If this fails because a `storageStatePath` auth profile hasn't recorded a
    session yet, the error already names the exact `save-auth-state.mjs`
    command to run — **resolve `${CLAUDE_PLUGIN_DATA}` to its real path
