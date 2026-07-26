@@ -492,10 +492,13 @@ node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"
 ```
 
 It reports, per tour: `ok`, or a list of `error`/`warn` findings — an
-undefined `preconditions.auth` profile is an **error** (capture would fail
-on it), while an empty `code_paths` glob match, a not-yet-recorded
-`storageStatePath` session, or a non-`role=`/`text=` interactive selector are
-**warnings** (things still run, just not as intended). It also reports one
+undefined `preconditions.auth` profile or a `prerequisites`/`see_also` entry
+naming a tour that doesn't exist under `tours/` are **errors** (capture
+would fail, or generation would render a dead link), while an empty
+`code_paths` glob match, a not-yet-recorded `storageStatePath` session, a
+non-`role=`/`text=` interactive selector, or a cross-link naming a tour that
+exists but isn't published yet (draft/proposed/archived) are **warnings**
+(things still run, just not as intended). It also reports one
 `_product` line — always `warn`, never `error`, since a thin grounding source
 means the generated pages will be thin, not that generation will fail: no
 `README.md`, a `product.sources` glob matching nothing, a `docs.sections`

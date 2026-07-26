@@ -16,7 +16,7 @@ function yamlString(value) {
 // Used by the tour-scout subagent (see plugin/agents/tour-scout.md) after it
 // explores the app via Playwright MCP — never invents a step; every step it
 // passes in must be grounded in something it actually observed.
-export function renderDraftTour({ id, title, intent, codePaths, steps, auth, voice }) {
+export function renderDraftTour({ id, title, intent, codePaths, steps, auth, voice, suggestedPrerequisite }) {
   const stepsYaml = steps
     .map((step) => {
       if (step.action) {
@@ -64,6 +64,18 @@ export function renderDraftTour({ id, title, intent, codePaths, steps, auth, voi
       : `# TODO: add preconditions (auth/seed/voice) here if this flow requires being signed\n` +
         `# in or needs microphone input — see the auth/seeds entries in autodocs.config.yaml.\n`;
 
+  // Suggested, never live — same "suggest, don't auto-fill" discipline as
+  // preconditions/mask above. Only ever set alongside `auth` (see tour-
+  // scout.md: it's the tour, among the ones it was given, that tour-scout
+  // found actually documents *this same* auth profile's own login flow) —
+  // a human reviews and uncomments it (or picks a different one) rather
+  // than tour-scout guessing which existing tour is "the login tour" and
+  // wiring up a live cross-link that might be wrong.
+  const prerequisitesSuggestion = suggestedPrerequisite
+    ? `# prerequisites:\n#   - ${yamlString(suggestedPrerequisite)}  # suggested: this tour looked like it covers ` +
+      `${auth ? `"${auth}"'s` : "this flow's"} own login flow — review and uncomment if right\n`
+    : '';
+
   return `id: ${yamlString(id)}
 title: ${yamlString(title)}
 intent: ${yamlString(intent)}
@@ -77,7 +89,7 @@ maturity: draft
 # /document propose|map with --review instead if you'd rather review and
 # flip status to confirmed yourself before anything else runs.
 status: proposed
-${preconditions}steps:
+${preconditions}${prerequisitesSuggestion}steps:
 ${stepsYaml}
 code_paths:
 ${codePathsYaml}

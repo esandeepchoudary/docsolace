@@ -244,6 +244,25 @@ export function isPublishedTour(tour) {
   return tour.maturity !== 'draft' && tour.status !== 'proposed' && tour.status !== 'archived';
 }
 
+// Resolves a list of tour ids (a tour's own prerequisites/see_also — see
+// lib/tours.mjs) against the live tour inventory into {id, title} pairs for
+// lib/docgen.mjs's renderTourPage cross-link blocks. Silently drops a
+// dangling or unpublished id rather than throwing — lib/validate.mjs is
+// where that's reported as a real finding (error for dangling, warn for
+// unpublished); generation should still produce a correct page from
+// whatever's valid instead of failing the whole run over one bad link. A
+// tour with no title falls back to its id, same as the product page's own
+// tour index (renderProductPage's tourIndex, in generate-product-docs.mjs)
+// already does.
+export function resolveTourLinks(ids, allTours) {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const byId = new Map(allTours.map((t) => [t.id, t]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((t) => t && isPublishedTour(t))
+    .map((t) => ({ id: t.id, title: t.title ?? t.id }));
+}
+
 // Assembles one product page: frontmatter, heading, product-scribe's grounded
 // sections, an optional linked tour index (overview only), then the single
 // keep-region every generated page carries — reusing docgen.mjs's exact

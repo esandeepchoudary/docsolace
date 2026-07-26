@@ -104,6 +104,40 @@ describe('renderDraftTour', () => {
     expect(parsed.preconditions).toEqual({ auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
   });
 
+  it('suggests a prerequisite as a comment, never as a live field, when given one', () => {
+    const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', suggestedPrerequisite: 'login' });
+    expect(yaml).toContain('# prerequisites:');
+    expect(yaml).toContain('#   - "login"');
+    // A commented-out suggestion never parses as a live field — loadTour
+    // must see no prerequisites at all until a human uncomments it.
+    const parsed = parseYaml(yaml);
+    expect(parsed.prerequisites).toBeUndefined();
+  });
+
+  it('omits any prerequisite suggestion when none is given', () => {
+    const yaml = renderDraftTour({ ...BASE, auth: 'standard-user' });
+    expect(yaml).not.toContain('prerequisites');
+  });
+
+  it('never suggests a prerequisite without auth also being set', () => {
+    // suggestedPrerequisite with no auth shouldn't happen in practice (see
+    // tour-scaffold.mjs's comment — it's only ever set alongside auth), but
+    // the render must still degrade sanely rather than reference an unset
+    // `auth` value in the comment text.
+    const yaml = renderDraftTour({ ...BASE, suggestedPrerequisite: 'login' });
+    expect(yaml).not.toContain('undefined');
+  });
+
+  it('a suggested prerequisite still round-trips the rest of the tour through loadTour', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    tmpDirs.push(dir);
+    const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', suggestedPrerequisite: 'login' });
+    fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
+    const tour = loadTour(dir, 'dashboard-export');
+    expect(tour.preconditions).toEqual({ auth: 'standard-user' });
+    expect(tour.prerequisites).toBeUndefined();
+  });
+
   it('produces loadable YAML for a double-quote-bearing role locator', () => {
     // The exact selector style lib/validate.mjs recommends —
     // role=button[name="..."] — contains a literal `"`. Naive
