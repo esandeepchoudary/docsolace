@@ -132,14 +132,18 @@ outputDir: .autodocs/artifacts
 #     - label: "Getting started"
 #       tours: [login]
 #
-# Controls \`/autodocs:document product\` — the generated overview/
-# getting-started/concepts pages describing the product itself (see the
-# README's "Documenting the product itself"). "pages" defaults to all three;
-# "sources" adds extra grounding files/globs beyond the standing README.md /
-# package.json / .env.example / autodocs.config.yaml set.
+# Controls \`/autodocs:document product\` — the generated product-level pages
+# describing the product itself: overview/getting-started/concepts plus
+# configuration/troubleshooting/changelog where there's something real to
+# ground them in (see the README's "Documenting the product itself"). "pages"
+# defaults to all six — an ungrounded one (e.g. no CHANGELOG.md, no
+# troubleshooting section in your README) is just skipped and reported, no
+# config needed to turn it off. "sources" adds extra grounding files/globs
+# beyond the standing README.md / package.json / .env.example /
+# autodocs.config.yaml / CHANGELOG.md set.
 # product:
 #   name: "My App"
-#   pages: [overview, getting-started, concepts]
+#   pages: [overview, getting-started, concepts, configuration, troubleshooting, changelog]
 #   sources:
 #     - "docs-src/**/*.md"
 `;

@@ -256,8 +256,9 @@ below):
    below).
 
 Alongside tours, the same capture → drift → generate shape maintains the
-product-level overview/getting-started/concepts pages (see "It also
-documents the product itself" above) — except step 1 (capture) doesn't apply
+product-level pages — overview/getting-started/concepts plus configuration/
+troubleshooting/changelog where grounded (see "It also documents the product
+itself" above) — except step 1 (capture) doesn't apply
 to them at all: there's no browser involved, their "ground truth" is the
 repo's own README/package.json/config/tour inventory instead of an
 accessibility snapshot.
@@ -948,7 +949,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
-| `npm run generate-product-docs` | Write/update the overview/getting-started/concepts pages from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
+| `npm run generate-product-docs` | Write/update the enabled product-level pages (overview/getting-started/concepts/configuration/troubleshooting/changelog) from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
 | `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
 | `npm run verify-docs` | Check every image reference and internal link/anchor under `docs/` resolves (add `--build` to also build `site/`) — run before a docs PR opens |
