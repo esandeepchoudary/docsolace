@@ -891,6 +891,7 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run generate-product-docs` | Write/update the overview/getting-started/concepts pages from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
 | `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
+| `npm run verify-docs` | Check every image reference and internal link/anchor under `docs/` resolves (add `--build` to also build `site/`) — run before a docs PR opens |
 | `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
 | `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
 
