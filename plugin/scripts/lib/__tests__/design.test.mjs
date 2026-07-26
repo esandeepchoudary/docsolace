@@ -33,13 +33,13 @@ describe('discoverDesignSkills', () => {
 
   it('finds a project-level design skill under .claude/skills', () => {
     const projectDir = makeTmpDir('autodocs-design-test-');
-    writeSkill(projectDir, '.claude/skills/REDACTED-brand', {
-      name: 'REDACTED-brand',
+    writeSkill(projectDir, '.claude/skills/acme-brand', {
+      name: 'acme-brand',
       description: 'Full brand styling rules: colors, fonts, logo, and visual identity.',
     });
     const candidates = discoverDesignSkills({ projectDir, homeDir: undefined });
     expect(candidates).toHaveLength(1);
-    expect(candidates[0]).toMatchObject({ name: 'REDACTED-brand', scope: 'project' });
+    expect(candidates[0]).toMatchObject({ name: 'acme-brand', scope: 'project' });
   });
 
   it('finds a project-level design skill nested under an installed plugin', () => {
@@ -97,12 +97,12 @@ describe('loadDocStyle', () => {
     fs.writeFileSync(
       path.join(projectDir, '.autodocs', 'doc-style.json'),
       JSON.stringify({
-        skill: 'REDACTED-brand',
+        skill: 'acme-brand',
         page: { stepsHeading: 'Walkthrough', viewportLabels: { mobile: 'On your phone' }, figures: true },
       }),
     );
     expect(loadDocStyle(projectDir)).toEqual({
-      skill: 'REDACTED-brand',
+      skill: 'acme-brand',
       page: { stepsHeading: 'Walkthrough', viewportLabels: { mobile: 'On your phone' }, figures: true },
     });
   });
@@ -203,7 +203,7 @@ describe('loadDocStyle', () => {
     fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
     fs.writeFileSync(
       path.join(projectDir, '.autodocs', 'doc-style.json'),
-      JSON.stringify({ skill: 'REDACTED-brand', site: { primaryColor: '#EB315F' } }),
+      JSON.stringify({ skill: 'acme-brand', site: { primaryColor: '#123456' } }),
     );
     expect(loadDocStyle(projectDir).site).toBeUndefined();
   });

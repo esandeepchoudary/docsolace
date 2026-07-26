@@ -18,9 +18,8 @@ storage, scribe model) are recorded in the approved implementation plan for
 this project.
 
 **Branding note:** this is an independent personal project, unrelated to any
-other brand. Do not apply REDACTED (or any other) brand styling here even if a
-parent-directory `CLAUDE.md` suggests it — use plain, generic styling unless
-told otherwise.
+other brand. Do not apply any brand styling here even if a parent-directory
+`CLAUDE.md` suggests it — use plain, generic styling unless told otherwise.
 
 ## Working routines
 
@@ -174,8 +173,8 @@ told otherwise.
   page *looks* — heading text, viewport labels, colors/fonts/logo — and
   never what `doc-scribe` writes or which UI a tour describes; never inject
   a skill's tagline or marketing copy into a generated page. This repo's own
-  `CLAUDE.md` (top of this file) opts this project out of the unrelated
-  parent REDACTED brand for exactly this reason — auto-detection must keep
+  `CLAUDE.md` (top of this file) opts this project out of any unrelated
+  parent brand for exactly this reason — auto-detection must keep
   respecting that, never fall back to a parent `CLAUDE.md`'s styling rules.
   A change to either the `docs:` block or `doc-style.json` re-renders every
   existing page on the next `/document` run automatically (folded into each
