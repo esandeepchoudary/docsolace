@@ -310,6 +310,26 @@ Two things to set up, both by example in this repo:
   when something needs a moment to happen (see "Waiting for async content"
   under "Advanced topics" below).
 
+  A capture step also takes an optional `highlight` field — a role=/text=
+  locator (same convention as everywhere else) for the element that step is
+  about. Outlined in the screenshot itself, so a reader sees exactly which
+  button/field the step describes instead of a plain full-page shot:
+
+  ```yaml
+  - capture: export-button
+    description: "Export CSV button visible on the dashboard"
+    highlight: "role=button[name='Export CSV']"
+  ```
+
+  Checked fresh per viewport — an element visible at desktop but hidden
+  behind a collapsed menu at mobile just means that viewport's screenshot has
+  no highlight (a warning, not a failure). The outline color is a neutral
+  default, overridable via `.autodocs/doc-style.json`'s `page.highlightColor`
+  if a design skill supplies an accent color. Adding or changing a
+  `highlight` changes that step's screenshot pixels like any other visual
+  edit — it goes through the normal pixel-diff gate, so check
+  `npm run review-diffs` before shipping.
+
 ### Page layout and design-skill styling
 
 Every capture is shot at each viewport in `autodocs.config.yaml`'s
