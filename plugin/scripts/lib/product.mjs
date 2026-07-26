@@ -299,6 +299,25 @@ export function isPublishedTour(tour) {
   return tour.maturity !== 'draft' && tour.status !== 'proposed' && tour.status !== 'archived';
 }
 
+// The `tourInventory` input to lib/design.mjs's computeRenderHash — every
+// published tour's {id, title}, sorted by id. Centralized here (rather than
+// each of generate-docs.mjs/drift.mjs/status.mjs building it inline) after a
+// real bug: two of those three call sites drifted out of sync with a third
+// (one still building a plain array of ids after this {id, title} shape was
+// introduced), making that script's dirty/clean report permanently disagree
+// with what a real run would actually do — confirmed by reproducing it
+// against this repo's own tours before centralizing this. A tour's
+// sidebar_position (every sibling's existence/order) *and* a prerequisites/
+// see_also cross-link's rendered title both depend on the full inventory,
+// so title is part of this, not just id — a title-only edit has to mark
+// every page linking to that tour dirty too.
+export function buildTourInventory(allTours) {
+  return (allTours ?? [])
+    .filter(isPublishedTour)
+    .map((t) => ({ id: t.id, title: t.title ?? null }))
+    .sort((a, b) => a.id.localeCompare(b.id));
+}
+
 // Resolves a list of tour ids (a tour's own prerequisites/see_also — see
 // lib/tours.mjs) against the live tour inventory into {id, title} pairs for
 // lib/docgen.mjs's renderTourPage cross-link blocks. Silently drops a
