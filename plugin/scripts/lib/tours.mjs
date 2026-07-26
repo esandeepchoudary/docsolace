@@ -133,6 +133,24 @@ export function loadTour(toursDir, tourId) {
     if (isCapture) {
       assertSafeSlug(step.capture, `Tour "${tourId}" step ${index}'s "capture" field`);
     }
+    // Optional, capture-step-only — the element capture.mjs outlines with a
+    // deterministic CSS highlight before shooting that step's screenshot
+    // (see capture.mjs's per-viewport highlight application). Doesn't make
+    // sense on an action step (goto/click/etc. produce no screenshot), so
+    // it's rejected there the same way an action+capture combination
+    // already is above — a typo'd highlight on the wrong step type would
+    // otherwise be silently ignored instead of caught here at load time.
+    if (step.highlight !== undefined) {
+      if (!isCapture) {
+        throw new Error(
+          `Tour "${tourId}" step ${index} is invalid: "highlight" is only valid on a capture step, not an ` +
+            `action step.`,
+        );
+      }
+      if (typeof step.highlight !== 'string' || !step.highlight.trim()) {
+        throw new Error(`Tour "${tourId}" step ${index}'s "highlight" field must be a non-empty string.`);
+      }
+    }
     // goto targets are appended directly to config.baseUrl — must be
     // site-relative ("/foo"), never an absolute or protocol-relative URL
     // ("https://evil.example", "//evil.example"), or a tour step could

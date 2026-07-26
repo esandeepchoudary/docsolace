@@ -164,6 +164,40 @@ describe('loadDocStyle', () => {
     expect(() => loadDocStyle(projectDir)).toThrow(/"page.figures" must be a boolean/);
   });
 
+  it('accepts a valid 6-digit hex page.highlightColor', () => {
+    const projectDir = makeTmpDir('autodocs-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      JSON.stringify({ page: { highlightColor: '#FF3B30' } }),
+    );
+    expect(loadDocStyle(projectDir).page.highlightColor).toBe('#FF3B30');
+  });
+
+  it('accepts a valid 3-digit hex page.highlightColor', () => {
+    const projectDir = makeTmpDir('autodocs-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.autodocs', 'doc-style.json'), JSON.stringify({ page: { highlightColor: '#f00' } }));
+    expect(loadDocStyle(projectDir).page.highlightColor).toBe('#f00');
+  });
+
+  it('rejects a page.highlightColor that is not a hex color', () => {
+    const projectDir = makeTmpDir('autodocs-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.autodocs', 'doc-style.json'), JSON.stringify({ page: { highlightColor: 'red' } }));
+    expect(() => loadDocStyle(projectDir)).toThrow(/"page.highlightColor" must be a 3- or 6-digit hex color/);
+  });
+
+  it('rejects a page.highlightColor attempting CSS injection', () => {
+    const projectDir = makeTmpDir('autodocs-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    fs.writeFileSync(
+      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      JSON.stringify({ page: { highlightColor: 'red; } body { display:none } /*' } }),
+    );
+    expect(() => loadDocStyle(projectDir)).toThrow(/"page.highlightColor" must be a 3- or 6-digit hex color/);
+  });
+
   it('never surfaces the "site" section', () => {
     const projectDir = makeTmpDir('autodocs-design-test-');
     fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });

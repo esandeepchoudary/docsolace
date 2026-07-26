@@ -11,6 +11,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { resolveCodePathFiles } from './drift.mjs';
 import { isPublishedTour } from './product.mjs';
+import { mergeMasks } from './masking.mjs';
 
 const LOCATOR_PREFIXES = ['role=', 'text='];
 
@@ -94,6 +95,32 @@ export function validateTour(config, tour, { cwd = process.cwd() } = {}) {
         `step ${index}: upload fixture "${step.file}" does not exist — capture would fail on this exact ` +
           `error, but only after already launching a browser.`,
       );
+    }
+    if (step.highlight) {
+      // Same convention nudge selectors get above — a highlight target is
+      // just as prone to CSS-selector flakiness as an interactive one.
+      if (!isLocatorStyle(step.highlight)) {
+        push(
+          'warn',
+          `step ${index}: highlight "${step.highlight}" isn't a role=/text= locator — prefer accessibility ` +
+            `locators over CSS, which is far more flaky.`,
+        );
+      }
+      // Playwright's mask option paints a solid box over the masked
+      // region's bounding box in the final screenshot, on top of whatever
+      // was rendered underneath — including a highlight outline on the
+      // same element. A literal-selector match here catches the obvious
+      // "masked the exact thing I'm trying to highlight" mistake; it isn't
+      // a full geometric overlap check (two different selectors that
+      // happen to cover overlapping regions wouldn't be caught), just the
+      // cheap, common case.
+      if (mergeMasks(config.defaultMask, step.mask).includes(step.highlight)) {
+        push(
+          'warn',
+          `step ${index}: highlight "${step.highlight}" is also in this capture's mask list — the mask ` +
+            `paints over it in the final screenshot, hiding the highlight.`,
+        );
+      }
     }
   }
 
