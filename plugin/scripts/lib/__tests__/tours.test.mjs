@@ -360,4 +360,42 @@ steps:
     const tour = loadTour(dir, 'demo');
     expect(tour.steps[0].highlight).toBeUndefined();
   });
+
+  it('accepts prerequisites and see_also as lists of valid tour ids', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nprerequisites:\n  - login\nsee_also:\n  - dashboard-overview\n  - dashboard-export\nsteps:\n  - capture: x\n    description: x\n',
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.prerequisites).toEqual(['login']);
+    expect(tour.see_also).toEqual(['dashboard-overview', 'dashboard-export']);
+  });
+
+  it('is valid with neither prerequisites nor see_also (both optional)', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - capture: x\n    description: x\n');
+    const tour = loadTour(dir, 'demo');
+    expect(tour.prerequisites).toBeUndefined();
+    expect(tour.see_also).toBeUndefined();
+  });
+
+  it('throws when prerequisites is not a list', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nprerequisites: login\nsteps:\n  - capture: x\n    description: x\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/"prerequisites" field must be a list of tour ids/);
+  });
+
+  it('throws when see_also contains an invalid slug', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsee_also:\n  - "Not Valid!"\nsteps:\n  - capture: x\n    description: x\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/"see_also" field entry "Not Valid!" is invalid/);
+  });
+
+  it('throws when prerequisites contains an invalid slug', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nprerequisites:\n  - "../etc/passwd"\nsteps:\n  - capture: x\n    description: x\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/"prerequisites" field entry/);
+  });
 });

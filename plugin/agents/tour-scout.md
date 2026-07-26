@@ -163,6 +163,17 @@ You're given, as your task:
    description), the `code_paths` you were given, and the steps you actually
    observed. It always comes out with `maturity: draft` and `status:
    proposed`; you never set `status: confirmed` — that's a human decision.
+   **If you set `auth`** (step 3 of "What to do" above — you needed an
+   existing profile's login flow to reach the route), also check whether one
+   of the existing tour filenames you were given looks like it documents
+   that same profile's own login (an obvious name like `login.yaml`, or
+   `Read` it and check its `preconditions.auth` matches). If you find one,
+   pass its id as `suggestedPrerequisite` — `renderDraftTour` renders it as
+   a **commented-out** `prerequisites:` suggestion, never a live field; a
+   human reviews and uncomments it (or picks a different tour) rather than
+   you guessing which one is "the login tour" and wiring up a cross-link
+   that might be wrong. Find nothing obvious → leave it unset, same as any
+   other precondition you're not confident about.
 10. Write only to `tours/<slug>.yaml`, plus any fixture you self-authored
     under `fixtures/` per step 3's rules. Don't touch any other file.
 

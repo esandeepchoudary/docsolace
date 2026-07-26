@@ -138,6 +138,20 @@ told otherwise.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.
+- **Cross-links**: a tour's optional `prerequisites`/`see_also` fields (lists
+  of tour ids) render as mechanical "Before you start"/"See also" link lists
+  on its generated page (`lib/docgen.mjs`'s `renderTourPage`) — never through
+  a subagent, since resolving a validated id to a title has no hallucination
+  surface. `lib/validate.mjs` errors on a dangling id, warns on one that
+  exists but isn't published yet. Renaming, retitling, or archiving *any*
+  tour changes the shared `tourInventory` every tour's render hash depends on
+  (already true for `sidebar_position` — see `generate-docs.mjs`'s comment),
+  so a page linking to a changed tour re-renders with the corrected
+  link/title on the next run automatically, no extra wiring needed.
+  `tour-scout` may suggest a `prerequisites` entry (as a **commented-out**
+  TODO, never a live field) when it needed an existing auth profile's login
+  flow to reach a feature — same "suggest, never auto-fill" discipline as
+  `preconditions.seed`/`mask`.
 - **Surgical updates**: regenerating a tour's page only touches that page;
   content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` is
   human-owned and must survive every regeneration untouched. If a human edits

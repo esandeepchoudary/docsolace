@@ -31,22 +31,26 @@ function main() {
     console.log('No tours yet under tours/ — nothing to validate there (product pages checked below).');
   }
 
+  // Loaded fully before any tour is *validated* (not interleaved, unlike
+  // before this two-pass split existed) — the prerequisites/see_also
+  // cross-link check needs the whole inventory up front to tell "names a
+  // real sibling tour" apart from "names nothing", regardless of which
+  // order tours/*.yaml happens to list files in.
   for (const fileId of tourIds) {
     // Isolated per tour: a single malformed tour file (bad slug, invalid
     // YAML, missing required field) shouldn't abort the whole report and
     // leave every other tour unvalidated — report it as one finding and
     // keep going, same as any other error this loop already reports.
-    let tour;
     try {
-      tour = loadTour('tours', fileId);
+      loadedTours.push(loadTour('tours', fileId));
     } catch (err) {
       hasError = true;
       console.log(`  error   ${fileId}: ${err.message}`);
-      continue;
     }
-    loadedTours.push(tour);
+  }
 
-    const findings = validateTour(config, tour);
+  for (const tour of loadedTours) {
+    const findings = validateTour(config, tour, { allTours: loadedTours });
 
     if (findings.length === 0) {
       console.log(`  ok      ${tour.id}`);

@@ -48,7 +48,14 @@ function main() {
   // computeTourSidebarPositions/isPublishedTour), regardless of that tour's
   // own maturity/status, same as generate-product-docs.mjs's loadAllTours.
   const allTours = tourIds.map((fileId) => loadTour('tours', fileId));
-  const tourInventory = allTours.filter(isPublishedTour).map((t) => t.id).sort();
+  // {id, title} pairs, not just ids — must match generate-docs.mjs's own
+  // tourInventory exactly (see its comment): a title-only edit has to be
+  // part of this hash too, since a prerequisites/see_also cross-link
+  // renders the target's title, not just its id.
+  const tourInventory = allTours
+    .filter(isPublishedTour)
+    .map((t) => ({ id: t.id, title: t.title ?? null }))
+    .sort((a, b) => a.id.localeCompare(b.id));
 
   // Same docsConfig/pageStyle/render-hash computation generate-docs.mjs
   // does, so this report and the actual regeneration never disagree about
