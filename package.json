@@ -12,6 +12,7 @@
     "prune": "node plugin/scripts/prune.mjs",
     "archive-tour": "node plugin/scripts/archive-tour.mjs",
     "validate": "node plugin/scripts/validate.mjs",
+    "status": "node plugin/scripts/status.mjs",
     "verify-docs": "node plugin/scripts/verify-docs.mjs",
     "review-diffs": "node plugin/scripts/review-diffs.mjs",
     "test": "vitest run"

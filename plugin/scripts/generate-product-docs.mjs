@@ -13,6 +13,7 @@ import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import { resolveShortHeadCommit } from './lib/drift.mjs';
 import {
   PRODUCT_PAGES,
   PRODUCT_PAGE_IDS,
@@ -132,6 +133,14 @@ function main() {
   const skippedNoGrounding = [];
   const refusals = [];
 
+  // Computed once per run (not per page) — every page this run actually
+  // writes shares the same "generated at this moment, against this commit"
+  // stamp, same as generate-docs.mjs does for a tour page. Reused for both
+  // the (opt-in) frontmatter stamp and each written page's state.json entry
+  // — see lib/product.mjs's buildFrontmatter and lib/status.mjs.
+  const generatedAt = new Date().toISOString();
+  const generatedAtCommit = resolveShortHeadCommit();
+
   for (const page of pagesToGenerate) {
     const pageProse = prose[page.id];
     if (!pageProse) {
@@ -143,6 +152,7 @@ function main() {
       sidebarPosition: page.sidebarPosition,
       sidebarLabel: page.sidebarLabel,
       title: page.title,
+      lastVerified: docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined,
     });
 
     const docPath = path.join('docs', `${page.id}.md`);
@@ -174,7 +184,11 @@ function main() {
     fs.mkdirSync('docs', { recursive: true });
     fs.writeFileSync(docPath, finalMarkdown);
     written.push(docPath);
-    newPagesState[page.id] = { bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))) };
+    newPagesState[page.id] = {
+      bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
+      generatedAt,
+      generatedAtCommit,
+    };
   }
 
   // Preserve state for pages untouched this run (skipped for lack of

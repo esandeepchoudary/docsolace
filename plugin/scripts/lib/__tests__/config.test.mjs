@@ -249,6 +249,16 @@ describe('loadConfig', () => {
     expect(() => loadConfig(filePath)).toThrow(/"docs.collapseOtherViewports" must be a boolean/);
   });
 
+  it('accepts docs.stampVerified as a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  stampVerified: true\n');
+    expect(loadConfig(filePath).docs).toEqual({ stampVerified: true });
+  });
+
+  it('throws when docs.stampVerified is not a boolean', () => {
+    const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs:\n  stampVerified: "yes"\n');
+    expect(() => loadConfig(filePath)).toThrow(/"docs.stampVerified" must be a boolean/);
+  });
+
   it('throws when docs is not an object', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS + 'docs: "nope"\n');
     expect(() => loadConfig(filePath)).toThrow(/"docs" must be an object/);
