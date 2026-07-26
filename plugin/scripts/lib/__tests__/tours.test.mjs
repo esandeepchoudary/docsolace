@@ -327,4 +327,37 @@ steps:
     );
     expect(() => loadTour(dir, 'demo')).toThrow(/has both an "action" and a "capture" field/);
   });
+
+  it('accepts a capture step with a valid highlight locator', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      "id: demo\nsteps:\n  - capture: export-button\n    description: x\n    highlight: \"role=button[name='Export CSV']\"\n",
+    );
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0].highlight).toBe("role=button[name='Export CSV']");
+  });
+
+  it('throws when highlight is set on an action step', () => {
+    const dir = writeTmpTour(
+      'demo.yaml',
+      'id: demo\nsteps:\n  - action: goto\n    path: /\n    highlight: "role=button"\n',
+    );
+    expect(() => loadTour(dir, 'demo')).toThrow(/"highlight" is only valid on a capture step/);
+  });
+
+  it('throws when highlight is an empty string', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - capture: x\n    description: x\n    highlight: "   "\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/"highlight" field must be a non-empty string/);
+  });
+
+  it('throws when highlight is not a string', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - capture: x\n    description: x\n    highlight: 42\n');
+    expect(() => loadTour(dir, 'demo')).toThrow(/"highlight" field must be a non-empty string/);
+  });
+
+  it('a capture step with no highlight stays valid (opt-in field)', () => {
+    const dir = writeTmpTour('demo.yaml', 'id: demo\nsteps:\n  - capture: x\n    description: x\n');
+    const tour = loadTour(dir, 'demo');
+    expect(tour.steps[0].highlight).toBeUndefined();
+  });
 });

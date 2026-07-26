@@ -26,12 +26,74 @@ import { withRetry } from './lib/retry.mjs';
 import { writeFileAtomic } from './lib/fs-atomic.mjs';
 import { recordCaptureResult } from './lib/state.mjs';
 import { planCaptureBatches } from './lib/capture-plan.mjs';
+import { loadDocStyle } from './lib/design.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
 const MASK_COLOR = '#FF00FF';
 const SEED_COMMAND_TIMEOUT_MS = 2 * 60 * 1000; // generous, but bounded — a hung seed script shouldn't hang capture
 const DEFAULT_CONCURRENCY = 3;
+
+// Neutral default — this repo's own CLAUDE.md opts AutoDocs itself out of
+// inheriting a parent brand, so nothing here should default to one either.
+// Overridable per-project via .autodocs/doc-style.json's page.highlightColor
+// (see lib/design.mjs's loadDocStyle) when a design skill supplies an
+// accent color — presentation only, same as every other doc-style knob.
+const DEFAULT_HIGHLIGHT_COLOR = '#FF3B30';
+const HIGHLIGHT_ATTR = 'data-autodocs-highlight';
+
+// Fixed, deterministic CSS — no transition/animation, nothing time- or
+// layout-dependent. Two things matter here: `outline` (not `border` or a
+// layout-affecting property) draws entirely outside the element's box
+// without reflowing anything around it, so highlighting one element can't
+// shift another element's position or invalidate an unrelated mask region's
+// coordinates; and this exact string must render identically on every
+// capture of the same commit — the whole drift gate's premise is that the
+// masked screenshot hash is stable run to run, and a highlight that varied
+// (even subtly, e.g. via an animation) would make it dirty every time.
+function buildHighlightCss(color) {
+  return `[${HIGHLIGHT_ATTR}] { outline: 3px solid ${color} !important; outline-offset: 2px !important; }`;
+}
+
+// Applies the highlight attribute to a step's target element, if it exists
+// and is visible at the *current* viewport — checked fresh per viewport
+// (not once for the whole step), since an element visible at desktop may be
+// collapsed behind a menu at mobile. Never throws: a missing/hidden/
+// malformed-locator target degrades to "capture without a highlight" rather
+// than failing the whole tour over a cosmetic annotation.
+//
+// Re-injects the highlight <style> tag every call rather than once per tour
+// — confirmed by an actual capture run that a tag injected before the
+// tour's first `goto` never survives that navigation (Playwright's
+// addStyleTag targets the current document; a full navigation replaces it
+// entirely, silently dropping the tag with no error). Cheap and idempotent
+// enough to just always redo it right before it's needed instead of trying
+// to track every navigation that might have invalidated it.
+async function applyHighlight(page, selector, css) {
+  const locator = page.locator(selector).first();
+  let visible;
+  try {
+    visible = await locator.isVisible();
+  } catch {
+    // A malformed or unsupported locator string throws here rather than
+    // resolving to "not visible" — treated the same way. validate.mjs
+    // separately warns when a highlight isn't a role=/text= locator; that's
+    // a load-time nudge toward a better selector, not a reason to fail a
+    // capture that's otherwise working.
+    visible = false;
+  }
+  if (!visible) return false;
+  await page.addStyleTag({ content: css });
+  await locator.evaluate((el, attr) => el.setAttribute(attr, ''), HIGHLIGHT_ATTR);
+  return true;
+}
+
+async function removeHighlight(page, selector) {
+  await page
+    .locator(selector)
+    .first()
+    .evaluate((el, attr) => el.removeAttribute(attr), HIGHLIGHT_ATTR);
+}
 
 function parseArgs(argv) {
   const args = { tours: [], all: false, allowSeedCommands: false, continueOnError: false, concurrency: DEFAULT_CONCURRENCY };
@@ -157,6 +219,12 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
     const page = await context.newPage();
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
+    // Computed once per tour (not re-read per step/viewport) — a plain
+    // string build, no DOM interaction, so there's no navigation-timing
+    // concern here the way there is for actually injecting it (see
+    // applyHighlight, which re-injects this fresh before every use).
+    const highlightCss = buildHighlightCss(loadDocStyle(process.cwd()).page?.highlightColor ?? DEFAULT_HIGHLIGHT_COLOR);
+
     const captures = [];
     const stepFailures = [];
     const baseOrigin = new URL(config.baseUrl).origin;
@@ -233,9 +301,25 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
             try {
               await page.setViewportSize(viewportSize);
 
+              // Checked fresh at this viewport (see applyHighlight) — an
+              // element visible at desktop may be hidden behind a collapsed
+              // menu at mobile. Never fails the capture; a missing/hidden
+              // target just means this viewport's shot has no highlight.
+              const highlightApplied = step.highlight ? await applyHighlight(page, step.highlight, highlightCss) : false;
+              if (step.highlight && !highlightApplied) {
+                console.warn(
+                  `  ! viewport "${viewportName}": highlight target "${step.highlight}" for capture ` +
+                    `"${step.capture}" isn't visible — capturing without a highlight.`,
+                );
+              }
+
               const maskLocators = maskSelectors.map((selector) => page.locator(selector));
               const pngPath = path.join(screenshotsDir, `${step.capture}@${viewportName}.png`);
               await page.screenshot({ path: pngPath, mask: maskLocators, maskColor: MASK_COLOR });
+
+              if (highlightApplied) {
+                await removeHighlight(page, step.highlight);
+              }
 
               const ariaSnapshot = await page.locator('body').ariaSnapshot();
               const a11yPath = path.join(snapshotsDir, `${step.capture}@${viewportName}.a11y.json`);
