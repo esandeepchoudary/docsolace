@@ -45,6 +45,28 @@ describe('buildManifest', () => {
     expect(() => new Date(manifest.generatedAt).toISOString()).not.toThrow();
     expect(new Date(manifest.generatedAt).toISOString()).toBe(manifest.generatedAt);
   });
+
+  it('omits partial/stepFailures entirely when no stepFailures are given (unchanged shape)', () => {
+    const manifest = buildManifest('login', [], '2026-01-01T00:00:00.000Z');
+    expect(manifest).toEqual({ tourId: 'login', generatedAt: '2026-01-01T00:00:00.000Z', captures: [] });
+  });
+
+  it('omits partial/stepFailures when stepFailures is an empty array', () => {
+    const manifest = buildManifest('login', [], '2026-01-01T00:00:00.000Z', { stepFailures: [] });
+    expect(manifest).toEqual({ tourId: 'login', generatedAt: '2026-01-01T00:00:00.000Z', captures: [] });
+  });
+
+  it('marks the manifest partial and carries the failure list when stepFailures is non-empty', () => {
+    const stepFailures = [{ index: 2, message: 'selector not found' }];
+    const manifest = buildManifest('login', [{ name: 'shot-1' }], '2026-01-01T00:00:00.000Z', { stepFailures });
+    expect(manifest).toEqual({
+      tourId: 'login',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      captures: [{ name: 'shot-1' }],
+      partial: true,
+      stepFailures,
+    });
+  });
 });
 
 describe('flattenScreenshotHashes', () => {

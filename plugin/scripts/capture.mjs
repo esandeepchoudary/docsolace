@@ -3,6 +3,14 @@
 // capture point shoots every configured viewport, writing
 // <capture>@<viewport>.png + .a11y.json plus a manifest.json entry with a
 // SHA-256 per viewport, computed on the masked screenshot.
+//
+// Single-tour invocation (`--tour <id>`, the common case, and what
+// SKILL.md's Step 1 drives) behaves exactly as it always has, including its
+// exact error-propagation format. A multi-tour invocation (repeated
+// `--tour`, or `--all`) runs through one shared browser launch with a
+// bounded concurrency pool (see lib/capture-plan.mjs's planCaptureBatches)
+// and isolates each tour's failure from its siblings — one tour going wrong
+// doesn't stop the rest of the run.
 import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -16,20 +24,41 @@ import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
 import { isSameOrigin } from './lib/crawl.mjs';
 import { withRetry } from './lib/retry.mjs';
 import { writeFileAtomic } from './lib/fs-atomic.mjs';
+import { recordCaptureResult } from './lib/state.mjs';
+import { planCaptureBatches } from './lib/capture-plan.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
 const MASK_COLOR = '#FF00FF';
 const SEED_COMMAND_TIMEOUT_MS = 2 * 60 * 1000; // generous, but bounded — a hung seed script shouldn't hang capture
+const DEFAULT_CONCURRENCY = 3;
 
 function parseArgs(argv) {
-  const args = { allowSeedCommands: false };
+  const args = { tours: [], all: false, allowSeedCommands: false, continueOnError: false, concurrency: DEFAULT_CONCURRENCY };
   for (let i = 0; i < argv.length; i++) {
-    if (argv[i] === '--tour') args.tour = argv[i + 1];
-    if (argv[i] === '--allow-seed-commands') args.allowSeedCommands = true;
+    if (argv[i] === '--tour') args.tours.push(argv[++i]);
+    else if (argv[i] === '--all') args.all = true;
+    else if (argv[i] === '--allow-seed-commands') args.allowSeedCommands = true;
+    else if (argv[i] === '--continue-on-error') args.continueOnError = true;
+    else if (argv[i] === '--concurrency') {
+      const raw = argv[++i];
+      const value = Number(raw);
+      if (!Number.isInteger(value) || value < 1) {
+        console.error(`--concurrency must be a positive integer, got "${raw}"`);
+        process.exit(1);
+      }
+      args.concurrency = value;
+    }
   }
-  if (!args.tour) {
-    console.error('Usage: capture.mjs --tour <tour-id> [--allow-seed-commands]');
+  if (!args.all && args.tours.length === 0) {
+    console.error(
+      'Usage: capture.mjs --tour <tour-id> [--tour <tour-id> ...] | --all  ' +
+        '[--continue-on-error] [--concurrency <n>] [--allow-seed-commands]',
+    );
+    process.exit(1);
+  }
+  if (args.all && args.tours.length > 0) {
+    console.error('--all and --tour are mutually exclusive — use one or the other.');
     process.exit(1);
   }
   return args;
@@ -56,8 +85,9 @@ function runSeedCommand(command) {
 }
 
 // Applies a tour's preconditions.seed, if it has one, before anything else
-// runs. Data seeding doesn't need a browser, so this happens before
-// launching one — a failed or disabled seed is cheaper to fail fast on here.
+// runs for that tour. Data seeding doesn't need a browser, so this happens
+// before touching one — a failed or disabled seed is cheaper to fail fast on
+// here.
 function applySeed(config, seedId, { allowSeedCommands }) {
   const resolution = resolveSeed(config, seedId, { allowSeedCommands });
   switch (resolution.action) {
@@ -76,7 +106,38 @@ function applySeed(config, seedId, { allowSeedCommands }) {
   }
 }
 
-async function runTour(browser, config, tour) {
+// preconditions.voice feeds a fixture audio file into Chromium as a fake
+// microphone — set once at browser launch (not per-step, unlike every other
+// interaction), because Chromium's fake-audio-capture flags only take effect
+// at launch time. Both flags are required, verified empirically:
+// --use-fake-device-for-media-stream alone throws "NotSupportedError" from
+// getUserMedia; --use-fake-ui-for-media-stream is what actually gets it
+// working (it also auto-accepts the permission prompt, so no extra
+// browser-context permission grant is needed).
+function buildLaunchArgs(config, tour) {
+  const launchArgs = [...(config.launchArgs ?? [])];
+  if (tour.preconditions?.voice) {
+    if (!fs.existsSync(tour.preconditions.voice)) {
+      throw new Error(
+        `Tour "${tour.id}"'s preconditions.voice fixture "${tour.preconditions.voice}" doesn't exist — ` +
+          `create it under fixtures/ before capturing. Run \`node validate.mjs\` (or ` +
+          `\`/autodocs:document validate\`) to catch this before launching a browser next time.`,
+      );
+    }
+    launchArgs.push(
+      '--use-fake-device-for-media-stream',
+      '--use-fake-ui-for-media-stream',
+      `--use-file-for-fake-audio-capture=${path.resolve(tour.preconditions.voice)}`,
+    );
+  }
+  return launchArgs;
+}
+
+function summarizeFailures(stepFailures) {
+  return `${stepFailures.length} step failure(s): ${stepFailures.map((f) => `step ${f.index} (${f.message})`).join('; ')}`;
+}
+
+async function runTour(browser, config, tour, { continueOnError = false } = {}) {
   const screenshotsDir = path.join(config.outputDir, 'screenshots', tour.id);
   const snapshotsDir = path.join(config.outputDir, 'snapshots', tour.id);
   fs.mkdirSync(screenshotsDir, { recursive: true });
@@ -97,6 +158,7 @@ async function runTour(browser, config, tour) {
     await page.emulateMedia({ reducedMotion: 'reduce' });
 
     const captures = [];
+    const stepFailures = [];
     const baseOrigin = new URL(config.baseUrl).origin;
     // A reused auth session (storageStatePath, or a previously-cached
     // scripted login — see ensureAuthState) is never revalidated before
@@ -211,19 +273,30 @@ async function runTour(browser, config, tour) {
           );
         }
       } catch (err) {
-        throw new Error(`Tour "${tour.id}" step ${index}: ${err.message}`);
+        const message = `Tour "${tour.id}" step ${index}: ${err.message}`;
+        if (!continueOnError) throw new Error(message);
+        // Best-effort: record the failure and keep going — a later step
+        // (especially an independent capture point) may still succeed even
+        // though this one didn't. generate-docs.mjs refuses to render a
+        // manifest entry this produces (see its own "partial" check) so a
+        // tutorial silently missing a step never ships unnoticed.
+        console.error(`  ! ${message} — continuing (--continue-on-error)`);
+        stepFailures.push({ index, message: err.message });
       }
     }
 
-    return buildManifest(tour.id, captures);
+    return buildManifest(tour.id, captures, undefined, { stepFailures });
   } finally {
     await context.close();
   }
 }
 
-async function main() {
-  const { tour: tourId, allowSeedCommands } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+// Single-tour path — unchanged in structure and error-propagation format
+// from before multi-tour support existed. SKILL.md's Step 1 depends on a
+// fatal failure here reaching the top-level `main().catch` verbatim (e.g. to
+// relay an exact save-auth-state.mjs command), so this stays a direct call
+// rather than being routed through captureManyTours' per-tour isolation.
+async function captureSingleTour(config, tourId, { allowSeedCommands, continueOnError, statePath }) {
   const tour = loadTour('tours', tourId);
 
   // Mirrors generate-docs.mjs's own archived skip: an archived tour's
@@ -243,43 +316,154 @@ async function main() {
     });
   }
 
-  // preconditions.voice feeds a fixture audio file into Chromium as a fake
-  // microphone — this is set once at browser launch (not per-step, unlike
-  // every other interaction), because Chromium's fake-audio-capture flags
-  // only take effect at launch time. Both flags are required, verified
-  // empirically: --use-fake-device-for-media-stream alone throws
-  // "NotSupportedError" from getUserMedia; --use-fake-ui-for-media-stream
-  // is what actually gets it working (it also auto-accepts the permission
-  // prompt, so no extra browser-context permission grant is needed).
-  const launchArgs = [...(config.launchArgs ?? [])];
-  if (tour.preconditions?.voice) {
-    if (!fs.existsSync(tour.preconditions.voice)) {
-      throw new Error(
-        `Tour "${tour.id}"'s preconditions.voice fixture "${tour.preconditions.voice}" doesn't exist — ` +
-          `create it under fixtures/ before capturing. Run \`node validate.mjs\` (or ` +
-          `\`/autodocs:document validate\`) to catch this before launching a browser next time.`,
-      );
-    }
-    launchArgs.push(
-      '--use-fake-device-for-media-stream',
-      '--use-fake-ui-for-media-stream',
-      `--use-file-for-fake-audio-capture=${path.resolve(tour.preconditions.voice)}`,
-    );
-  }
+  const launchArgs = buildLaunchArgs(config, tour);
   const browser = await chromium.launch({ args: launchArgs });
   try {
-    const manifest = await runTour(browser, config, tour);
+    let manifest;
+    try {
+      manifest = await runTour(browser, config, tour, { continueOnError });
+    } catch (err) {
+      recordCaptureResult(statePath, tour.id, { error: err.message });
+      throw err;
+    }
     saveManifestEntry(path.join(config.outputDir, 'manifest.json'), manifest);
-    console.log(`Captured ${tour.id}: ${manifest.captures.length} capture(s).`);
+    recordCaptureResult(statePath, tour.id, { error: manifest.partial ? summarizeFailures(manifest.stepFailures) : null });
+
+    console.log(
+      `Captured ${tour.id}: ${manifest.captures.length} capture(s)${manifest.partial ? ' — PARTIAL, see failures below' : ''}.`,
+    );
     for (const c of manifest.captures) {
       const shots = Object.entries(c.viewports)
         .map(([name, v]) => `${name}=${v.sha256.slice(0, 8)}...`)
         .join(', ');
       console.log(`  - ${c.name}: ${shots}`);
     }
+    if (manifest.partial) {
+      console.error(`  ${manifest.stepFailures.length} step failure(s) (--continue-on-error):`);
+      for (const f of manifest.stepFailures) console.error(`    step ${f.index}: ${f.message}`);
+      // Exit non-zero even though a manifest was saved — an autonomous
+      // caller (the /document skill) must still see this as a failure
+      // needing attention, not a silently-accepted partial result.
+      process.exit(1);
+    }
   } finally {
     await browser.close();
   }
+}
+
+// Captures one tour within a multi-tour run, isolating its outcome from its
+// siblings — a fatal failure here is caught and reported, never thrown, so
+// one tour going wrong doesn't abort tours already in flight in the same
+// batch or any batch after it.
+async function captureOneTourIsolated(browser, config, tour, { allowSeedCommands, continueOnError, statePath }) {
+  try {
+    if (tour.preconditions?.seed) {
+      applySeed(config, tour.preconditions.seed, {
+        allowSeedCommands: allowSeedCommands || config.allowSeedCommands === true,
+      });
+    }
+    const manifest = await runTour(browser, config, tour, { continueOnError });
+    saveManifestEntry(path.join(config.outputDir, 'manifest.json'), manifest);
+    recordCaptureResult(statePath, tour.id, { error: manifest.partial ? summarizeFailures(manifest.stepFailures) : null });
+    return {
+      tourId: tour.id,
+      ok: true,
+      captureCount: manifest.captures.length,
+      partial: !!manifest.partial,
+      stepFailures: manifest.stepFailures ?? [],
+    };
+  } catch (err) {
+    recordCaptureResult(statePath, tour.id, { error: err.message });
+    return { tourId: tour.id, ok: false, error: err.message };
+  }
+}
+
+// Multi-tour path (repeated --tour, or --all): one shared browser launch,
+// tours grouped into concurrency-bounded batches (seeded tours run alone —
+// see lib/capture-plan.mjs), each tour's outcome isolated from its siblings.
+async function captureManyTours(config, tourIds, { allowSeedCommands, continueOnError, concurrency, statePath }) {
+  const tours = [];
+  for (const tourId of tourIds) {
+    const tour = loadTour('tours', tourId);
+    if (tour.status === 'archived') {
+      console.log(`Skipping "${tour.id}": status is "archived" — its feature is gone, so it can't be captured.`);
+      continue;
+    }
+    tours.push(tour);
+  }
+  if (tours.length === 0) {
+    console.log('Nothing to capture — every requested tour is archived.');
+    return;
+  }
+
+  // A voice fixture is set once at browser-launch time (see
+  // buildLaunchArgs), shared by every tour in this run. Two tours needing
+  // *different* fixture files can't both be satisfied by one shared launch
+  // — caught here, before launching anything, rather than letting whichever
+  // tour's voice step runs second silently get the wrong fixture (or none).
+  const voiceTours = tours.filter((t) => t.preconditions?.voice);
+  const voicePaths = new Set(voiceTours.map((t) => path.resolve(t.preconditions.voice)));
+  if (voicePaths.size > 1) {
+    throw new Error(
+      `This run's tours need different preconditions.voice fixtures (${[...voicePaths].join(', ')}) — a ` +
+        `shared browser launch can only use one. Capture these tours in separate invocations instead.`,
+    );
+  }
+  const launchArgs = voiceTours.length > 0 ? buildLaunchArgs(config, voiceTours[0]) : [...(config.launchArgs ?? [])];
+
+  const batches = planCaptureBatches(tours, { concurrency });
+  const browser = await chromium.launch({ args: launchArgs });
+  const results = [];
+  try {
+    for (const batch of batches) {
+      const batchResults = await Promise.all(
+        batch.map((tour) => captureOneTourIsolated(browser, config, tour, { allowSeedCommands, continueOnError, statePath })),
+      );
+      results.push(...batchResults);
+    }
+  } finally {
+    await browser.close();
+  }
+
+  let anyFailed = false;
+  for (const r of results) {
+    if (r.ok) {
+      console.log(`Captured ${r.tourId}: ${r.captureCount} capture(s)${r.partial ? ' — PARTIAL, see below' : ''}.`);
+      if (r.partial) {
+        anyFailed = true;
+        for (const f of r.stepFailures) console.error(`  step ${f.index}: ${f.message}`);
+      }
+    } else {
+      anyFailed = true;
+      console.error(`Failed ${r.tourId}: ${r.error}`);
+    }
+  }
+  if (anyFailed) process.exit(1);
+}
+
+async function main() {
+  const { tours: requestedIds, all, allowSeedCommands, continueOnError, concurrency } = parseArgs(process.argv.slice(2));
+  const config = loadConfig('autodocs.config.yaml');
+  const statePath = path.join(config.outputDir, 'state.json');
+
+  const tourIds = all
+    ? fs
+        .readdirSync('tours')
+        .filter((f) => f.endsWith('.yaml'))
+        .map((f) => f.replace(/\.yaml$/, ''))
+    : requestedIds;
+
+  if (tourIds.length === 0) {
+    console.log('No tours under tours/ to capture.');
+    return;
+  }
+
+  if (tourIds.length === 1) {
+    await captureSingleTour(config, tourIds[0], { allowSeedCommands, continueOnError, statePath });
+    return;
+  }
+
+  await captureManyTours(config, tourIds, { allowSeedCommands, continueOnError, concurrency, statePath });
 }
 
 main().catch((err) => {
