@@ -76,3 +76,17 @@ allowSeedCommands: false
 docs:
   primaryViewport: desktop
   collapseOtherViewports: true
+
+# Extra grounding for product-scribe (see lib/product.mjs's DEFAULT_SOURCES,
+# which already covers README.md/package.json/.env.example/this file/
+# CHANGELOG.md). The README SEO split moved most reference material out of
+# README.md into these companion pages, so they need to be listed here or
+# product-scribe would lose that grounding for the configuration/
+# troubleshooting pages.
+product:
+  sources:
+    - CONFIGURATION.md
+    - PUBLISHING.md
+    - TROUBLESHOOTING.md
+    - ADVANCED.md
+    - CONTRIBUTING.md

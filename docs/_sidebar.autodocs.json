@@ -2,7 +2,9 @@
   "productPages": [
     "overview",
     "getting-started",
-    "concepts"
+    "concepts",
+    "configuration",
+    "troubleshooting"
   ],
   "sections": [],
   "unsectionedTours": [

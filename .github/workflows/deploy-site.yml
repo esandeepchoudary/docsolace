@@ -1,0 +1,64 @@
+name: Deploy docs site
+
+# Builds site/ (the Docusaurus scaffold serving this repo's own docs/
+# directly — see PUBLISHING.md) and publishes it to GitHub Pages. This is
+# the indexable surface for SEO purposes: it's what actually gets built and
+# published, separate from docs.yml (which regenerates docs/ content itself
+# and stays parked on manual dispatch — see that workflow's own comment).
+# Runs on every push to main that touches docs/ or site/, plus manual
+# dispatch for re-deploying without a content change (e.g. after editing
+# docusaurus.config.js).
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'site/**'
+      - '.github/workflows/deploy-site.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one deploy at a time; a newer push should win over an in-flight
+# build rather than queuing behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: Install site dependencies
+        run: cd site && npm ci
+
+      - name: Build site
+        run: cd site && npm run build
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site/build
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
