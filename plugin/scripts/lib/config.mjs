@@ -265,6 +265,17 @@ function assertValidDocsConfig(configPath, docs, viewports) {
   if (docs.collapseOtherViewports !== undefined && typeof docs.collapseOtherViewports !== 'boolean') {
     throw new Error(`autodocs config at "${configPath}": "docs.collapseOtherViewports" must be a boolean`);
   }
+  // Opt-in: when true, generate-docs.mjs/generate-product-docs.mjs stamp
+  // each page's frontmatter with a "last_verified" date + short commit SHA
+  // (see lib/product.mjs's buildFrontmatter) — every project sees this
+  // field flow through docsConfig into lib/design.mjs's computeRenderHash
+  // automatically (docsConfig is hashed wholesale), so flipping it re-renders
+  // every existing page exactly once through the normal drift path. A
+  // project that never sets it (the default) sees zero output change and
+  // zero page churn from this feature.
+  if (docs.stampVerified !== undefined && typeof docs.stampVerified !== 'boolean') {
+    throw new Error(`autodocs config at "${configPath}": "docs.stampVerified" must be a boolean`);
+  }
   if (docs.sections !== undefined) {
     assertValidDocsSections(configPath, docs.sections);
   }

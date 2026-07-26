@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level overview/getting-started/concepts pages via the product-scribe subagent, grounded in README/package.json/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | product | validate | init-site   (any mode: [--review] [--no-style])"
+description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level overview/getting-started/concepts pages via the product-scribe subagent, grounded in README/package.json/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "status" reports which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | product | validate | status | init-site   (any mode: [--review] [--no-style])"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
@@ -132,6 +132,7 @@ If the arguments are `prune`, follow **"Prune orphaned tours"** below.
 If the arguments are `product`, follow **"Document the product itself"**
 below.
 If the arguments are `validate`, follow **"Validate a project"** below.
+If the arguments are `status`, follow **"Report project status"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below —
 this also covers re-applying styling to an already-scaffolded site, so
 there's no separate "restyle" mode.
@@ -504,6 +505,41 @@ or the config yourself — a human authored or confirmed it. Recommend running
 this after authoring/confirming a tour (or editing `product`/`docs.sections`
 config) and before the normal pipeline, especially right after `propose`
 drafts one.
+
+## Report project status
+
+Read-only — no browser, no subagent, no PR. Answers "which tours/product
+pages are stale, which have no page yet, and when was each last generated"
+cheaply, without the cost of `map`'s full authenticated crawl. Run:
+
+```
+node "${CLAUDE_PLUGIN_DATA}/scripts/status.mjs"
+```
+
+For each tour it reports `dirty`/`clean` (with the same reason annotations
+`drift.mjs` uses — `(screenshots, code)` vs. `(render only — no new prose
+needed)`), or its gate if it's skipped (`draft`, `proposed`, `archived`, or
+`?` for never-captured), plus when it was last generated: a date and short
+commit SHA (from `state.json`'s `generatedAt`/`generatedAtCommit` — written by
+`generate-docs.mjs`/`generate-product-docs.mjs` every time a page actually
+regenerates, never on a clean run with nothing to do), or "generated at an
+unknown time" for a page that predates this field. Product pages report the
+same way, per page. Ends with totals and any **anomalies**: a confirmed,
+stable tour with no generated page yet, or a `docs/*.md` file matching no
+real tour id or enabled product page id (most likely a hand-created page, or
+a leftover from a tour that was renamed/deleted without going through
+`archive-tour.mjs` — see "Archiving a removed feature"/`archive-tour.mjs`).
+
+This never changes what a real `/document` run would do — report it plainly
+and stop; don't act on a `dirty` tour or an anomaly yourself here.
+
+`autodocs.config.yaml`'s `docs.stampVerified: true` (opt-in, default off)
+additionally stamps each generated page's frontmatter with `last_verified:
+"<date> (<short-sha>)"` — the same values this report reads out of
+`state.json`, now visible on the page itself. Flipping it re-renders every
+existing page once through the normal drift path (it flows into the shared
+render hash via `docsConfig`, like any other `docs:` setting) — no template
+version bump, no separate migration step needed.
 
 ## Scaffold a docs site
 

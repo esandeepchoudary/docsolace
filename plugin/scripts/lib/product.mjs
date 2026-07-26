@@ -195,11 +195,22 @@ function assertFrontmatterValue(value, label) {
   }
 }
 
-// Serializes a minimal YAML frontmatter block: only these three whitelisted
+// Serializes a minimal YAML frontmatter block: only these four whitelisted
 // keys, ever. Values are JSON-quoted — JSON string syntax is a valid YAML
 // flow scalar (same trick bootstrap.mjs's safeYamlBaseUrl uses) — so this
 // sidesteps YAML-injection without a bespoke escaping routine.
-export function buildFrontmatter({ sidebarPosition, sidebarLabel, title } = {}) {
+//
+// lastVerified (opt-in — config.docs.stampVerified, see lib/config.mjs) is
+// the caller-formatted "<date> (<short-sha>)" string generate-docs.mjs/
+// generate-product-docs.mjs compute from the exact same generatedAt/
+// generatedAtCommit values they persist into state.json — one source of
+// truth for "when was this last generated", surfaced both on the page itself
+// and in `/document status`'s report (lib/status.mjs). It only advances when
+// the page is actually regenerated (screenshots/code/inputs changed), never
+// on a clean run with nothing to do — bumping it on every run regardless of
+// change would mean re-writing every page every time just to touch a
+// timestamp, defeating the whole point of the drift gate.
+export function buildFrontmatter({ sidebarPosition, sidebarLabel, title, lastVerified } = {}) {
   const lines = ['---'];
   if (sidebarPosition !== undefined) {
     if (typeof sidebarPosition !== 'number' || !Number.isFinite(sidebarPosition)) {
@@ -214,6 +225,10 @@ export function buildFrontmatter({ sidebarPosition, sidebarLabel, title } = {}) 
   if (title !== undefined) {
     assertFrontmatterValue(title, 'title');
     lines.push(`title: ${JSON.stringify(title)}`);
+  }
+  if (lastVerified !== undefined) {
+    assertFrontmatterValue(lastVerified, 'last_verified');
+    lines.push(`last_verified: ${JSON.stringify(lastVerified)}`);
   }
   lines.push('---', '');
   return lines.join('\n');
