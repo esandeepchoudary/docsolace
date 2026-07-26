@@ -1,7 +1,7 @@
 {
   "name": "autodocs",
   "version": "1.0.0",
-  "description": "",
+  "description": "Screenshot-driven docs for your app: a Claude Code plugin that drives your running app with Playwright and writes tutorials that stay in sync.",
   "main": "index.js",
   "scripts": {
     "capture": "node plugin/scripts/capture.mjs",
@@ -21,7 +21,24 @@
     "type": "git",
     "url": "git+https://github.com/esandeepchoudary/autodocs.git"
   },
-  "keywords": [],
+  "keywords": [
+    "documentation",
+    "documentation-generator",
+    "docs-as-code",
+    "claude-code",
+    "claude-code-plugin",
+    "anthropic",
+    "playwright",
+    "headless-browser",
+    "screenshots",
+    "screenshot-testing",
+    "docusaurus",
+    "technical-writing",
+    "developer-tools",
+    "automation",
+    "nodejs",
+    "ai-agents"
+  ],
   "author": "esandeepchoudary",
   "license": "ISC",
   "bugs": {
