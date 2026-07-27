@@ -42,7 +42,13 @@ const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 // constants below) before this bump, so the render-only pass this triggers
 // finds the new marker already in place and doesn't lose any keep-region
 // content.
-export const RENDER_TEMPLATE_VERSION = 6;
+// v7: product pages' section bodies now run through
+// lib/code-format.mjs's autoFenceCommandLines (see lib/product.mjs's
+// renderProductPage) — a deterministic safety net that fences a run of
+// bare command lines product-scribe's prose might otherwise leave
+// unfenced (which CommonMark would merge into a broken run-on paragraph,
+// not just render unstyled). A no-op on prose that already reads fine.
+export const RENDER_TEMPLATE_VERSION = 7;
 
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
 // human pasting in another `<!-- docsolace:keep -->` pair) isn't a supported

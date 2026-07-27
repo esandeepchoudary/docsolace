@@ -39,6 +39,13 @@ tour. You are given a tour's file slug (e.g. `dashboard`) as your task input.
 - Do not describe masked regions (solid pink boxes in the screenshot) beyond
   what the a11y snapshot already tells you — their real content was redacted
   on purpose.
+- **If the a11y snapshot shows real code, JSON, or config text that your
+  paragraph needs to quote** (rare — a code editor, a JSON viewer, a config
+  panel), quote it in a backtick code span rather than as bare text.
+  Docusaurus already themes fenced/inline code (Prism, configured in
+  `site/docusaurus.config.js`); using the right markdown syntax is all
+  that's needed. This is uncommon since your paragraphs describe UI, not
+  code, but stay consistent with it when it does come up.
 - Do not touch `docs/*.md` directly, and do not use any tool besides Read and
   Write. The surgical merge (preserving human-edited
   `<!-- docsolace:keep -->` regions, assembling the final page) is handled

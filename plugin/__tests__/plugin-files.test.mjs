@@ -404,6 +404,10 @@ describe('agents/doc-scribe.md', () => {
     expect(body.toLowerCase()).toContain('never describe');
     expect(body).toContain('a11y');
   });
+
+  it('instructs using a backtick code span for real code/JSON/config quoted from a screenshot', () => {
+    expect(body).toContain('backtick code span');
+  });
 });
 
 describe('agents/product-scribe.md', () => {
@@ -441,6 +445,12 @@ describe('agents/product-scribe.md', () => {
   it('never reads .env, key files, or anything under .auth/, even if it looks relevant', () => {
     expect(body).toContain('.env');
     expect(body).toContain('.auth/');
+  });
+
+  it('instructs fenced code blocks for commands/config and backtick spans for inline identifiers', () => {
+    expect(body).toContain('fenced code block');
+    expect(body).toContain('backtick code span');
+    expect(body).toContain('```bash');
   });
 
   it('never copies a secret-looking value into a page', () => {

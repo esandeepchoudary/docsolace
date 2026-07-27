@@ -166,6 +166,26 @@ other brand. Do not apply any brand styling here even if a parent-directory
   makes this land on every already-generated page automatically, the same
   render-only mechanism described under "Page layout vs. design-skill
   styling" below.
+- **Code formatting in generated docs**: commands/config/JSON always go in
+  a fenced code block with a language tag (` ```bash `, ` ```yaml `, plain
+  ` ``` ` for Claude Code slash-commands), a single identifier/filename/env
+  var mentioned inline gets a backtick code span — a hard rule in both
+  `agents/product-scribe.md` (primary) and `agents/doc-scribe.md` (lighter,
+  for the rare case a captured screenshot shows literal code). The "theme"
+  for this already exists and needs no new wiring: Docusaurus's Prism
+  config in `site/docusaurus.config.js`'s `prism` block renders/highlights
+  any properly-fenced block for free — the only gap was ever content, not
+  tooling. Confirmed for real: a run of bare command lines with no fence
+  between them doesn't just render unstyled, CommonMark merges them into
+  one broken run-on paragraph. Since that's real damage, not just missing
+  polish, `lib/product.mjs`'s `renderProductPage` also runs every section
+  through `lib/code-format.mjs`'s `autoFenceCommandLines` as a narrow,
+  mechanical safety net — it only wraps lines that already look like a
+  command (a fixed verb whitelist, never ending in sentence punctuation)
+  and never touches ordinary prose or a block already fenced; it's backup
+  for when the prompt rule slips, not a substitute for it, and not applied
+  to `doc-scribe`/tour pages (a tour paragraph is inserted indented as part
+  of a list item, where a bare fence would break the list).
 - **Surgical updates**: regenerating a tour's page only touches that page;
   content inside `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` is
   human-owned and must survive every regeneration untouched. If a human edits
