@@ -9,7 +9,7 @@ description: "A tour is a YAML file under tours/ describing one feature walk: wh
 
 ## Tours
 
-A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title, and intent, a maturity (draft = still churning and skipped until flipped, stable = ready), a status (confirmed = ready to use, proposed = drafted but not yet reviewed, archived = the feature looks removed), a list of steps, and code_paths naming the source files that, if changed, mark the tour dirty. A step's action can be goto, click, fill, type, select, check, press, hover, upload, wait, or a capture (screenshot plus accessibility snapshot) with an optional description and highlight locator. A tour can also declare prerequisites and see_also, both lists of other tour ids, rendered as mechanical "Before you start"/"See also" links on its generated page. The confirmed tours in this repository are login ("Login page" — what a signed-out user sees before authenticating), dashboard-overview ("Dashboard overview" — what the main dashboard displays and how to read it), and dashboard-export ("Export dashboard activity" — exporting the current activity table as a CSV).
+A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title, and intent, a maturity (draft = still churning and skipped until flipped, stable = ready), a status (confirmed = ready to use, proposed = drafted but not yet reviewed, archived = the feature looks removed), a list of steps, and code_paths naming the source files that, if changed, mark the tour dirty. A step's action can be goto, click, fill, type, select, check, press, hover, upload, wait, or a capture (screenshot plus accessibility snapshot) with an optional description and highlight locator. A tour can also declare prerequisites and see_also, both lists of other tour ids, rendered as mechanical "Before you start"/"See also" links on its generated page. The confirmed tours in this project are login ("Login page" — what a signed-out user sees before authenticating), dashboard-overview ("Dashboard overview" — what the main dashboard displays and how to read it), and dashboard-export ("Export dashboard activity" — exporting the current activity table as a CSV).
 
 ## The capture, drift, generate, publish pipeline
 
@@ -17,11 +17,11 @@ Capture drives a headless browser through a tour against the real running app, t
 
 ## Keep-regions
 
-Content a human writes inside a page's `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` block is preserved untouched across every future regeneration. If a human edits a generated page outside that region, the generator detects the resulting hash mismatch against the last generation and refuses to overwrite the page silently.
+Content a human writes inside a page's <!-- autodocs:keep --> ... <!-- /autodocs:keep --> block is preserved untouched across every future regeneration. If a human edits a generated page outside that region instead, the generator detects the resulting hash mismatch against the last generation and refuses to overwrite the page silently.
 
 ## Auth profiles and seeds
 
-An auth profile under autodocs.config.yaml's auth map lets a tour reach pages that require signing in. One shape is scripted login (loginUrl, usernameSelector, passwordSelector, submitSelector, usernameEnv/passwordEnv pointing at environment variables, successUrlPattern); the other is storageStatePath, which reuses a previously recorded browser session instead — used for logins too varied to script reliably (OAuth, SSO, magic links, 2FA). A seed, declared under the seeds map and referenced by a tour's preconditions.seed, names a data fixture; a seed can optionally declare a command that resets/seeds the app's data before capture, but that command only runs when allowSeedCommands is explicitly set to true (or --allow-seed-commands is passed), off by default.
+An auth profile under autodocs.config.yaml's auth map lets a tour reach pages that require signing in. One shape is scripted login (loginUrl, usernameSelector, passwordSelector, submitSelector, usernameEnv/passwordEnv pointing at environment variables, successUrlPattern); the other is storageStatePath, which reuses a previously recorded browser session instead — used for logins too varied to script reliably (OAuth, SSO, magic links, 2FA). A seed, declared under the seeds map and referenced by a tour's preconditions.seed, names a data fixture; a seed can optionally declare a command that resets/seeds the app's data before capture, but that command only runs when allowSeedCommands is explicitly set to true (or --allow-seed-commands is passed) — off by default.
 
 ## Masking and highlighting
 
@@ -29,7 +29,7 @@ Masking redacts a volatile region (a timestamp, an avatar, live data) from both 
 
 ## Product-level pages
 
-Tours describe individual UI flows; a separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, and changelog — describes the product as a whole, generated by the product-scribe subagent and grounded strictly in README.md, package.json, .env.example, autodocs.config.yaml, CHANGELOG.md (if present), any extra files listed under product.sources, and the confirmed tour inventory. A page with nothing real to ground it in is skipped and reported rather than padded with invented content.
+Tours describe individual UI flows; a separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, changelog, and decisions — describes the product as a whole, generated by the product-scribe subagent and grounded strictly in README.md, package.json, .env.example, autodocs.config.yaml, CHANGELOG.md (if present), any docs/adr/*.md files, any extra files listed under product.sources, and the confirmed tour inventory. A page with nothing real to ground it in is skipped and reported rather than padded with invented content.
 
 <!-- autodocs:keep -->
 <!-- Notes added here are preserved across regeneration. -->

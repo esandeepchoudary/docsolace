@@ -45,7 +45,7 @@ function commitAll(dir, message) {
 }
 
 describe('PRODUCT_PAGES / PRODUCT_PAGE_IDS / PRODUCT_STATE_KEY', () => {
-  it('has exactly overview, getting-started, concepts, configuration, troubleshooting, changelog, in that order', () => {
+  it('has exactly overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions, in that order', () => {
     expect(PRODUCT_PAGE_IDS).toEqual([
       'overview',
       'getting-started',
@@ -53,12 +53,19 @@ describe('PRODUCT_PAGES / PRODUCT_PAGE_IDS / PRODUCT_STATE_KEY', () => {
       'configuration',
       'troubleshooting',
       'changelog',
+      'decisions',
     ]);
   });
 
   it('only overview includes the tour index', () => {
     expect(PRODUCT_PAGES.find((p) => p.id === 'overview').includeTourIndex).toBe(true);
     expect(PRODUCT_PAGES.filter((p) => p.id !== 'overview').every((p) => !p.includeTourIndex)).toBe(true);
+  });
+
+  it('decisions is appended after changelog, not interleaved (no renumbering of existing pages)', () => {
+    const decisions = PRODUCT_PAGES.find((p) => p.id === 'decisions');
+    const changelog = PRODUCT_PAGES.find((p) => p.id === 'changelog');
+    expect(decisions.sidebarPosition).toBe(changelog.sidebarPosition + 1);
   });
 
   it('sidebar positions sort before the tour base (10)', () => {
@@ -86,6 +93,29 @@ describe('collectProductSources', () => {
     const dir = makeTmpDir();
     fs.writeFileSync(path.join(dir, 'CHANGELOG.md'), '# Changelog\n\n## 1.0.0\n- Initial release');
     expect(collectProductSources(dir, {})).toEqual(['CHANGELOG.md']);
+  });
+
+  it('includes docs/adr/*.md files when that directory exists — the decisions page\'s only ground truth', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', '0001-use-jwt.md'), '# Use JWT');
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', '0002-use-postgres.md'), '# Use Postgres');
+    expect(collectProductSources(dir, {})).toEqual(['docs/adr/0001-use-jwt.md', 'docs/adr/0002-use-postgres.md']);
+  });
+
+  it('is unaffected by a docs/adr/ directory that does not exist — zero config, zero cost', () => {
+    const dir = makeTmpDir();
+    fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
+    expect(collectProductSources(dir, {})).toEqual(['README.md']);
+  });
+
+  it('does not descend into non-.md files or subdirectories under docs/adr/', () => {
+    const dir = makeTmpDir();
+    fs.mkdirSync(path.join(dir, 'docs', 'adr', 'nested'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', '0001-use-jwt.md'), '# Use JWT');
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', 'template.txt'), 'not markdown');
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', 'nested', '0002-nested.md'), '# Nested');
+    expect(collectProductSources(dir, {})).toEqual(['docs/adr/0001-use-jwt.md']);
   });
 
   it('adds files matched by config.product.sources globs', () => {
@@ -707,6 +737,7 @@ describe('buildSidebarStructure', () => {
       'configuration',
       'troubleshooting',
       'changelog',
+      'decisions',
     ]);
   });
 

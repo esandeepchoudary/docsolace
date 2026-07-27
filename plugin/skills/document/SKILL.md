@@ -1,6 +1,6 @@
 ---
 name: document
-description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog where grounded — via the product-scribe subagent, grounded in README/package.json/CHANGELOG.md/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "status" reports which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded — via the product-scribe subagent, grounded in README/package.json/CHANGELOG.md/docs/adr/*.md/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "status" reports which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
 argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | product | validate | status | init-site   (any mode: [--review] [--no-style])"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
@@ -426,19 +426,26 @@ yourself. No browser is launched unless a previous `/document map` run left
 ## Document the product itself
 
 Parses as `product [--review]`. Tours and `doc-scribe` describe individual UI
-flows; this generates the layer above them — up to six pages, `overview`,
-`getting-started`, `concepts`, `configuration`, `troubleshooting`, `changelog`
+flows; this generates the layer above them — up to seven pages, `overview`,
+`getting-started`, `concepts`, `configuration`, `troubleshooting`,
+`changelog`, `decisions`
 (whichever are enabled — see `autodocs.config.yaml`'s `product.pages`,
-default all six) — describing what the product **is**, grounded in the repo
+default all seven) — describing what the product **is**, grounded in the repo
 itself (README, `package.json`, `.env.example`, `autodocs.config.yaml`,
-`CHANGELOG.md` if present, any extra `product.sources` globs, and the
-confirmed tour inventory), never the running app. This needs no browser and
-no tours, so it's runnable immediately after Step 0's bootstrap — a
-brand-new project can get a real landing page before its first tour exists.
-The three newer pages degrade gracefully on a project that doesn't have
-their grounding — no troubleshooting/FAQ section in the README, no
-`CHANGELOG.md`/git tags, nothing configurable documented — `product-scribe`
-just omits them, same as any other ungrounded page.
+`CHANGELOG.md` if present, any `docs/adr/*.md` files, any extra
+`product.sources` globs, and the confirmed tour inventory), never the
+running app. This needs no browser and no tours, so it's runnable
+immediately after Step 0's bootstrap — a brand-new project can get a real
+landing page before its first tour exists. The four newer pages degrade
+gracefully on a project that doesn't have their grounding — no
+troubleshooting/FAQ section in the README, no `CHANGELOG.md`/git tags,
+nothing configurable documented, no `docs/adr/` directory — `product-scribe`
+just omits them, same as any other ungrounded page. `decisions` is different
+in kind from the other six, not just degree: it's the one page where "why a
+decision was made" is in scope at all, and only because a human wrote it
+down in an ADR file — `product-scribe` never infers or reconstructs
+rationale from code/config for this page, unlike simply describing what a
+file documents everywhere else (see `agents/product-scribe.md`'s hard rule).
 
 1. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"` (or just read its
    `_product` line if you already ran it this session) to see whether the
@@ -458,10 +465,11 @@ just omits them, same as any other ungrounded page.
    page combination; it's changelog-specific.
 
    Then dispatch the `product-scribe` subagent with: which pages to generate
-   (`product.pages`, default all six), the grounding file list
+   (`product.pages`, default all seven), the grounding file list
    (`collectProductSources` — README/package.json/.env.example/
-   autodocs.config.yaml/CHANGELOG.md plus any `product.sources` globs,
-   already filtered to exclude `.env`/key files/`.auth/` — plus
+   autodocs.config.yaml/CHANGELOG.md/`docs/adr/*.md` plus any
+   `product.sources` globs, already filtered to exclude `.env`/key
+   files/`.auth/` — plus
    `.autodocs/artifacts/git-tags.txt` too, if you just wrote it), and the
    confirmed tour inventory (id/title/intent). Wait for it to write
    `.autodocs/artifacts/prose/_product.json` — don't write this prose

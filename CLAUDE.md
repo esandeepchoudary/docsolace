@@ -245,36 +245,47 @@ other brand. Do not apply any brand styling here even if a parent-directory
   section (`docs/archive/_category_.json`) instead of just disappearing.
 - **Product pages ground in the repo, never the browser.** `/document
   product` (folded into the normal pipeline too — `lib/product.mjs`) writes
-  up to six pages — `docs/overview.md`/`getting-started.md`/`concepts.md`/
-  `configuration.md`/`troubleshooting.md`/`changelog.md` — via the
-  `product-scribe` subagent, describing the product itself rather than one UI
-  flow. Its ground truth is `README.md`, `package.json`, `.env.example`,
-  `autodocs.config.yaml`, `CHANGELOG.md` (if present), any extra
-  `product.sources` globs, and the confirmed tour inventory —
-  `lib/product.mjs`'s `collectProductSources` explicitly denies `.env`
-  itself, key/credential-shaped files, and anything under `.auth/`, no
-  matter what a glob matches, same untrusted-config posture as everywhere
-  else config feeds a subagent's `Read` list. Same "never invent" discipline
-  as `doc-scribe`, and the same presentation-vs-content scope guardrail: a
-  page product-scribe couldn't ground is skipped and reported, never padded
-  — the norm, not an edge case, for `configuration`/`troubleshooting`/
-  `changelog` on a project without their grounding (no documented config
-  keys, no troubleshooting/FAQ section, no changelog) — and the
-  design-skill/`docs:` styling above applies to these pages identically —
-  never a tagline, never invented content, presentation only. `changelog`
-  falls back to `git tag`'s output (newest first) as a bare version history
-  when there's no `CHANGELOG.md` — `lib/product.mjs`'s `listGitTags`/
-  `resolveChangelogGitTags`, folded into `computeProductInputsHash` as an
-  extra dirty signal (a new tag isn't a *file* change the usual git-blob
-  hashing would ever catch) — but `product-scribe` itself never runs git; the
-  `/document` skill runs `git tag` and writes a `git-tags.txt` scratch file
-  the subagent can `Read`, same "the skill computes it, the subagent only
-  reads a file" shape as `tour-scout`'s `code_paths`. Every tour page also
-  carries a `sidebar_position` (product pages pin above them at 1–6), computed
-  from `docs.sections` config order when set, else alphabetical — grouping
-  into named sections is opt-in, ordering isn't; `docs/_sidebar.autodocs.json`
-  (written by `generate-product-docs.mjs`) is what `/document init-site`
-  wires the scaffolded site's sidebar to build from.
+  up to seven pages — `docs/overview.md`/`getting-started.md`/`concepts.md`/
+  `configuration.md`/`troubleshooting.md`/`changelog.md`/`decisions.md` — via
+  the `product-scribe` subagent, describing the product itself rather than
+  one UI flow. Its ground truth is `README.md`, `package.json`,
+  `.env.example`, `autodocs.config.yaml`, `CHANGELOG.md` (if present), any
+  `docs/adr/*.md` files, any extra `product.sources` globs, and the confirmed
+  tour inventory — `lib/product.mjs`'s `collectProductSources` explicitly
+  denies `.env` itself, key/credential-shaped files, and anything under
+  `.auth/`, no matter what a glob matches, same untrusted-config posture as
+  everywhere else config feeds a subagent's `Read` list. Same "never invent"
+  discipline as `doc-scribe`, and the same presentation-vs-content scope
+  guardrail: a page product-scribe couldn't ground is skipped and reported,
+  never padded — the norm, not an edge case, for `configuration`/
+  `troubleshooting`/`changelog`/`decisions` on a project without their
+  grounding (no documented config keys, no troubleshooting/FAQ section, no
+  changelog, no `docs/adr/` directory) — and the design-skill/`docs:` styling
+  above applies to these pages identically — never a tagline, never invented
+  content, presentation only. `changelog` falls back to `git tag`'s output
+  (newest first) as a bare version history when there's no `CHANGELOG.md` —
+  `lib/product.mjs`'s `listGitTags`/`resolveChangelogGitTags`, folded into
+  `computeProductInputsHash` as an extra dirty signal (a new tag isn't a
+  *file* change the usual git-blob hashing would ever catch) — but
+  `product-scribe` itself never runs git; the `/document` skill runs `git
+  tag` and writes a `git-tags.txt` scratch file the subagent can `Read`, same
+  "the skill computes it, the subagent only reads a file" shape as
+  `tour-scout`'s `code_paths`. `decisions` is categorically different from
+  every other product page, not just thinner grounding: it's the only page
+  where *why* something was built a certain way is ever in scope, and only
+  when a human wrote that reasoning down in a `docs/adr/*.md` file (the
+  well-known Architecture Decision Record convention, auto-detected the same
+  zero-config way `CHANGELOG.md` is) — `product-scribe`'s hard rule for this
+  page explicitly forbids inferring or reconstructing a rationale from code
+  or config, however obvious it looks, since that's a fundamentally
+  different (hallucination-prone) kind of claim than "describe what this
+  file documents" everywhere else on this page type. Every tour page also
+  carries a `sidebar_position` (product pages pin above them at 1–7),
+  computed from `docs.sections` config order when set, else alphabetical —
+  grouping into named sections is opt-in, ordering isn't;
+  `docs/_sidebar.autodocs.json` (written by `generate-product-docs.mjs`) is
+  what `/document init-site` wires the scaffolded site's sidebar to build
+  from.
 
 ## Plugin packaging conventions
 
