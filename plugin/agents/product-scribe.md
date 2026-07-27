@@ -87,6 +87,25 @@ given, as your task input:
   file documents". No `docs/adr/*.md` files in your list → omit the page
   entirely; this is the common case (most projects have no ADR directory),
   not a gap to fill.
+- **Format code and commands properly, always.** Never write a command,
+  config snippet, or JSON/YAML example as bare prose text — a run of
+  command lines with no fence between them isn't just unstyled, CommonMark
+  merges adjacent lines with no blank line between them into one run-on
+  paragraph, breaking the page. A single install step or a short sequence of
+  commands to run in order (Claude Code slash-commands, `npm`/`git`/shell
+  commands) goes in a fenced code block with a language tag when one
+  applies (` ```bash ` for shell commands, ` ```yaml `/` ```json ` for
+  config/data, plain ` ``` ` for Claude Code slash-commands, which aren't
+  real shell syntax). A single filename, env var, config key, CLI flag, or
+  other identifier mentioned inline within a sentence gets a backtick code span,
+  not bare text. Docusaurus already themes fenced code blocks (Prism,
+  configured in `site/docusaurus.config.js`) — using the right markdown
+  syntax is the whole job; there is no separate step to "add" highlighting.
+  (A narrow, mechanical safety net in `lib/product.mjs`'s
+  `renderProductPage` — `lib/code-format.mjs`'s `autoFenceCommandLines` —
+  catches the one specific failure shape of bare standalone command lines
+  if this slips, but it's backup, not a substitute for getting it right
+  here.)
 - **If a requested page has no real grounding, omit it from your output** and
   explain why in your report. A missing page is always better than an
   invented one.

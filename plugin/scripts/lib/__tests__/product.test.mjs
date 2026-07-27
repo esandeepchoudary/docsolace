@@ -605,6 +605,31 @@ describe('renderProductPage', () => {
     expect(page).not.toContain('- [Login page](login.md) —');
   });
 
+  it('fences a section body containing bare command lines (autoFenceCommandLines safety net)', () => {
+    const page = renderProductPage({
+      page: { title: 'Getting started' },
+      prose: {
+        sections: [
+          {
+            heading: 'Install',
+            body: 'Run these:\n\n/plugin marketplace add esandeepchoudary/docsolace\n/plugin install docsolace@docsolace-marketplace\n\nDone.',
+          },
+        ],
+      },
+    });
+    expect(page).toContain(
+      '```\n/plugin marketplace add esandeepchoudary/docsolace\n/plugin install docsolace@docsolace-marketplace\n```',
+    );
+  });
+
+  it('leaves an already-correct section body (plain prose, no bare commands) unchanged', () => {
+    const page = renderProductPage({
+      page: { title: 'Overview' },
+      prose: { sections: [{ heading: 'What it is', body: 'It does things well.' }] },
+    });
+    expect(page).toContain('## What it is\n\nIt does things well.');
+  });
+
   it('omits the tour index section entirely when tourIndex is empty/undefined', () => {
     const page = renderProductPage({ page: { title: 'Getting started' }, prose: { sections: [] } });
     expect(page).not.toContain('## Tutorials');

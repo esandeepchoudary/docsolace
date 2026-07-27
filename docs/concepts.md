@@ -7,29 +7,37 @@ description: "A tour is a YAML file under tours/ describing one feature walk: wh
 
 # Concepts
 
-## Tours
+## Tour
 
-A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title, and intent, a maturity (draft = still churning and skipped until flipped, stable = ready), a status (confirmed = ready to use, proposed = drafted but not yet reviewed, archived = the feature looks removed), a list of steps, and code_paths naming the source files that, if changed, mark the tour dirty. A step's action can be goto, click, fill, type, select, check, press, hover, upload, wait, or a capture (screenshot plus accessibility snapshot) with an optional description and highlight locator. A tour can also declare prerequisites and see_also, both lists of other tour ids, rendered as mechanical "Before you start"/"See also" links on its generated page. The confirmed tours in this project are login ("Login page" — what a signed-out user sees before authenticating), dashboard-overview ("Dashboard overview" — what the main dashboard displays and how to read it), and dashboard-export ("Export dashboard activity" — exporting the current activity table as a CSV).
+A tour is a YAML file under `tours/` describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an `id`, `title`, `intent` (a plain description of what it shows), a `maturity` (`draft` while still churning, `stable` once ready), and a `status` (`confirmed` = ready to use, `proposed` = drafted but not yet reviewed, `archived` = the feature it documents looks removed from the app). A tour also declares `code_paths` — source files that, if changed, mark the tour dirty and due for regeneration. The confirmed tours in this project are `login` ("Login page" — what a signed-out user sees before authenticating), `dashboard-overview` ("Dashboard overview" — what the main dashboard displays and how to read it), and `dashboard-export` ("Export dashboard activity" — exporting the current activity table as a CSV).
 
-## The capture, drift, generate, publish pipeline
+## Steps and actions
 
-Capture drives a headless browser through a tour against the real running app, taking a screenshot and an accessibility snapshot at each capture step, at every configured viewport. Drift check compares a fresh capture against the last one — if a tour's screenshots and code_paths are both unchanged, there's nothing to regenerate, which is what keeps repeated runs cheap. Generate writes tutorial prose only for tours the drift check flagged as changed, grounded strictly in the accessibility snapshot from capture — never anything invented, however plausible. Publish means the generated Markdown lives in docs/, viewable as-is or served through the bundled Docusaurus site. The same capture-less shape (drift and generate only) also maintains the product-level pages, grounded in the repo's own README/package.json/config/tour inventory instead of a browser snapshot.
+A tour's `steps` list is a sequence of actions the browser performs: `goto`, `click`, `fill`, `type`, `select`, `check`, `press`, `hover`, `upload`, and `wait`, plus a `capture` step (with a `description`) that takes a screenshot and accessibility snapshot at that point. A capture step can also carry an optional `highlight` locator that outlines the relevant element in the screenshot. A tour can also declare `prerequisites` and `see_also`, both lists of other tour ids, rendered as mechanical "Before you start"/"See also" links on its generated page.
 
-## Keep-regions
+## Capture, drift, and generate
 
-Content a human writes inside a page's <!-- docsolace:keep --> ... <!-- /docsolace:keep --> block is preserved untouched across every future regeneration. If a human edits a generated page outside that region instead, the generator detects the resulting hash mismatch against the last generation and refuses to overwrite the page silently.
+Capture is the stage that actually drives the browser and records screenshots plus accessibility snapshots, at every configured viewport. Drift check compares a new capture's screenshots and a tour's `code_paths` against the last run to decide whether anything actually changed, so only dirty tours get regenerated — this is what keeps repeated runs cheap. Generate is the stage that writes tutorial prose, grounded strictly in what the accessibility snapshot shows — nothing invented, however plausible it might seem. The same capture-less shape (drift and generate only) also maintains the product-level pages, grounded in the repo's own README/`package.json`/config/tour inventory instead of a browser snapshot.
 
-## Auth profiles and seeds
+## Keep-region
 
-An auth profile under docsolace.config.yaml's auth map lets a tour reach pages that require signing in. One shape is scripted login (loginUrl, usernameSelector, passwordSelector, submitSelector, usernameEnv/passwordEnv pointing at environment variables, successUrlPattern); the other is storageStatePath, which reuses a previously recorded browser session instead — used for logins too varied to script reliably (OAuth, SSO, magic links, 2FA). A seed, declared under the seeds map and referenced by a tour's preconditions.seed, names a data fixture; a seed can optionally declare a command that resets/seeds the app's data before capture, but that command only runs when allowSeedCommands is explicitly set to true (or --allow-seed-commands is passed) — off by default.
+Content a human writes inside a page's `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` block is preserved untouched across every future regeneration of that page. If a human edits a generated page outside that region instead, the generator detects the resulting hash mismatch against the last generation and refuses to overwrite the page silently.
+
+## Auth profile
+
+An auth profile, declared under `docsolace.config.yaml`'s `auth` map, describes how a tour signs in before capturing a page that requires it. One shape scripts a plain username/password login (`loginUrl`, `usernameSelector`, `passwordSelector`, `submitSelector`, `usernameEnv`, `passwordEnv`, `successUrlPattern`); the other shape gives a `storageStatePath` to reuse a pre-recorded session instead, for logins too varied to script reliably (OAuth, SSO, magic links, 2FA).
+
+## Seed
+
+A seed, declared under `docsolace.config.yaml`'s `seeds` map, is a named data fixture a tour's `preconditions.seed` can reference so a data-dependent flow captures against the same data every run. A seed can optionally declare a `command` to reset/seed the app's data, but that command only runs when `allowSeedCommands` is explicitly set to `true` (or `--allow-seed-commands` is passed) — off by default.
 
 ## Masking and highlighting
 
-Masking redacts a volatile region (a timestamp, an avatar, live data) from both the saved screenshot and its hash, so drift detection doesn't fire on content that changes every run regardless of real UI changes — configured either in docsolace.config.yaml's defaultMask (applied to every capture) or a capture step's own mask list. A capture step's optional highlight field is a role=/text= locator that outlines the element that step is about directly in the screenshot, checked fresh per viewport.
+Masking redacts a volatile region (a timestamp, an avatar, live data) from both the saved screenshot and its hash, so drift detection doesn't fire on content that changes every run regardless of real UI changes — configured either in `docsolace.config.yaml`'s `defaultMask` (applied to every capture) or a capture step's own `mask` list. A capture step's optional `highlight` field is a role=/text= locator that outlines the element that step is about directly in the screenshot, checked fresh per viewport.
 
 ## Product-level pages
 
-Tours describe individual UI flows; a separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, changelog, and decisions — describes the product as a whole, generated by the product-scribe subagent and grounded strictly in README.md, package.json, .env.example, docsolace.config.yaml, CHANGELOG.md (if present), any docs/adr/*.md files, any extra files listed under product.sources, and the confirmed tour inventory. A page with nothing real to ground it in is skipped and reported rather than padded with invented content.
+Tours describe individual UI flows; a separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, changelog, and decisions — describes the product as a whole, generated by the `product-scribe` subagent and grounded strictly in `README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md` (if present), any `docs/adr/*.md` files, any extra files listed under `product.sources`, and the confirmed tour inventory. A page with nothing real to ground it in is skipped and reported rather than padded with invented content.
 
 <!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->

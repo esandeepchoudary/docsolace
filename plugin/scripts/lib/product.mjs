@@ -17,6 +17,7 @@ import { execFileSync } from 'node:child_process';
 import { globSync } from 'glob';
 import { computeCodePathsHash } from './drift.mjs';
 import { KEEP_END, KEEP_START } from './docgen.mjs';
+import { autoFenceCommandLines } from './code-format.mjs';
 
 // Ordered spec for the product-level pages generate-product-docs.mjs can
 // produce. Positions start at 1 so these always sort above tour pages, which
@@ -427,7 +428,14 @@ export function resolveTourLinks(ids, allTours) {
 // generate-product-docs.mjs, not forked) treat these pages identically to
 // tour pages.
 export function renderProductPage({ page, prose, tourIndex, keepRegionPlaceholder, frontmatter }) {
-  const sections = (prose?.sections ?? []).map((section) => `## ${section.heading}\n\n${section.body}`);
+  // autoFenceCommandLines is a safety net, not the primary fix (that's
+  // product-scribe's own hard rule — see agents/product-scribe.md) — it
+  // only catches the one confirmed failure shape (bare, unfenced command
+  // lines that CommonMark would otherwise merge into a run-on paragraph),
+  // never touching prose that already reads fine. See lib/code-format.mjs.
+  const sections = (prose?.sections ?? []).map(
+    (section) => `## ${section.heading}\n\n${autoFenceCommandLines(section.body)}`,
+  );
 
   const indexLines =
     tourIndex && tourIndex.length > 0
