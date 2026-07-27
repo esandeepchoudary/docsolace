@@ -831,12 +831,23 @@ failure, report the exact fix (`gh auth login`) and stop.
    means its content changed, while `(render only — no new prose needed)`
    means only the template/`docs:` layout/design-style changed (see
    `lib/design.mjs`'s render hash) — its existing prose is still grounded.
+   When `code` is one of the reasons, the line also names exactly which
+   `code_paths` file(s) changed since this tour was last generated — e.g.
+   `dirty  login (code) [code: demo-app/src/pages/Login.jsx]` — a real `git
+   diff` against the commit it was last generated at
+   (`lib/drift.mjs`'s `resolveChangedCodePaths`), not a summary or a guess;
+   silently omitted when there's no previous generation to diff against.
+   Carry this file list into step 5's summary verbatim — it's what lets a
+   docs PR reviewer see *which* file(s) triggered a regeneration, the same
+   way `review-diffs`' report already shows *which* screenshots changed.
    Only dirty tours need regeneration at all — this is the whole point of
    the gate: don't waste a subagent call or rewrite a page that hasn't
    actually changed. **On a no-slug (whole-project) run only** — never for a
    single `--tour <slug>` run — also read the report's `_product` line the
    same way (see "Document the product itself" above for what its
-   `(inputs)`/`(render only)` annotations mean).
+   `(inputs)`/`(render only)` annotations mean) — an `inputs` reason gets the
+   same `[changed: ...]` file list, over its grounding sources instead of a
+   tour's `code_paths`.
 
 3. **Generate prose for dirty tours that need it.** For each tour the drift
    check reports dirty for `screenshots` and/or `code` (not the render-only
@@ -871,7 +882,8 @@ failure, report the exact fix (`gh auth login`) and stop.
 5. **Summarize.** Report, for this run:
    - which tours were regenerated (and a one-line reason: code changed
      under their `code_paths`, their screenshots changed, or only the
-     render/style layout changed)
+     render/style layout changed) — when code changed, name the exact
+     file(s) step 2's `[code: ...]` detail identified, not just "code"
    - which tours were skipped as clean, and which were skipped as
      draft/proposed/archived
    - on a no-slug run: whether the product pages were regenerated (and why),

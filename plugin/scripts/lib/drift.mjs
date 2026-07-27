@@ -43,6 +43,41 @@ export function resolveShortHeadCommit(cwd = process.cwd()) {
   }
 }
 
+// Which of a tour's (or the product pages') own declared source files
+// actually changed since it was last generated — purely mechanical (a real
+// `git diff` against the exact commit `generatedAtCommit` already records in
+// state.json), not a summary or an inference. This is what lets a dirty-for-
+// `code`/`inputs` report say *which* file(s), not just that something did —
+// `plugin/scripts/drift.mjs`'s CLI report folds this into the line it
+// prints, and the /document skill's Step 5 summary (which becomes the PR
+// body) reads that report. Same file-resolution as computeCodePathsHash
+// above, so "did the hash change" and "which files changed" never disagree
+// about which files were even in scope.
+//
+// Degrades to an empty list — never throws — when there's nothing to diff
+// against: no previous generation (`sinceCommit` undefined/falsy), a state
+// entry that predates `generatedAtCommit` existing at all (`'unknown'`), or
+// a commit that no longer resolves (e.g. a rebased-away history) — the
+// caller still has the dirty reason itself; this is additive detail, not
+// the source of truth for *whether* something is dirty.
+export function resolveChangedCodePaths({ codePaths, sinceCommit, cwd = process.cwd() }) {
+  if (!sinceCommit || sinceCommit === 'unknown') return [];
+  const files = resolveCodePathFiles(codePaths, cwd);
+  if (files.length === 0) return [];
+  try {
+    const output = execFileSync('git', ['diff', '--name-only', sinceCommit, 'HEAD', '--', ...files], {
+      cwd,
+      encoding: 'utf8',
+    });
+    return output
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 // A tour is dirty if it has never been generated, or if its screenshot
 // hashes, its code_paths hash, or its render hash (template/docs-layout/
 // design-style — see lib/design.mjs's computeRenderHash) changed since the

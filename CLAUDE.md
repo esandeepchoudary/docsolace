@@ -176,6 +176,14 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - Before a docs PR goes out, run `npm run review-diffs` and look at the
   report — it's the only place you can see *what* a screenshot update
   actually changed before it's pushed.
+- **Change tracking is mechanical, not a summary.** `npm run drift`'s report
+  names exactly which file(s) triggered a `code`/`inputs` dirty reason —
+  `lib/drift.mjs`'s `resolveChangedCodePaths`, a real `git diff` against the
+  commit last recorded in `state.json`, not an inferred "what changed"
+  paragraph. Carried verbatim into the PR body alongside `review-diffs`'
+  screenshot report, so a reviewer sees *which* file(s) drove a
+  regeneration without reading a diff themselves. Degrades to no file list
+  (never an error) when there's nothing to diff against yet.
 - **Page layout vs. design-skill styling — presentation only, never content.**
   `autodocs.config.yaml`'s `docs:` section (`primaryViewport`,
   `collapseOtherViewports`) picks which viewport's screenshot stays inline

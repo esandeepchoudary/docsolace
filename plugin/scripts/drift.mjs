@@ -6,7 +6,7 @@ import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { flattenScreenshotHashes, loadManifest } from './lib/manifest.mjs';
-import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty } from './lib/drift.mjs';
+import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty, resolveChangedCodePaths } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import { RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { loadState } from './lib/state.mjs';
@@ -117,7 +117,30 @@ function main() {
     // skips dispatching the doc-scribe subagent for these (the existing
     // prose is still grounded; only the layout/style changed), and only
     // needs to re-run generate-docs.mjs to pick up the new template.
-    const suffix = dirty ? (isRenderOnlyDirty(reasons) ? ' (render only — no new prose needed)' : ` (${reasons.join(', ')})`) : '';
+    let suffix = '';
+    if (dirty) {
+      if (isRenderOnlyDirty(reasons)) {
+        suffix = ' (render only — no new prose needed)';
+      } else {
+        suffix = ` (${reasons.join(', ')})`;
+        // Mechanical, not a summary: exactly which of this tour's own
+        // code_paths differ from the commit it was last generated against
+        // (see lib/drift.mjs's resolveChangedCodePaths) — folded into the
+        // /document skill's Step 5 run summary, which becomes the PR body,
+        // so a reviewer sees *which* file(s) triggered a regeneration
+        // instead of just "code changed". Silently omitted (not an error)
+        // when there's no previous generation to diff against.
+        if (reasons.includes('code')) {
+          const changedFiles = resolveChangedCodePaths({
+            codePaths: tour.code_paths,
+            sinceCommit: previousEntry?.generatedAtCommit,
+          });
+          if (changedFiles.length > 0) {
+            suffix += ` [code: ${changedFiles.join(', ')}]`;
+          }
+        }
+      }
+    }
     console.log(`  ${dirty ? 'dirty  ' : 'clean  '} ${tour.id}${suffix}`);
   }
 
@@ -140,17 +163,36 @@ function main() {
     if (productDirty) anyDirty = true;
 
     const prosePath = path.join(config.outputDir, 'prose', '_product.json');
-    let suffix = '';
+    let productSuffix = '';
     if (productDirty) {
       if (isProductRenderOnlyDirty(productReasons)) {
-        suffix = ' (render only — no new prose needed)';
+        productSuffix = ' (render only — no new prose needed)';
       } else if (!fs.existsSync(prosePath)) {
-        suffix = ' (needs product-scribe — see /document product)';
+        productSuffix = ' (needs product-scribe — see /document product)';
       } else {
-        suffix = ` (${productReasons.join(', ')})`;
+        productSuffix = ` (${productReasons.join(', ')})`;
+        // Same mechanical "which file(s), not just that inputs changed"
+        // detail as the tour loop above — sourceFiles are already resolved
+        // concrete paths (not glob patterns), which resolveChangedCodePaths
+        // handles the same way either way. Unlike a tour's own state entry,
+        // generatedAtCommit lives per-page here (state.json's
+        // `_product.pages.<id>.generatedAtCommit` — see
+        // generate-product-docs.mjs), since each page could in principle
+        // regenerate on its own; every page from the same run shares the
+        // same value in practice, so any one page's is representative.
+        if (productReasons.includes('inputs')) {
+          const anyPageEntry = Object.values(previousProductEntry?.pages ?? {})[0];
+          const changedFiles = resolveChangedCodePaths({
+            codePaths: sourceFiles,
+            sinceCommit: anyPageEntry?.generatedAtCommit,
+          });
+          if (changedFiles.length > 0) {
+            productSuffix += ` [changed: ${changedFiles.join(', ')}]`;
+          }
+        }
       }
     }
-    console.log(`  ${productDirty ? 'dirty  ' : 'clean  '} _product (overview/getting-started/concepts)${suffix}`);
+    console.log(`  ${productDirty ? 'dirty  ' : 'clean  '} _product (overview/getting-started/concepts)${productSuffix}`);
   }
 
   process.exit(anyDirty ? 1 : 0);
