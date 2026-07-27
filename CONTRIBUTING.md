@@ -1,7 +1,7 @@
-# Contributing to AutoDocs
+# Contributing to DocSolace
 
 Project layout, build status, and how to develop on the plugin itself. Part
-of [AutoDocs](./README.md).
+of [DocSolace](./README.md).
 
 ## Project layout
 
@@ -14,7 +14,7 @@ plugin/                    The self-contained, installable Claude Code plugin �
   hooks/hooks.json              SessionStart: installs deps + Playwright's browser once,
                                 and emits the "suggest documentation" standing guidance
   .mcp.json                    Playwright MCP — bundled, travels with the plugin to any project
-  skills/document/SKILL.md      /autodocs:document — bootstraps config/tours, runs the pipeline
+  skills/document/SKILL.md      /docsolace:document — bootstraps config/tours, runs the pipeline
   agents/doc-scribe.md          Writes grounded prose for one dirty tour (Read+Write only)
   agents/tour-scout.md          Drafts a candidate tour via Playwright MCP (propose/map subcommands)
   agents/product-scribe.md      Writes grounded product-level prose from README/config/tour inventory
@@ -30,17 +30,17 @@ plugin/                    The self-contained, installable Claude Code plugin �
                                 lib/ (unit-tested helpers, incl. design.mjs, docgen.mjs, product.mjs)
 demo-app/                  React + Vite app used to dogfood the plugin (login + dashboard)
 tours/*.yaml               This repo's own tours — declarative feature walks
-autodocs.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold, docs layout
+docsolace.config.yaml       This repo's own config: base URL, viewports, auth, masks, threshold, docs layout
 docs/                      This repo's own generated tutorials (images + markdown); edits inside
-                           `<!-- autodocs:keep -->` blocks survive regeneration
+                           `<!-- docsolace:keep -->` blocks survive regeneration
 docs/overview.md           Generated product overview page + linked tutorial index (see
                            "It also documents the product itself" in the main README)
 docs/getting-started.md   Generated install/run/config page
 docs/concepts.md           Generated core-vocabulary page
-docs/_sidebar.autodocs.json Generated ordering/grouping payload the scaffolded site's sidebar reads
+docs/_sidebar.docsolace.json Generated ordering/grouping payload the scaffolded site's sidebar reads
 docs/archive/              Tutorials for removed features — see "Archiving a removed feature" in ADVANCED.md
-.autodocs/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
-.autodocs/artifacts/       Capture output + state.json lockfile (gitignored)
+.docsolace/doc-style.json  Distilled design-skill output (page layout knobs) — committed, not gitignored
+.docsolace/artifacts/       Capture output + state.json lockfile (gitignored)
 site/                      Docusaurus site serving docs/ directly (no content duplication)
 llms.txt                   Hand-maintained llms.txt (https://llmstxt.org/) link index for LLMs/agents —
                            copied verbatim to site/static/llms.txt. Not auto-generated (a deliberate
@@ -59,7 +59,7 @@ app that happens to use its own product).
 Every phase of the original build plan is done: capture, drift gating,
 grounded generation, plugin packaging, publishing, hardening (multi-viewport,
 default masks, diff review, edit-safety guard), assisted tour discovery, and
-orphan-tour detection/archiving. See `autodocs-implementation-brief.md` for
+orphan-tour detection/archiving. See `docsolace-implementation-brief.md` for
 the phase-by-phase acceptance criteria this was built against. Since then:
 a `verify-docs` preflight before every docs PR (broken image references and
 dead internal links, not just a broken build); `/document status`, a
@@ -73,14 +73,14 @@ fallback when there's no `CHANGELOG.md`).
 
 ## Learn more
 
-Neither of these is required reading to just use AutoDocs — they're here
+Neither of these is required reading to just use DocSolace — they're here
 for going deeper or contributing:
 
 - **`CLAUDE.md`** — working conventions for anyone (human or Claude)
   developing *on* this repo: testing, git workflow, security review, and the
   full tour/doc-generation rules referenced throughout [README.md](./README.md),
   [CONFIGURATION.md](./CONFIGURATION.md), and [ADVANCED.md](./ADVANCED.md).
-- **`autodocs-implementation-brief.md`** — the original design brief: full
+- **`docsolace-implementation-brief.md`** — the original design brief: full
   architecture, every phase's acceptance criteria, and the open questions
   each phase resolved.
 

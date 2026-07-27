@@ -72,9 +72,9 @@ describe('collectDiffEntries', () => {
   });
 
   function setup() {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-diff-report-test-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-diff-report-test-'));
     tmpDirs.push(root);
-    const outputDir = path.join(root, '.autodocs', 'artifacts');
+    const outputDir = path.join(root, '.docsolace', 'artifacts');
     const diffsRoot = path.join(outputDir, 'diffs');
     return { root, outputDir, diffsRoot };
   }

@@ -6,7 +6,7 @@
 // lib/bootstrap.mjs vs. init-project.mjs.
 import path from 'node:path';
 
-const BANNER_MARKER = '<!-- autodocs:archived -->';
+const BANNER_MARKER = '<!-- docsolace:archived -->';
 
 // Tour/product pages can now carry a leading YAML frontmatter block (see
 // lib/docgen.mjs's renderTourPage `frontmatter` argument / lib/product.mjs's
@@ -27,7 +27,7 @@ const FRONTMATTER_RE = /^(---\n[\s\S]*?\n---\n?)([\s\S]*)$/;
 export function buildArchiveBanner() {
   return [
     BANNER_MARKER,
-    '> **Archived.** AutoDocs could no longer find this feature in the app — it may have been removed, ' +
+    '> **Archived.** DocSolace could no longer find this feature in the app — it may have been removed, ' +
       'renamed, or moved. This page is kept for reference and will not be updated further.',
     '',
   ].join('\n');
@@ -75,7 +75,7 @@ export function buildCategoryJson() {
       position: 999,
       link: {
         type: 'generated-index',
-        description: 'Tutorials for features AutoDocs could no longer find in the app. Kept for reference — not updated further.',
+        description: 'Tutorials for features DocSolace could no longer find in the app. Kept for reference — not updated further.',
       },
     },
     null,

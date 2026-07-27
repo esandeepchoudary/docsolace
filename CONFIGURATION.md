@@ -1,16 +1,16 @@
-# Configuring AutoDocs: tours, auth, layout, and product pages
+# Configuring DocSolace: tours, auth, layout, and product pages
 
-How to set up `autodocs.config.yaml` and `tours/*.yaml`, style generated
+How to set up `docsolace.config.yaml` and `tours/*.yaml`, style generated
 pages, and control the product-level pages and sidebar. Part of
-[AutoDocs](./README.md) — see the main README for install/quickstart.
+[DocSolace](./README.md) — see the main README for install/quickstart.
 
 ## Configuring tours and auth
 
 Two things to set up, both by example in this repo:
 
-- **`autodocs.config.yaml`** — your app's `baseUrl`, the `viewports` to
+- **`docsolace.config.yaml`** — your app's `baseUrl`, the `viewports` to
   capture at, and (if pages need to be signed in) an `auth` profile. See the
-  comments in this repo's own `autodocs.config.yaml` for every field.
+  comments in this repo's own `docsolace.config.yaml` for every field.
 - **`tours/*.yaml`** — one file per feature walk. `tours/login.yaml` is the
   simplest real example in this repo:
 
@@ -71,7 +71,7 @@ Two things to set up, both by example in this repo:
   Checked fresh per viewport — an element visible at desktop but hidden
   behind a collapsed menu at mobile just means that viewport's screenshot has
   no highlight (a warning, not a failure). The outline color is a neutral
-  default, overridable via `.autodocs/doc-style.json`'s `page.highlightColor`
+  default, overridable via `.docsolace/doc-style.json`'s `page.highlightColor`
   if a design skill supplies an accent color. Adding or changing a
   `highlight` changes that step's screenshot pixels like any other visual
   edit — it goes through the normal pixel-diff gate, so check
@@ -99,12 +99,12 @@ Two things to set up, both by example in this repo:
 
 ### Page layout and design-skill styling
 
-Every capture is shot at each viewport in `autodocs.config.yaml`'s
+Every capture is shot at each viewport in `docsolace.config.yaml`'s
 `viewports` map (see above). By default, only the first viewport's
 screenshot renders inline in a generated page — every other viewport's
 screenshot collapses into a `<details>`/`<summary>` block the reader can
 expand, instead of stacking every viewport's full-page screenshot one after
-another. `autodocs.config.yaml`'s optional `docs:` section controls which
+another. `docsolace.config.yaml`'s optional `docs:` section controls which
 viewport stays inline:
 
 ```yaml
@@ -139,10 +139,10 @@ touches what `doc-scribe` writes or which UI a tour describes:
   `site/docusaurus.config.js`'s `themeConfig` — colors, fonts, logo,
   favicon).
 - A small set of page-layout knobs, distilled into a committed
-  `.autodocs/doc-style.json`: the "Steps" heading text, per-viewport summary
+  `.docsolace/doc-style.json`: the "Steps" heading text, per-viewport summary
   labels for the collapsed blocks above (e.g. "On your phone" instead of
   "Mobile view"), and whether each screenshot is wrapped in a
-  `<figure class="autodocs-figure">` for the theme to style further.
+  `<figure class="docsolace-figure">` for the theme to style further.
 
 No design skill installed (the common case) means nothing changes — plain,
 unbranded docs, same as before this feature existed. Append `--no-style` to
@@ -157,7 +157,7 @@ needed — because it changes each tour's render hash (part of what
 
 ### Product pages and sidebar sections
 
-Two more optional `autodocs.config.yaml` sections, both consumed by
+Two more optional `docsolace.config.yaml` sections, both consumed by
 `/document product` (and folded into the normal pipeline — see
 ["It also documents the product itself"](./README.md#it-also-documents-the-product-itself) in the main README):
 
@@ -170,11 +170,11 @@ product:
                                                     # ground them in
   sources:                                         # extra grounding files/globs, beyond the
     - "docs-src/**/*.md"                           # standing README/package.json/.env.example/
-                                                    # autodocs.config.yaml/CHANGELOG.md/
+                                                    # docsolace.config.yaml/CHANGELOG.md/
                                                     # docs/adr/*.md set
 docs:
   sections:                                        # groups tour pages in the generated sidebar
-    - label: "Getting started"                     # (docs/_sidebar.autodocs.json); a tour named
+    - label: "Getting started"                     # (docs/_sidebar.docsolace.json); a tour named
       tours: [login]                               # in no section just sorts into one flat
     - label: "Dashboard"                            # "everything else" group instead
       tours: [dashboard-overview, dashboard-export]

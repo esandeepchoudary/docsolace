@@ -1,6 +1,6 @@
-# AutoDocs — Implementation Brief
+# DocSolace — Implementation Brief
 
-> **Project:** `autodocs`. A Claude Code–native pipeline that drives a
+> **Project:** `docsolace`. A Claude Code–native pipeline that drives a
 > running web app in a headless browser, captures feature screenshots, generates and updates
 > tutorial-style documentation, and keeps it in sync as the app ships.
 
@@ -74,7 +74,7 @@ As actually built (revised from the original proposal once hardening — see
 so the plugin is self-contained and installable into any project):
 
 ```
-autodocs/
+docsolace/
   .claude-plugin/marketplace.json  # this repo is its own private marketplace; one entry: ./plugin
   plugin/                          # the self-contained, installable Claude Code plugin
     .claude-plugin/plugin.json     # name, version — bump to ship updates to installed copies
@@ -90,10 +90,10 @@ autodocs/
       generate-docs.mjs             # assembles docs/<tour-id>.md
       review-diffs.mjs              # before/after/diff report for pending screenshot changes
       lib/                         # unit-tested helpers
-  autodocs.config.{ts,yaml}        # this repo's own config: base URL, auth, viewports, masks, threshold
+  docsolace.config.{ts,yaml}        # this repo's own config: base URL, auth, viewports, masks, threshold
   tours/                           # this repo's own tours (the durable, human-edited artifact)
     dashboard.yaml
-  .autodocs/
+  .docsolace/
     state.json                     # lockfile: tour-id → {screenshotHashes, codePathsHash, bodyHash}
     artifacts/
       screenshots/<tour-id>/<capture>@<viewport>.png
@@ -106,7 +106,7 @@ autodocs/
 
 The tool itself: **Node (ES modules) + Playwright**. The target app it
 documents can be anything. Everything outside `plugin/` in this specific
-repo is AutoDocs' own dogfood project — a real target app, config, and
+repo is DocSolace's own dogfood project — a real target app, config, and
 tours exercising the plugin — not part of what installs elsewhere.
 
 ## 5. Component specs
@@ -123,7 +123,7 @@ intent: "Show a new user what the main dashboard displays and how to read it."
 maturity: stable               # stable = kept in sync; draft = skipped until the UI settles
 status: confirmed               # confirmed = human-authored/reviewed; proposed = auto-suggested, not yet reviewed (see Phase 7)
 preconditions:
-  auth: standard-user          # references an auth profile in autodocs.config
+  auth: standard-user          # references an auth profile in docsolace.config
   seed: demo-baseline          # named, reproducible data fixture
 steps:
   - action: goto
@@ -147,10 +147,10 @@ Design rules:
   Accessibility-tree targeting is far less flaky than pixel/CSS targeting.
 - `mask` is mandatory tooling for any volatile region (clocks, avatars, live counts) — masked areas
   are excluded from the screenshot **and** from its hash, so they don't create false drift. A
-  config-wide `defaultMask` (in `autodocs.config`) applies to every capture in every tour, merged with
+  config-wide `defaultMask` (in `docsolace.config`) applies to every capture in every tour, merged with
   a step's own `mask` — keeps common volatile selectors (timestamps, avatars) from being repeated in
   every tour file.
-- Every capture point is shot at each viewport in `autodocs.config`'s `viewports` map (same page/session
+- Every capture point is shot at each viewport in `docsolace.config`'s `viewports` map (same page/session
   — only the viewport size changes between shots). One image per viewport is inlined in the generated
   page; images are labeled by viewport name when there's more than one configured.
 - `code_paths` is what lets the drift gate know which git changes could affect this tour.
@@ -181,7 +181,7 @@ Hard rules for the generator prompt:
 - **Ground strictly** in the a11y snapshot and screenshots. Never describe UI elements not present
   in the snapshot. If unsure, omit — do not invent.
 - **Surgical updates**: only rewrite the page whose tour is dirty; within a page, preserve any region
-  wrapped in `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` (human-authored content). The
+  wrapped in `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` (human-authored content). The
   keep-region is the *only* part of a page a human is free to hand-edit: `generate-docs.mjs` hashes
   everything outside it at each successful generation, and refuses to regenerate (rather than silently
   overwriting) if that hash no longer matches on the next run — pass `--force` to override deliberately.
@@ -194,7 +194,7 @@ Hard rules for the generator prompt:
 
 ### 5.4 Drift gate (`scripts/drift.mjs`)
 
-- Maintains `.autodocs/state.json`: `tourId → { screenshotHashes, codePathsHash }`.
+- Maintains `.docsolace/state.json`: `tourId → { screenshotHashes, codePathsHash }`.
 - `codePathsHash` = hash of the git tree for the tour's `code_paths` at HEAD.
 - A tour is **dirty** if any screenshot hash changed OR its `codePathsHash` changed since last state.
 - `maturity: draft` tours are skipped before this check — they never regenerate regardless of change.
@@ -254,15 +254,15 @@ since these details move; the notes below reflect the current model:
   instead copies `scripts/` into `${CLAUDE_PLUGIN_DATA}` *next to* the `node_modules` it installs
   there, so plain Node module resolution (walking up from the importing file) finds them. Scripts are
   invoked as `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs"`, never via `npm run` (the target
-  project has no reason to have AutoDocs' own npm scripts).
+  project has no reason to have DocSolace's own npm scripts).
 - **Bootstrapping a new project** — `/document`'s first run in a project with no
-  `autodocs.config.yaml` asks for the app's base URL, scaffolds a minimal config and an empty
+  `docsolace.config.yaml` asks for the app's base URL, scaffolds a minimal config and an empty
   `tours/`, and stops (nothing to generate until a tour exists via `/document propose` or by hand).
   This is what makes "install once, works in any repo Claude Code is running in" true rather than
   just "works in the repo it was built against."
 - **Private distribution** — this repo's own `.claude-plugin/marketplace.json` makes it a private
   marketplace with one plugin (`source: "./plugin"`). `claude plugin marketplace add <this-repo>` +
-  `claude plugin install autodocs@autodocs-marketplace` installs it without any public listing.
+  `claude plugin install docsolace@docsolace-marketplace` installs it without any public listing.
   Verified for real in this environment (not just structurally): added the marketplace, installed
   the plugin, found it cached correctly, ran the hook's install command against the real cache, and
   ran the real installed `capture.mjs`/`drift.mjs`/`generate-docs.mjs` against a throwaway project
@@ -271,13 +271,13 @@ since these details move; the notes below reflect the current model:
   `/document init-site` (prompt-driven, see §7's subagent note style — not a bundled script, since
   scaffolding-tool versions drift) scaffolds a Docusaurus site for that project's `docs/`, following
   this repo's own proven `site/` recipe exactly, including two non-obvious, verified requirements:
-  `markdown.format: 'md'` (the default MDX parser fails on `<!-- autodocs:keep -->` comments) and
+  `markdown.format: 'md'` (the default MDX parser fails on `<!-- docsolace:keep -->` comments) and
   fixing the scaffold's default `/docs/intro` homepage link (build-fails once `docs.path` points at
   the real `docs/` — confirmed by actually hitting this exact error in a scratch project, not assumed).
   The README's "Deploying your docs" section covers actually publishing the built static site
   (GitHub Pages via Docusaurus's built-in `deploy` command, or Netlify/Vercel).
 - **Run trigger (configurable, not hardcoded)** — the capture → gate → generate engine is identical
-  regardless of when it fires, so the trigger is just wiring set in `autodocs.config`. **Default:
+  regardless of when it fires, so the trigger is just wiring set in `docsolace.config`. **Default:
   `manual-only`** — this is a solo-developer tool, and the primary path is running `/document` (or
   `npm run generate-docs`) yourself, when you decide a feature is worth documenting. CI-triggered
   cadences (merge-to-main, release-tag, nightly) are supported by the same engine and the workflow file
@@ -295,7 +295,7 @@ since these details move; the notes below reflect the current model:
 
 ## 8. Implementation phases (build in this order; stop for review at each)
 
-- **Phase 0 — Scaffold & prove capture.** Repo layout, `autodocs.config`, one hardcoded tour. Goal:
+- **Phase 0 — Scaffold & prove capture.** Repo layout, `docsolace.config`, one hardcoded tour. Goal:
   headless Playwright lands one deterministic screenshot of the running app.
 - **Phase 1 — Capture runner.** Reads tour YAML, applies auth + seed, executes steps, emits
   screenshots + a11y snapshots + manifest with masked-image hashes.
@@ -397,7 +397,7 @@ since these details move; the notes below reflect the current model:
   installed `SessionStart` hook against the real cached plugin (installs deps + Playwright's browser,
   skips reinstall when the manifest is unchanged — both paths tested); ran the real installed
   `capture.mjs`/`drift.mjs`/`generate-docs.mjs` against a throwaway project directory with no
-  relationship to this repo, using its own `autodocs.config.yaml` and `tours/` — full loop worked,
+  relationship to this repo, using its own `docsolace.config.yaml` and `tours/` — full loop worked,
   output landed in that project, not this one.
 - **P5:** Docs site builds (core, verified). The CI docs-PR path (merge to main → updated pages +
   screenshots + change summary) is built and would satisfy this if ever enabled — parked on manual

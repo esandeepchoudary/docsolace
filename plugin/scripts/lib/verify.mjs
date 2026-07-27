@@ -48,7 +48,7 @@ function isExternalTarget(target) {
 // Mirrors the heading-anchor algorithm Docusaurus/GitHub use closely enough
 // for this purpose: lowercase, strip anything that isn't a letter/digit/
 // space/hyphen, collapse whitespace to single hyphens. Doesn't handle
-// duplicate-heading disambiguation ("-1" suffixes) — none of AutoDocs' own
+// duplicate-heading disambiguation ("-1" suffixes) — none of DocSolace's own
 // generated pages produce duplicate headings, so that's out of scope rather
 // than silently wrong.
 function slugifyHeading(text) {

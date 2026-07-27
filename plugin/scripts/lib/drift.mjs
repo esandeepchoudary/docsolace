@@ -109,7 +109,7 @@ export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, curr
 // /document skill's Step 3, plugin/scripts/drift.mjs's CLI report) tell a
 // content change (screenshots/code — needs fresh doc-scribe prose) apart
 // from a render-only change (template/docs-layout/design-style — the
-// existing .autodocs/artifacts/prose/<id>.json is still grounded and
+// existing .docsolace/artifacts/prose/<id>.json is still grounded and
 // correct; generate-docs.mjs just needs to re-assemble the page with it, no
 // subagent dispatch required). Returns a subset of
 // ['never-generated', 'screenshots', 'code', 'render']; empty when clean.

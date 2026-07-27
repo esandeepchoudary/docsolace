@@ -26,7 +26,7 @@ import {
 
 const tmpDirs = [];
 function makeTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-product-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-product-test-'));
   tmpDirs.push(dir);
   return dir;
 }
@@ -85,7 +85,7 @@ describe('collectProductSources', () => {
     const dir = makeTmpDir();
     fs.writeFileSync(path.join(dir, 'README.md'), '# Hi');
     fs.writeFileSync(path.join(dir, 'package.json'), '{}');
-    // No .env.example, no autodocs.config.yaml, no CHANGELOG.md.
+    // No .env.example, no docsolace.config.yaml, no CHANGELOG.md.
     expect(collectProductSources(dir, {})).toEqual(['README.md', 'package.json']);
   });
 
@@ -152,9 +152,9 @@ describe('collectProductSources', () => {
 
   it('never includes anything under a .auth/ directory', () => {
     const dir = makeTmpDir();
-    fs.mkdirSync(path.join(dir, '.autodocs', 'artifacts', '.auth'), { recursive: true });
-    fs.writeFileSync(path.join(dir, '.autodocs', 'artifacts', '.auth', 'session.json'), '{}');
-    const config = { product: { sources: ['.autodocs/artifacts/.auth/**'] } };
+    fs.mkdirSync(path.join(dir, '.docsolace', 'artifacts', '.auth'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.docsolace', 'artifacts', '.auth', 'session.json'), '{}');
+    const config = { product: { sources: ['.docsolace/artifacts/.auth/**'] } };
     expect(collectProductSources(dir, config)).toEqual([]);
   });
 
@@ -518,8 +518,8 @@ describe('deriveMetaDescription', () => {
   });
 
   it('strips code spans, keeping the inner text', () => {
-    expect(deriveMetaDescription('Set `usernameEnv` in `autodocs.config.yaml`.')).toBe(
-      'Set usernameEnv in autodocs.config.yaml.',
+    expect(deriveMetaDescription('Set `usernameEnv` in `docsolace.config.yaml`.')).toBe(
+      'Set usernameEnv in docsolace.config.yaml.',
     );
   });
 
@@ -612,8 +612,8 @@ describe('renderProductPage', () => {
 
   it('always includes exactly one keep-region', () => {
     const page = renderProductPage({ page: { title: 'Concepts' }, prose: { sections: [] } });
-    expect(page).toContain('<!-- autodocs:keep -->');
-    expect(page).toContain('<!-- /autodocs:keep -->');
+    expect(page).toContain('<!-- docsolace:keep -->');
+    expect(page).toContain('<!-- /docsolace:keep -->');
   });
 
   it('prepends frontmatter when given', () => {

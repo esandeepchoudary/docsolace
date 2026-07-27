@@ -1,7 +1,7 @@
 // Pure helpers behind `/document status` / status.mjs: a read-only report of
 // every tour's and product page's dirty/clean state, whether its page exists
 // on disk, and when it was last generated — no browser, no subagent, just
-// tours/, docs/, and .autodocs/artifacts/{manifest,state}.json already on
+// tours/, docs/, and .docsolace/artifacts/{manifest,state}.json already on
 // disk. Reuses the exact lib/drift.mjs (getDirtyReasons/isRenderOnlyDirty/
 // computeCodePathsHash) + lib/manifest.mjs (flattenScreenshotHashes)
 // computation generate-docs.mjs/drift.mjs already call with the same

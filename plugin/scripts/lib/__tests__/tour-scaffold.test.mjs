@@ -42,7 +42,7 @@ describe('renderDraftTour', () => {
   });
 
   it('produces YAML that loadTour accepts as valid', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), renderDraftTour(BASE));
     const tour = loadTour(dir, 'dashboard-export');
@@ -59,7 +59,7 @@ describe('renderDraftTour', () => {
   });
 
   it('renders an upload step and round-trips it through loadTour', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({
       ...BASE,
@@ -129,7 +129,7 @@ describe('renderDraftTour', () => {
   });
 
   it('a suggested prerequisite still round-trips the rest of the tour through loadTour', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', suggestedPrerequisite: 'login' });
     fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);
@@ -143,7 +143,7 @@ describe('renderDraftTour', () => {
     // role=button[name="..."] — contains a literal `"`. Naive
     // `"${selector}"` interpolation breaks the surrounding YAML string; this
     // must round-trip through loadTour without error.
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({
       ...BASE,
@@ -158,7 +158,7 @@ describe('renderDraftTour', () => {
   });
 
   it('produces loadable YAML for a title/intent/description containing a double quote', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({
       ...BASE,
@@ -174,7 +174,7 @@ describe('renderDraftTour', () => {
   });
 
   it('renders fill/type/select/check/press/hover/wait steps and round-trips them through loadTour', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({
       ...BASE,
@@ -203,7 +203,7 @@ describe('renderDraftTour', () => {
   });
 
   it('renders preconditions.voice and round-trips it through loadTour', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tour-scaffold-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tour-scaffold-test-'));
     tmpDirs.push(dir);
     const yaml = renderDraftTour({ ...BASE, auth: 'standard-user', voice: 'fixtures/sample-voice.wav' });
     fs.writeFileSync(path.join(dir, 'dashboard-export.yaml'), yaml);

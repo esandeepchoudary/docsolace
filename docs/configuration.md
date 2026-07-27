@@ -2,18 +2,18 @@
 sidebar_position: 4
 sidebar_label: "Configuration"
 title: "Configuration"
-description: "The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in autodocs.config.yaml:…"
+description: "The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in docsolace.config.yaml:…"
 ---
 
 # Configuration
 
 ## Environment variables (.env.example)
 
-The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in autodocs.config.yaml: AUTODOCS_STANDARD_USER_USERNAME and AUTODOCS_STANDARD_USER_PASSWORD. The file is meant to be copied to .env and filled in; .env is gitignored and real credentials should never be committed.
+The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in docsolace.config.yaml: DOCSOLACE_STANDARD_USER_USERNAME and DOCSOLACE_STANDARD_USER_PASSWORD. The file is meant to be copied to .env and filled in; .env is gitignored and real credentials should never be committed.
 
-## autodocs.config.yaml — core fields
+## docsolace.config.yaml — core fields
 
-baseUrl is the app's local base URL. viewports is a map of named viewport sizes (this repo defines desktop and mobile); every capture point is shot once per entry in this map, and the first entry is the "primary" viewport used for the login flow itself. outputDir sets where capture artifacts are written (.autodocs/artifacts here). defaultMask lists selectors masked on every capture in addition to a tour's own mask list, keeping common volatile regions like timestamps and avatars out of every tour spec. runTrigger is an informational field describing the intended cadence for the docs pipeline (manual-only, merge-to-main, or release-tag) — it doesn't itself control GitHub Actions, since workflow triggers are static YAML that must be kept in sync by hand in .github/workflows/docs.yml. pixelDiffThreshold is the fraction of changed pixels a recaptured screenshot must exceed before it replaces the committed one in docs/images/, keeping binary git churn out of history for visually-insignificant re-renders.
+baseUrl is the app's local base URL. viewports is a map of named viewport sizes (this repo defines desktop and mobile); every capture point is shot once per entry in this map, and the first entry is the "primary" viewport used for the login flow itself. outputDir sets where capture artifacts are written (.docsolace/artifacts here). defaultMask lists selectors masked on every capture in addition to a tour's own mask list, keeping common volatile regions like timestamps and avatars out of every tour spec. runTrigger is an informational field describing the intended cadence for the docs pipeline (manual-only, merge-to-main, or release-tag) — it doesn't itself control GitHub Actions, since workflow triggers are static YAML that must be kept in sync by hand in .github/workflows/docs.yml. pixelDiffThreshold is the fraction of changed pixels a recaptured screenshot must exceed before it replaces the committed one in docs/images/, keeping binary git churn out of history for visually-insignificant re-renders.
 
 ## Auth, seeds, and the seed-command gate
 
@@ -25,8 +25,8 @@ The docs section controls generated page layout: primaryViewport names which vie
 
 ## product: sources, pages, and sidebar sections
 
-product.sources lists extra project-relative globs of files that feed the product-scribe subagent beyond the standing README.md/package.json/.env.example/autodocs.config.yaml/CHANGELOG.md/docs/adr/*.md set — this repo's own config lists CONFIGURATION.md, PUBLISHING.md, TROUBLESHOOTING.md, ADVANCED.md, and CONTRIBUTING.md, since its README was split into these companion pages. product.pages and product.name let a project pick which of the seven product pages to generate (default: all seven — overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) and override the product's displayed name (defaulting to package.json's name). docs.sections groups tour pages into labeled sections in the generated sidebar (docs/_sidebar.autodocs.json); a tour named in no section sorts into a flat "everything else" group instead. The decisions page needs no config at all — dropping one or more files under docs/adr/*.md is enough for it to be picked up automatically. product-scribe never reads .env, key/credential-shaped files, or anything under a .auth/ directory, regardless of what a configured glob would otherwise match.
+product.sources lists extra project-relative globs of files that feed the product-scribe subagent beyond the standing README.md/package.json/.env.example/docsolace.config.yaml/CHANGELOG.md/docs/adr/*.md set — this repo's own config lists CONFIGURATION.md, PUBLISHING.md, TROUBLESHOOTING.md, ADVANCED.md, and CONTRIBUTING.md, since its README was split into these companion pages. product.pages and product.name let a project pick which of the seven product pages to generate (default: all seven — overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) and override the product's displayed name (defaulting to package.json's name). docs.sections groups tour pages into labeled sections in the generated sidebar (docs/_sidebar.docsolace.json); a tour named in no section sorts into a flat "everything else" group instead. The decisions page needs no config at all — dropping one or more files under docs/adr/*.md is enough for it to be picked up automatically. product-scribe never reads .env, key/credential-shaped files, or anything under a .auth/ directory, regardless of what a configured glob would otherwise match.
 
-<!-- autodocs:keep -->
+<!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->
-<!-- /autodocs:keep -->
+<!-- /docsolace:keep -->

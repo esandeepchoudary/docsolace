@@ -8,7 +8,7 @@ import { computeCodePathsHash } from '../drift.mjs';
 const tmpDirs = [];
 
 function mkTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-status-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-status-test-'));
   tmpDirs.push(dir);
   return dir;
 }

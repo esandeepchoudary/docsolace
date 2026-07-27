@@ -9,10 +9,10 @@ import { loadTour } from './lib/tours.mjs';
 import { validateProduct, validateTour } from './lib/validate.mjs';
 
 function main() {
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
 
   if (!fs.existsSync('tours')) {
-    console.log('No tours/ directory yet — run /autodocs:document once to bootstrap this project.');
+    console.log('No tours/ directory yet — run /docsolace:document once to bootstrap this project.');
     return;
   }
 
@@ -75,7 +75,7 @@ function main() {
   }
 
   if (hasError) {
-    console.error('\nFound at least one error — fix it before running /autodocs:document.');
+    console.error('\nFound at least one error — fix it before running /docsolace:document.');
     process.exit(1);
   }
 }

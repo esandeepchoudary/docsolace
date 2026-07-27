@@ -98,7 +98,7 @@ export function discoverDesignSkills({ projectDir, homeDir } = {}) {
   return candidates.sort((a, b) => rank(b) - rank(a)).map(({ score: _score, ...candidate }) => candidate);
 }
 
-const DOC_STYLE_FILENAME = path.join('.autodocs', 'doc-style.json');
+const DOC_STYLE_FILENAME = path.join('.docsolace', 'doc-style.json');
 // Deliberately conservative: a style value only ever needs to be a short,
 // plain label. Rejecting markdown/HTML metacharacters and newlines means a
 // hand-edited (or tampered) doc-style.json can't inject markup, break the
@@ -136,7 +136,7 @@ export function assertSafeLabel(value, label) {
   }
 }
 
-// Loads and strictly validates the `page` section of .autodocs/doc-style.json
+// Loads and strictly validates the `page` section of .docsolace/doc-style.json
 // (written by the /document skill after applying a detected design skill —
 // see plugin/skills/document/SKILL.md's "Apply the project's design skill").
 // Returns {} when the file doesn't exist, so every caller behaves exactly as

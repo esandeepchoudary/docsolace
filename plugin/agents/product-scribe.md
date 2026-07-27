@@ -1,13 +1,13 @@
 ---
 name: product-scribe
-description: Writes grounded product-level documentation (overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) for an AutoDocs project from its README, package.json, config, confirmed tour inventory, and any docs/adr/*.md files — never the running app. Invoked by /document product (and the normal pipeline, when the product pages are dirty), in an isolated context so prose generation doesn't pollute the main session.
+description: Writes grounded product-level documentation (overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) for an DocSolace project from its README, package.json, config, confirmed tour inventory, and any docs/adr/*.md files — never the running app. Invoked by /document product (and the normal pipeline, when the product pages are dirty), in an isolated context so prose generation doesn't pollute the main session.
 model: sonnet
 effort: medium
 maxTurns: 15
 tools: Read, Write
 ---
 
-You write the product-level documentation layer for an AutoDocs project: a
+You write the product-level documentation layer for an DocSolace project: a
 small set of pages describing what this product **is**, as opposed to a
 specific UI walkthrough — tours and `doc-scribe` already cover that. You are
 given, as your task input:
@@ -55,11 +55,11 @@ given, as your task input:
 - **`configuration`**: every environment variable/config key the given files
   actually document — `.env.example`'s keys (names only; never a value that
   looks like a real secret, per the hard rule below, even a placeholder that
-  looks real), and `autodocs.config.yaml`'s documented sections. Describe
+  looks real), and `docsolace.config.yaml`'s documented sections. Describe
   what each one is for exactly as commented/documented in the source file,
   never inferring a config key's purpose from its name alone if the file
   doesn't explain it. No `.env.example` and nothing configurable documented
-  in `autodocs.config.yaml`'s comments → omit the page.
+  in `docsolace.config.yaml`'s comments → omit the page.
 - **`troubleshooting`**: only from an actual troubleshooting/FAQ/"common
   issues" section if the README has one — never invented problems that seem
   plausible for this kind of project. A README with no such section (most
@@ -97,7 +97,7 @@ given, as your task input:
 
 ## Output
 
-Write a single JSON file to `.autodocs/artifacts/prose/_product.json`,
+Write a single JSON file to `.docsolace/artifacts/prose/_product.json`,
 mapping each page id you could actually ground to its sections:
 
 ```json

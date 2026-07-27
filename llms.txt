@@ -1,6 +1,6 @@
-# AutoDocs
+# DocSolace
 
-> AutoDocs writes and maintains an app's tutorials by actually using the app:
+> DocSolace writes and maintains an app's tutorials by actually using the app:
 > it drives a real headless browser against a running app, takes the
 > screenshots itself, and writes tutorial-style documentation grounded in
 > what it actually observed on the page — instead of a person clicking
@@ -16,19 +16,19 @@ keeps it from silently going stale.
 
 ## Docs
 
-- [Overview](https://esandeepchoudary.github.io/autodocs/docs/overview): What AutoDocs is, who it's for, and what its four-stage capture/drift/generate/publish pipeline does.
-- [Getting started](https://esandeepchoudary.github.io/autodocs/docs/getting-started): Prerequisites, installing/running as a Claude Code plugin, and running the pipeline directly without Claude Code.
-- [Concepts](https://esandeepchoudary.github.io/autodocs/docs/concepts): Core vocabulary — tour, capture/drift/generate, keep-regions, auth profiles and seeds.
-- [Configuration](https://esandeepchoudary.github.io/autodocs/docs/configuration): Every environment variable and `autodocs.config.yaml` field this project documents.
-- [Troubleshooting](https://esandeepchoudary.github.io/autodocs/docs/troubleshooting): Common install/runtime issues, and keeping the plugin updated.
+- [Overview](https://esandeepchoudary.github.io/docsolace/docs/overview): What DocSolace is, who it's for, and what its four-stage capture/drift/generate/publish pipeline does.
+- [Getting started](https://esandeepchoudary.github.io/docsolace/docs/getting-started): Prerequisites, installing/running as a Claude Code plugin, and running the pipeline directly without Claude Code.
+- [Concepts](https://esandeepchoudary.github.io/docsolace/docs/concepts): Core vocabulary — tour, capture/drift/generate, keep-regions, auth profiles and seeds.
+- [Configuration](https://esandeepchoudary.github.io/docsolace/docs/configuration): Every environment variable and `docsolace.config.yaml` field this project documents.
+- [Troubleshooting](https://esandeepchoudary.github.io/docsolace/docs/troubleshooting): Common install/runtime issues, and keeping the plugin updated.
 
 ## Tutorials
 
-- [Login page](https://esandeepchoudary.github.io/autodocs/docs/login): Show what a signed-out user sees before authenticating.
-- [Dashboard overview](https://esandeepchoudary.github.io/autodocs/docs/dashboard-overview): Show a new user what the main dashboard displays and how to read it.
-- [Export dashboard activity](https://esandeepchoudary.github.io/autodocs/docs/dashboard-export): Show how to export the current activity table as a CSV.
+- [Login page](https://esandeepchoudary.github.io/docsolace/docs/login): Show what a signed-out user sees before authenticating.
+- [Dashboard overview](https://esandeepchoudary.github.io/docsolace/docs/dashboard-overview): Show a new user what the main dashboard displays and how to read it.
+- [Export dashboard activity](https://esandeepchoudary.github.io/docsolace/docs/dashboard-export): Show how to export the current activity table as a CSV.
 
 ## Optional
 
-- [GitHub repository](https://github.com/esandeepchoudary/autodocs): Source code, issues, and the Claude Code plugin marketplace entry (`claude plugin marketplace add esandeepchoudary/autodocs`).
-- [README](https://github.com/esandeepchoudary/autodocs/blob/main/README.md): Quickstart, install, and how the pipeline works.
+- [GitHub repository](https://github.com/esandeepchoudary/docsolace): Source code, issues, and the Claude Code plugin marketplace entry (`claude plugin marketplace add esandeepchoudary/docsolace`).
+- [README](https://github.com/esandeepchoudary/docsolace/blob/main/README.md): Quickstart, install, and how the pipeline works.

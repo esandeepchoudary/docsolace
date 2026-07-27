@@ -7,7 +7,7 @@ import { findBrokenImageRefs, findBrokenInternalLinks, findOrphanImages, verifyD
 const tmpDirs = [];
 
 function mkTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-verify-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-verify-test-'));
   tmpDirs.push(dir);
   return dir;
 }

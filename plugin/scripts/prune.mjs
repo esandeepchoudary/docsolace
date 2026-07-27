@@ -43,12 +43,12 @@ function loadOptionalJsonFile(explicitPath, defaultPath, flagName) {
 
 function main() {
   const { siteMap: siteMapPath, routesFile } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const statePath = path.join(config.outputDir, 'state.json');
   const state = loadState(statePath);
 
   if (!fs.existsSync('tours')) {
-    console.log('No tours/ directory yet — run /autodocs:document once to bootstrap this project.');
+    console.log('No tours/ directory yet — run /docsolace:document once to bootstrap this project.');
     return;
   }
 

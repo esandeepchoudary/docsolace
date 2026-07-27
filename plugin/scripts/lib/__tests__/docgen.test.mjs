@@ -81,7 +81,7 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
     expect(page.indexOf('![Step one](a@desktop.png)')).toBeLessThan(page.indexOf('<details'));
     expect(page).not.toContain('*desktop*');
     // Non-primary image inside a collapsed, classed <details> block.
-    expect(page).toContain('<details class="autodocs-viewport autodocs-viewport--mobile">');
+    expect(page).toContain('<details class="docsolace-viewport docsolace-viewport--mobile">');
     expect(page).toContain('<summary>Mobile view</summary>');
     expect(page).toContain('![Step one (mobile)](a@mobile.png)');
     expect(page).toContain('</details>');
@@ -104,7 +104,7 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
       style: { primaryViewport: 'mobile' },
     });
     expect(page.indexOf('![Step one](a@mobile.png)')).toBeLessThan(page.indexOf('<details'));
-    expect(page).toContain('<details class="autodocs-viewport autodocs-viewport--desktop">');
+    expect(page).toContain('<details class="docsolace-viewport docsolace-viewport--desktop">');
     expect(page).toContain('![Step one (desktop)](a@desktop.png)');
   });
 
@@ -188,7 +188,7 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
       ],
       style: { figures: true },
     });
-    const figureCount = (page.match(/<figure class="autodocs-figure">/g) ?? []).length;
+    const figureCount = (page.match(/<figure class="docsolace-figure">/g) ?? []).length;
     expect(figureCount).toBe(2); // one for the primary image, one for the collapsed one
     expect(page).toContain('</figure>');
     expect(page).toContain('![Step one](a@desktop.png)');
@@ -210,7 +210,7 @@ describe('renderTourPage with the images array (multi-viewport)', () => {
         },
       ],
     });
-    expect(page).not.toContain('autodocs-figure');
+    expect(page).not.toContain('docsolace-figure');
   });
 
   it('HTML-escapes a viewport name before it reaches the raw <details>/<summary> block', () => {
@@ -347,8 +347,8 @@ describe('RENDER_TEMPLATE_VERSION', () => {
 
 describe('KEEP_START / KEEP_END', () => {
   it('are exported so other renderers (lib/product.mjs) share one keep-region implementation', () => {
-    expect(KEEP_START).toBe('<!-- autodocs:keep -->');
-    expect(KEEP_END).toBe('<!-- /autodocs:keep -->');
+    expect(KEEP_START).toBe('<!-- docsolace:keep -->');
+    expect(KEEP_END).toBe('<!-- /docsolace:keep -->');
   });
 });
 
@@ -383,28 +383,28 @@ describe('extractKeepRegion', () => {
   });
 
   it('extracts trimmed content between the markers', () => {
-    const md = '# Page\n\n<!-- autodocs:keep -->\n  Some human note.  \n<!-- /autodocs:keep -->\n';
+    const md = '# Page\n\n<!-- docsolace:keep -->\n  Some human note.  \n<!-- /docsolace:keep -->\n';
     expect(extractKeepRegion(md)).toBe('Some human note.');
   });
 
   it('throws when the page has more than one keep-region', () => {
     const md =
-      '# Page\n\n<!-- autodocs:keep -->\nFirst.\n<!-- /autodocs:keep -->\n\nMore text.\n\n' +
-      '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
+      '# Page\n\n<!-- docsolace:keep -->\nFirst.\n<!-- /docsolace:keep -->\n\nMore text.\n\n' +
+      '<!-- docsolace:keep -->\nSecond.\n<!-- /docsolace:keep -->\n';
     expect(() => extractKeepRegion(md)).toThrow(/only one is supported/);
   });
 
   it('does not treat an inline, mid-sentence mention of the marker text as a second region', () => {
     // Regression: a product-scribe-authored "concepts" page describing what
     // a keep-region *is* legitimately quotes the marker text inline, e.g.
-    // "...placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->`
+    // "...placed inside `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->`
     // markers...". That's one line of prose containing both marker
     // substrings, not a second structural region — it must not trip the
     // "only one is supported" guard alongside the one real region below.
     const md =
       '# Concepts\n\n' +
-      'A keep-region is content placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` markers.\n\n' +
-      '<!-- autodocs:keep -->\nReal note.\n<!-- /autodocs:keep -->\n';
+      'A keep-region is content placed inside `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` markers.\n\n' +
+      '<!-- docsolace:keep -->\nReal note.\n<!-- /docsolace:keep -->\n';
     expect(() => extractKeepRegion(md)).not.toThrow();
     expect(extractKeepRegion(md)).toBe('Real note.');
   });
@@ -412,39 +412,39 @@ describe('extractKeepRegion', () => {
 
 describe('nonKeepContent', () => {
   it('removes the entire keep-region block, markers included', () => {
-    const md = '# Page\n\nBody text.\n\n<!-- autodocs:keep -->\nA human note.\n<!-- /autodocs:keep -->\n';
+    const md = '# Page\n\nBody text.\n\n<!-- docsolace:keep -->\nA human note.\n<!-- /docsolace:keep -->\n';
     const stripped = nonKeepContent(md);
     expect(stripped).toContain('# Page');
     expect(stripped).toContain('Body text.');
     expect(stripped).not.toContain('A human note.');
-    expect(stripped).not.toContain('autodocs:keep');
+    expect(stripped).not.toContain('docsolace:keep');
   });
 
   it('is unaffected by changes to keep-region content alone', () => {
-    const base = '# Page\n\nBody.\n\n<!-- autodocs:keep -->\n%NOTE%\n<!-- /autodocs:keep -->\n';
+    const base = '# Page\n\nBody.\n\n<!-- docsolace:keep -->\n%NOTE%\n<!-- /docsolace:keep -->\n';
     const withNoteA = base.replace('%NOTE%', 'Note A');
     const withNoteB = base.replace('%NOTE%', 'Note B');
     expect(nonKeepContent(withNoteA)).toBe(nonKeepContent(withNoteB));
   });
 
   it('changes when body content outside the keep-region changes', () => {
-    const md1 = '# Page\n\nBody one.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
-    const md2 = '# Page\n\nBody two.\n\n<!-- autodocs:keep -->\nNote.\n<!-- /autodocs:keep -->\n';
+    const md1 = '# Page\n\nBody one.\n\n<!-- docsolace:keep -->\nNote.\n<!-- /docsolace:keep -->\n';
+    const md2 = '# Page\n\nBody two.\n\n<!-- docsolace:keep -->\nNote.\n<!-- /docsolace:keep -->\n';
     expect(nonKeepContent(md1)).not.toBe(nonKeepContent(md2));
   });
 
   it('throws when the page has more than one keep-region', () => {
     const md =
-      '# Page\n\n<!-- autodocs:keep -->\nFirst.\n<!-- /autodocs:keep -->\n\nMore text.\n\n' +
-      '<!-- autodocs:keep -->\nSecond.\n<!-- /autodocs:keep -->\n';
+      '# Page\n\n<!-- docsolace:keep -->\nFirst.\n<!-- /docsolace:keep -->\n\nMore text.\n\n' +
+      '<!-- docsolace:keep -->\nSecond.\n<!-- /docsolace:keep -->\n';
     expect(() => nonKeepContent(md)).toThrow(/only one is supported/);
   });
 
   it('does not treat an inline, mid-sentence mention of the marker text as a second region', () => {
     const md =
       '# Concepts\n\n' +
-      'A keep-region is content placed inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` markers.\n\n' +
-      '<!-- autodocs:keep -->\nReal note.\n<!-- /autodocs:keep -->\n';
+      'A keep-region is content placed inside `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` markers.\n\n' +
+      '<!-- docsolace:keep -->\nReal note.\n<!-- /docsolace:keep -->\n';
     const stripped = nonKeepContent(md);
     expect(stripped).toContain('# Concepts');
     expect(stripped).toContain('A keep-region is content placed inside');

@@ -1,4 +1,4 @@
-# AutoDocs configuration
+# DocSolace configuration
 baseUrl: http://localhost:5173
 
 # Every capture point is shot at each of these viewports (same page/session —
@@ -13,7 +13,7 @@ viewports:
     width: 390
     height: 844
 
-outputDir: .autodocs/artifacts
+outputDir: .docsolace/artifacts
 
 # Selectors masked on every capture, in addition to whatever a tour's own
 # `mask` list adds. Keeps common volatile regions (timestamps, avatars) out
@@ -45,8 +45,8 @@ auth:
     usernameSelector: "#username"
     passwordSelector: "#password"
     submitSelector: "button[type='submit']"
-    usernameEnv: AUTODOCS_STANDARD_USER_USERNAME
-    passwordEnv: AUTODOCS_STANDARD_USER_PASSWORD
+    usernameEnv: DOCSOLACE_STANDARD_USER_USERNAME
+    passwordEnv: DOCSOLACE_STANDARD_USER_PASSWORD
     successUrlPattern: "**/dashboard"
 
 # Named seed fixtures referenced by tours' preconditions.seed. The demo app

@@ -5,9 +5,9 @@ describe('buildArchiveBanner / applyArchiveBanner', () => {
   it('prepends the banner above the page content', () => {
     const markdown = '# Export dashboard activity\n\nShow how to export.\n';
     const result = applyArchiveBanner(markdown);
-    expect(result.startsWith('<!-- autodocs:archived -->')).toBe(true);
+    expect(result.startsWith('<!-- docsolace:archived -->')).toBe(true);
     expect(result).toContain('# Export dashboard activity');
-    expect(result.indexOf('<!-- autodocs:archived -->')).toBeLessThan(result.indexOf('# Export dashboard activity'));
+    expect(result.indexOf('<!-- docsolace:archived -->')).toBeLessThan(result.indexOf('# Export dashboard activity'));
   });
 
   it('is idempotent — re-applying to an already-banner-ed page changes nothing', () => {
@@ -25,8 +25,8 @@ describe('buildArchiveBanner / applyArchiveBanner', () => {
     const markdown = '---\nsidebar_position: 10\nsidebar_label: "Login page"\n---\n\n# Login page\n\nBody.\n';
     const result = applyArchiveBanner(markdown);
     expect(result.startsWith('---\nsidebar_position: 10\nsidebar_label: "Login page"\n---\n')).toBe(true);
-    expect(result.indexOf('<!-- autodocs:archived -->')).toBeGreaterThan(result.indexOf('---\n', 4));
-    expect(result.indexOf('<!-- autodocs:archived -->')).toBeLessThan(result.indexOf('# Login page'));
+    expect(result.indexOf('<!-- docsolace:archived -->')).toBeGreaterThan(result.indexOf('---\n', 4));
+    expect(result.indexOf('<!-- docsolace:archived -->')).toBeLessThan(result.indexOf('# Login page'));
   });
 
   it('is idempotent for a frontmatter-carrying page too', () => {

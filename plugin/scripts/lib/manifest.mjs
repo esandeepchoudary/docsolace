@@ -50,7 +50,7 @@ export function flattenScreenshotHashes(captures) {
   );
 }
 
-// Adding a viewport to autodocs.config.yaml after a tour's last capture
+// Adding a viewport to docsolace.config.yaml after a tour's last capture
 // otherwise means generate-docs.mjs silently renders that tour's docs
 // missing the new viewport — no error, no warning, just fewer screenshots
 // than configured. Returns the configured viewport names that appear in

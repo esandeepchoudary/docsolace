@@ -1,7 +1,7 @@
 // Read-only status report: which tours/product pages are dirty, clean, or
 // gated (draft/proposed/archived/uncaptured), whether each has a generated
 // page yet, and when it was last generated. No browser, no subagent — just
-// tours/, docs/, and .autodocs/artifacts/{manifest,state}.json already on
+// tours/, docs/, and .docsolace/artifacts/{manifest,state}.json already on
 // disk. Unlike drift.mjs (a CI-style gate that exits 1 when anything's
 // dirty), this always exits 0 — it's a report, not a check.
 import fs from 'node:fs';
@@ -52,14 +52,14 @@ function printTourLine(status) {
 }
 
 function main() {
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const statePath = path.join(config.outputDir, 'state.json');
   const state = loadState(statePath);
   const manifestPath = path.join(config.outputDir, 'manifest.json');
   const manifest = loadManifest(manifestPath);
 
   if (!fs.existsSync('tours')) {
-    console.log('No tours/ directory yet — run /autodocs:document once to bootstrap this project.');
+    console.log('No tours/ directory yet — run /docsolace:document once to bootstrap this project.');
     return;
   }
 

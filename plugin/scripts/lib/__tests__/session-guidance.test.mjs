@@ -7,7 +7,7 @@ import { buildSessionGuidance } from '../session-guidance.mjs';
 const tmpDirs = [];
 
 function makeTmpProjectDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-session-guidance-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-session-guidance-'));
   tmpDirs.push(dir);
   return dir;
 }
@@ -29,9 +29,9 @@ describe('buildSessionGuidance', () => {
     expect(guidance).not.toContain('tour-scout');
   });
 
-  it('gives the full tutorial-need guidance once autodocs.config.yaml exists', () => {
+  it('gives the full tutorial-need guidance once docsolace.config.yaml exists', () => {
     const projectDir = makeTmpProjectDir();
-    fs.writeFileSync(path.join(projectDir, 'autodocs.config.yaml'), 'baseUrl: http://localhost:3000\n');
+    fs.writeFileSync(path.join(projectDir, 'docsolace.config.yaml'), 'baseUrl: http://localhost:3000\n');
 
     const guidance = buildSessionGuidance(projectDir);
 
@@ -46,11 +46,11 @@ describe('buildSessionGuidance', () => {
     expect(guidance.toLowerCase()).toContain('hard stop');
   });
 
-  it('does not treat a directory named autodocs.config.yaml as initiated indicators are file-based only', () => {
+  it('does not treat a directory named docsolace.config.yaml as initiated indicators are file-based only', () => {
     // Sanity check: only presence of the file matters, not its parseability
     // (this hook never parses it — checking existence is deliberately cheap).
     const projectDir = makeTmpProjectDir();
-    fs.writeFileSync(path.join(projectDir, 'autodocs.config.yaml'), '');
+    fs.writeFileSync(path.join(projectDir, 'docsolace.config.yaml'), '');
 
     expect(buildSessionGuidance(projectDir)).toContain('/document propose <slug>');
   });

@@ -1,4 +1,4 @@
-// Preflight checks for a project's autodocs.config.yaml + tours/*.yaml.
+// Preflight checks for a project's docsolace.config.yaml + tours/*.yaml.
 // loadTour (lib/tours.mjs) already enforces structural correctness (safe
 // slugs, a non-empty steps array, site-relative goto paths) at load time —
 // this module catches the class of problem that currently only surfaces

@@ -34,11 +34,11 @@ export function resolveTourRoutes(tour) {
 }
 
 // tours: array of already-loaded tour objects (lib/tours.mjs's loadTour).
-// state: the parsed .autodocs/artifacts/state.json (lib/state.mjs's
+// state: the parsed .docsolace/artifacts/state.json (lib/state.mjs's
 //   loadState) — only a tour with a previous entry (successfully generated
 //   at least once) can be an orphan; a tour that's simply never been
 //   captured yet isn't "removed", it just hasn't run.
-// siteMap: optional parsed .autodocs/artifacts/site-map.json `pages` array
+// siteMap: optional parsed .docsolace/artifacts/site-map.json `pages` array
 //   (crawl.mjs's output) — when omitted, route-unreachable is never checked.
 // sourceRoutes: optional array of site-relative route strings (/document
 //   map's code-review step's source-routes.json) — same optionality.

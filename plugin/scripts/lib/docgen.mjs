@@ -2,12 +2,12 @@
 // markers — every generated page (tour or product) shares one keep-region
 // implementation (extractKeepRegion/nonKeepContent/applyKeepRegion below),
 // never a second, subtly-different one.
-export const KEEP_START = '<!-- autodocs:keep -->';
-export const KEEP_END = '<!-- /autodocs:keep -->';
+export const KEEP_START = '<!-- docsolace:keep -->';
+export const KEEP_END = '<!-- /docsolace:keep -->';
 // Anchored to whole lines (^...$ with the multiline flag), not a bare
 // substring match anywhere in the page. Both markers are always emitted as
 // their own standalone line by renderTourPage/renderProductPage — but
-// grounded prose describing AutoDocs' own keep-region mechanism (e.g. a
+// grounded prose describing DocSolace's own keep-region mechanism (e.g. a
 // product "concepts" page explaining what a keep-region is) can legitimately
 // quote the marker text inline, mid-sentence, inside a much longer line. A
 // bare substring match would count that quotation as a second real region
@@ -16,7 +16,7 @@ export const KEEP_END = '<!-- /autodocs:keep -->';
 // nothing but the marker excludes an inline quotation (which always has
 // other text before/after it on the same line) while still matching every
 // real, structurally-emitted region.
-const KEEP_REGION_SOURCE = '^<!-- autodocs:keep -->$\\n([\\s\\S]*?)\\n^<!-- /autodocs:keep -->$';
+const KEEP_REGION_SOURCE = '^<!-- docsolace:keep -->$\\n([\\s\\S]*?)\\n^<!-- /docsolace:keep -->$';
 const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 
 // Bumped whenever a generated page's output *shape* changes (not its
@@ -35,10 +35,17 @@ const KEEP_REGION_RE = new RegExp(KEEP_REGION_SOURCE, 'm');
 // field — see lib/product.mjs's deriveMetaDescription/buildFrontmatter —
 // for a page-specific search/answer-engine meta description instead of every
 // page sharing the site-wide tagline.
-export const RENDER_TEMPLATE_VERSION = 5;
+// v6: the keep-region marker itself was renamed (autodocs:keep ->
+// docsolace:keep, part of the AutoDocs -> DocSolace rebrand). Every
+// already-committed docs/*.md had its marker text migrated by hand first
+// (a plain substitution of the delimiter, not the KEEP_START/KEEP_END
+// constants below) before this bump, so the render-only pass this triggers
+// finds the new marker already in place and doesn't lose any keep-region
+// content.
+export const RENDER_TEMPLATE_VERSION = 6;
 
 // renderTourPage emits exactly one keep-region block. A second one (e.g. a
-// human pasting in another `<!-- autodocs:keep -->` pair) isn't a supported
+// human pasting in another `<!-- docsolace:keep -->` pair) isn't a supported
 // shape — every helper below only sees the first match, so a second block
 // would either get silently dropped or leak its markers into what's hashed
 // as "generated" content. Fail loudly instead, same as the out-of-keep-
@@ -47,7 +54,7 @@ function assertAtMostOneKeepRegion(markdown) {
   const matches = markdown.match(new RegExp(KEEP_REGION_SOURCE, 'gm'));
   if (matches && matches.length > 1) {
     throw new Error(
-      `Found ${matches.length} "autodocs:keep" regions — only one is supported per page. ` +
+      `Found ${matches.length} "docsolace:keep" regions — only one is supported per page. ` +
         `Merge your notes into the single existing region before the next regeneration.`,
     );
   }
@@ -84,7 +91,7 @@ export function applyKeepRegion(newMarkdown, previousMarkdown) {
 // `![alt](path)` lines elsewhere in this file, nothing here gets the
 // automatic escaping normal markdown-to-HTML conversion provides. Escape
 // explicitly before interpolating anything into this block. viewportName
-// normally comes from autodocs.config.yaml's `viewports` map keys — config
+// normally comes from docsolace.config.yaml's `viewports` map keys — config
 // content, which CLAUDE.md's SSDLC section already treats as untrusted
 // input for anything that shells out or renders — so this isn't only
 // defense-in-depth.
@@ -109,7 +116,7 @@ function viewportSummary(viewportName, viewportLabels) {
 }
 
 // Renders one already-indented markdown image line, optionally wrapped in a
-// `<figure class="autodocs-figure">` — an extra, opt-in theming hook (see
+// `<figure class="docsolace-figure">` — an extra, opt-in theming hook (see
 // doc-style.json's page.figures) for a design skill that wants its own
 // framed/captioned screenshot treatment. Same blank-line discipline as the
 // <details> blocks above: an HTML block only hands control back to the
@@ -117,7 +124,7 @@ function viewportSummary(viewportName, viewportLabels) {
 // bundles as a real asset instead of being swallowed as raw HTML text.
 function imageLines(imageMarkdownLine, figures) {
   if (!figures) return [imageMarkdownLine, ''];
-  return ['   <figure class="autodocs-figure">', '', imageMarkdownLine, '', '   </figure>', ''];
+  return ['   <figure class="docsolace-figure">', '', imageMarkdownLine, '', '   </figure>', ''];
 }
 
 // Renders a "**<label>:**" bullet list of already-resolved {id, title} tour
@@ -161,7 +168,7 @@ export function renderTourPage({ title, intent, steps, keepRegionPlaceholder, st
       for (const image of images) {
         if (image === primaryImage) continue;
         lines.push(
-          `   <details class="autodocs-viewport autodocs-viewport--${escapeHtml(image.viewport)}">`,
+          `   <details class="docsolace-viewport docsolace-viewport--${escapeHtml(image.viewport)}">`,
           `   <summary>${viewportSummary(image.viewport, viewportLabels)}</summary>`,
           '',
           ...imageLines(`   ![${step.description} (${image.viewport})](${image.path})`, figures),

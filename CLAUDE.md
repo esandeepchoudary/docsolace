@@ -1,8 +1,8 @@
-# CLAUDE.md — AutoDocs
+# CLAUDE.md — DocSolace
 
 ## Project goal
 
-AutoDocs is a Claude Code–native pipeline that drives a running web app in a
+DocSolace is a Claude Code–native pipeline that drives a running web app in a
 headless browser, captures feature screenshots, generates tutorial-style
 Markdown documentation, and keeps it in sync as the app ships — packaged as a
 reusable Claude Code plugin **for solo developers building their own
@@ -12,7 +12,7 @@ pipeline that auto-regenerates docs on every merge. That's why CI
 (`.github/workflows/docs.yml`) is built but deliberately parked on manual
 dispatch rather than treated as core — see the brief's §1 and §7. Full
 architecture, component specs, and phased build order live in
-`autodocs-implementation-brief.md`; the locked decisions from the Open
+`docsolace-implementation-brief.md`; the locked decisions from the Open
 Questions (target app, publisher, capture driver, run trigger, screenshot
 storage, scribe model) are recorded in the approved implementation plan for
 this project.
@@ -40,7 +40,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - Merging a PR into `main` still requires your explicit go-ahead — this
   keeps `main` as the reviewed, shipped line per the brief's own "never
   auto-merge" principle for generated docs.
-- This section is about developing AutoDocs itself (this repo). The
+- This section is about developing DocSolace itself (this repo). The
   `/document` skill it ships now follows the same shape independently, in
   whatever *target* project it's run against — see "Tutorial-need check"
   below and `plugin/skills/document/SKILL.md`'s "Autonomy" section: docs land
@@ -75,7 +75,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - **Seed commands are the one place `capture.mjs` shells out to
   config-authored content**, so they're opt-in only: a tour's
   `preconditions.seed` just names a seed id; the actual `command` a seed can
-  declare lives in `autodocs.config.yaml`'s `seeds` map (`scripts/lib/seed.mjs`'s
+  declare lives in `docsolace.config.yaml`'s `seeds` map (`scripts/lib/seed.mjs`'s
   `resolveSeed`), and even then only runs when `allowSeedCommands: true` (or
   `--allow-seed-commands`) — default off, so a freshly cloned project can
   never execute a command on its first capture just because a seed declares
@@ -111,12 +111,12 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - **Selectors**: role/accessibility locators first (`role=button[name='...']`),
   CSS only as a fallback for things with no meaningful role.
 - **Masking**: any volatile region (timestamps, avatars, live counts) must be
-  masked — either in `autodocs.config.yaml`'s `defaultMask` (applies to every
+  masked — either in `docsolace.config.yaml`'s `defaultMask` (applies to every
   capture in every tour) or a capture's own `mask` list (merged with the
   defaults). Masking redacts the region from both the saved screenshot and
   its hash — that's what keeps drift detection from firing on content that
   changes every run regardless of real UI changes.
-- **Viewports**: every capture is shot once per entry in `autodocs.config.yaml`'s
+- **Viewports**: every capture is shot once per entry in `docsolace.config.yaml`'s
   `viewports` map, same page/session — don't add per-viewport steps to a
   tour, the capture runner already loops over all configured viewports at
   each capture point.
@@ -131,7 +131,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   that step's screenshot pixels, so it goes through the normal pixel-diff
   gate like any other visual change — run `npm run review-diffs` before
   shipping. The color is a neutral default, overridable per-project via
-  `.autodocs/doc-style.json`'s `page.highlightColor` (a design skill's accent
+  `.docsolace/doc-style.json`'s `page.highlightColor` (a design skill's accent
   color) — presentation only, same guardrail as everything else that file
   touches.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
@@ -167,7 +167,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   render-only mechanism described under "Page layout vs. design-skill
   styling" below.
 - **Surgical updates**: regenerating a tour's page only touches that page;
-  content inside `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->` is
+  content inside `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->` is
   human-owned and must survive every regeneration untouched. If a human edits
   a page *outside* that region, `generate-docs.mjs` detects it (a hash
   mismatch against the last generation) and refuses to overwrite it silently
@@ -185,13 +185,13 @@ other brand. Do not apply any brand styling here even if a parent-directory
   regeneration without reading a diff themselves. Degrades to no file list
   (never an error) when there's nothing to diff against yet.
 - **Page layout vs. design-skill styling — presentation only, never content.**
-  `autodocs.config.yaml`'s `docs:` section (`primaryViewport`,
+  `docsolace.config.yaml`'s `docs:` section (`primaryViewport`,
   `collapseOtherViewports`) picks which viewport's screenshot stays inline
   per step versus collapses into a `<details>` block (`lib/docgen.mjs`'s
   `renderTourPage`). `/document` also auto-detects a project's own
   design/brand skill (if any — `lib/design.mjs`'s `discoverDesignSkills`,
   never a parent directory's `CLAUDE.md`) and distills it into a **committed**
-  (not gitignored — generated docs depend on it) `.autodocs/doc-style.json`
+  (not gitignored — generated docs depend on it) `.docsolace/doc-style.json`
   plus the scaffolded Docusaurus site's theme. Both of these change how a
   page *looks* — heading text, viewport labels, colors/fonts/logo — and
   never what `doc-scribe` writes or which UI a tour describes; never inject
@@ -226,7 +226,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   By default `/document propose`/`map` flip it themselves once validation
   passes (see "Tutorial-need check" above); `--review` keeps that flip a
   human decision instead.
-- **`status: archived`** is the third value: a tour whose feature AutoDocs
+- **`status: archived`** is the third value: a tour whose feature DocSolace
   can no longer find in the app — removed, renamed, or moved — rather than
   one still awaiting review. `/document map`'s own reconciliation (the
   reverse of its gap-detection: `plugin/scripts/lib/prune.mjs`'s
@@ -249,7 +249,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   `configuration.md`/`troubleshooting.md`/`changelog.md`/`decisions.md` — via
   the `product-scribe` subagent, describing the product itself rather than
   one UI flow. Its ground truth is `README.md`, `package.json`,
-  `.env.example`, `autodocs.config.yaml`, `CHANGELOG.md` (if present), any
+  `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md` (if present), any
   `docs/adr/*.md` files, any extra `product.sources` globs, and the confirmed
   tour inventory — `lib/product.mjs`'s `collectProductSources` explicitly
   denies `.env` itself, key/credential-shaped files, and anything under
@@ -283,7 +283,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   carries a `sidebar_position` (product pages pin above them at 1–7),
   computed from `docs.sections` config order when set, else alphabetical —
   grouping into named sections is opt-in, ordering isn't;
-  `docs/_sidebar.autodocs.json` (written by `generate-product-docs.mjs`) is
+  `docs/_sidebar.docsolace.json` (written by `generate-product-docs.mjs`) is
   what `/document init-site` wires the scaffolded site's sidebar to build
   from.
 
@@ -294,7 +294,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   own tree (`../` paths silently don't work) — so `plugin/` bundles its own
   `scripts/`, `package.json` (runtime deps), `hooks/`, and `.mcp.json`. Don't
   reintroduce a dependency from `plugin/` on anything at the repo root;
-  `demo-app/`, `tours/`, `docs/`, `autodocs.config.yaml`, and `site/` are
+  `demo-app/`, `tours/`, `docs/`, `docsolace.config.yaml`, and `site/` are
   this repo's own dogfood project, not plugin internals.
 - **The bundled scripts are ES modules, so `NODE_PATH` does not work** for
   resolving their dependencies — verified empirically, not assumed (Node's
@@ -306,7 +306,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
   `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs"`, never
   `${CLAUDE_PLUGIN_ROOT}/scripts/...` (those have no `node_modules` next to
   them) and never `npm run ...` (the target project has no reason to have
-  AutoDocs' own npm scripts).
+  DocSolace's own npm scripts).
 - **Root `package.json`'s `npm run capture`/`drift`/`generate-docs`/
   `generate-product-docs`/`review-diffs`/`test` scripts point into
   `plugin/scripts/`** — that's how this repo dogfoods its own plugin against
@@ -322,7 +322,7 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - The repo root's own `.claude-plugin/marketplace.json` makes this whole
   repo a private marketplace with one entry (`source: "./plugin"`) — that's
   how `claude plugin marketplace add <this-repo>` +
-  `claude plugin install autodocs@autodocs-marketplace` work without a
+  `claude plugin install docsolace@docsolace-marketplace` work without a
   public listing. Its own embedded plugin entry also carries a `version`
   field — Claude Code always resolves the real version from
   `plugin.json` (this one's a non-binding fallback with no functional
@@ -348,14 +348,14 @@ other brand. Do not apply any brand styling here even if a parent-directory
   should do rather than a script that breaks on the next `create-docusaurus`
   release. Its instructions in `SKILL.md` encode two non-obvious, verified
   requirements: `markdown.format: 'md'` (Docusaurus's default MDX parser
-  fails on the `<!-- autodocs:keep -->` comments `generate-docs.mjs`
+  fails on the `<!-- docsolace:keep -->` comments `generate-docs.mjs`
   writes), and fixing `src/pages/index.js`'s default `/docs/intro` link
   (which 404s/build-fails once `docs.path` points at the project's real
   `docs/`) — confirmed by actually running the recipe end-to-end in a
   scratch project, not just by reading it back.
 
 ## Reference
-- `autodocs-implementation-brief.md` — full architecture, phases, acceptance
+- `docsolace-implementation-brief.md` — full architecture, phases, acceptance
   criteria, and open questions.
 - Locked decisions (from this project's approved plan): demo React/Vite app
   as first target, direct Playwright (not MCP) for capture, Docusaurus as

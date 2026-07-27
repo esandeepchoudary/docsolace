@@ -7,7 +7,7 @@ import { loadTour } from '../tours.mjs';
 const tmpDirs = [];
 
 function writeTmpTour(fileName, contents) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tours-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tours-test-'));
   fs.writeFileSync(path.join(dir, fileName), contents);
   tmpDirs.push(dir);
   return dir;
@@ -38,7 +38,7 @@ steps:
   });
 
   it('throws when the tour file does not exist', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tours-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tours-test-'));
     tmpDirs.push(dir);
     expect(() => loadTour(dir, 'missing')).toThrow(/not found/);
   });
@@ -59,7 +59,7 @@ steps:
   });
 
   it('throws when the requested tour id contains path-traversal characters', () => {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-tours-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-tours-test-'));
     tmpDirs.push(dir);
     expect(() => loadTour(dir, '../../etc/passwd')).toThrow(/invalid/);
     expect(() => loadTour(dir, '../../etc/passwd')).toThrow(/kebab-case/);

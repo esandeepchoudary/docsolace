@@ -1,6 +1,6 @@
 // llms.txt (https://llmstxt.org/) is hand-written for this repo (a
 // deliberate choice — see CONTRIBUTING.md's "Project layout" note), not
-// mechanically generated the way docs/_sidebar.autodocs.json is. That means
+// mechanically generated the way docs/_sidebar.docsolace.json is. That means
 // nothing regenerates it automatically when a tour or product page is
 // added/renamed/removed — this test is the guard against it silently going
 // stale instead: it fails CI the moment the real tour/page inventory and
@@ -26,7 +26,7 @@ function loadPublishedTourIds() {
 }
 
 function loadProductPageIds() {
-  const sidebarPath = path.join(repoRoot, 'docs', '_sidebar.autodocs.json');
+  const sidebarPath = path.join(repoRoot, 'docs', '_sidebar.docsolace.json');
   if (!fs.existsSync(sidebarPath)) return [];
   return JSON.parse(fs.readFileSync(sidebarPath, 'utf8')).productPages ?? [];
 }

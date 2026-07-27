@@ -47,4 +47,4 @@ Allow: /
 User-agent: Applebot-Extended
 Allow: /
 
-Sitemap: https://esandeepchoudary.github.io/autodocs/sitemap.xml
+Sitemap: https://esandeepchoudary.github.io/docsolace/sitemap.xml

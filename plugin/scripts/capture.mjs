@@ -34,13 +34,13 @@ const MASK_COLOR = '#FF00FF';
 const SEED_COMMAND_TIMEOUT_MS = 2 * 60 * 1000; // generous, but bounded — a hung seed script shouldn't hang capture
 const DEFAULT_CONCURRENCY = 3;
 
-// Neutral default — this repo's own CLAUDE.md opts AutoDocs itself out of
+// Neutral default — this repo's own CLAUDE.md opts DocSolace itself out of
 // inheriting a parent brand, so nothing here should default to one either.
-// Overridable per-project via .autodocs/doc-style.json's page.highlightColor
+// Overridable per-project via .docsolace/doc-style.json's page.highlightColor
 // (see lib/design.mjs's loadDocStyle) when a design skill supplies an
 // accent color — presentation only, same as every other doc-style knob.
 const DEFAULT_HIGHLIGHT_COLOR = '#FF3B30';
-const HIGHLIGHT_ATTR = 'data-autodocs-highlight';
+const HIGHLIGHT_ATTR = 'data-docsolace-highlight';
 
 // Fixed, deterministic CSS — no transition/animation, nothing time- or
 // layout-dependent. Two things matter here: `outline` (not `border` or a
@@ -183,7 +183,7 @@ function buildLaunchArgs(config, tour) {
       throw new Error(
         `Tour "${tour.id}"'s preconditions.voice fixture "${tour.preconditions.voice}" doesn't exist — ` +
           `create it under fixtures/ before capturing. Run \`node validate.mjs\` (or ` +
-          `\`/autodocs:document validate\`) to catch this before launching a browser next time.`,
+          `\`/docsolace:document validate\`) to catch this before launching a browser next time.`,
       );
     }
     launchArgs.push(
@@ -527,7 +527,7 @@ async function captureManyTours(config, tourIds, { allowSeedCommands, continueOn
 
 async function main() {
   const { tours: requestedIds, all, allowSeedCommands, continueOnError, concurrency } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const statePath = path.join(config.outputDir, 'state.json');
 
   const tourIds = all

@@ -79,7 +79,7 @@ function isDeniedSource(relPath) {
 // whenever they actually exist — the common case for any project, no config
 // needed. CHANGELOG.md is the changelog page's preferred ground truth (see
 // listGitTags below for its fallback when this doesn't exist).
-const DEFAULT_SOURCES = ['README.md', 'package.json', '.env.example', 'autodocs.config.yaml', 'CHANGELOG.md'];
+const DEFAULT_SOURCES = ['README.md', 'package.json', '.env.example', 'docsolace.config.yaml', 'CHANGELOG.md'];
 
 // Best-effort list of tag names, newest-created first — the changelog
 // page's fallback ground truth when a project has no CHANGELOG.md. Unlike
@@ -103,8 +103,8 @@ export function listGitTags(cwd = process.cwd()) {
 
 // Glob-noise/safety exclusion for config.product.sources — these directories
 // are never meaningfully "about the product" and can be huge (node_modules)
-// or hold generated/local state (.git, .autodocs).
-const SOURCE_IGNORE = ['**/node_modules/**', '**/.git/**', '**/.autodocs/**'];
+// or hold generated/local state (.git, .docsolace).
+const SOURCE_IGNORE = ['**/node_modules/**', '**/.git/**', '**/.docsolace/**'];
 
 // True when `rel` (relative to `cwd`) resolves — after following any
 // symlinks — to a real path still inside `cwd`. Two escapes this closes that

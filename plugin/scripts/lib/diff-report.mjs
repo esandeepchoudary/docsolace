@@ -89,7 +89,7 @@ export function renderDiffReport(entries) {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>AutoDocs — screenshot diff review</title>
+<title>DocSolace — screenshot diff review</title>
 <style>
   body { font-family: system-ui, sans-serif; margin: 2rem; color: #111; }
   h1 { margin-bottom: 0.25rem; }

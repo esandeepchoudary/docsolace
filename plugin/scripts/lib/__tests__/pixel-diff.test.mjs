@@ -16,7 +16,7 @@ function writeSolidPng(width, height, [r, g, b, a]) {
     png.data[i + 2] = b;
     png.data[i + 3] = a;
   }
-  const filePath = path.join(os.tmpdir(), `autodocs-pixel-diff-${Date.now()}-${Math.random()}.png`);
+  const filePath = path.join(os.tmpdir(), `docsolace-pixel-diff-${Date.now()}-${Math.random()}.png`);
   fs.writeFileSync(filePath, PNG.sync.write(png));
   tmpFiles.push(filePath);
   return filePath;
@@ -54,7 +54,7 @@ describe('pixelDiffRatio', () => {
 
   it('throws an error naming the file path (not a bare pngjs message) for a corrupt/truncated PNG', () => {
     const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
-    const corruptPath = path.join(os.tmpdir(), `autodocs-pixel-diff-corrupt-${Date.now()}-${Math.random()}.png`);
+    const corruptPath = path.join(os.tmpdir(), `docsolace-pixel-diff-corrupt-${Date.now()}-${Math.random()}.png`);
     fs.writeFileSync(corruptPath, 'not actually a png');
     tmpFiles.push(corruptPath);
 
@@ -66,7 +66,7 @@ describe('pixelDiffRatio', () => {
 
 describe('writeDiffImage', () => {
   function tmpDiffPath() {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-diff-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-diff-test-'));
     tmpDirs.push(dir);
     return path.join(dir, 'nested', 'diff.png');
   }
@@ -91,7 +91,7 @@ describe('writeDiffImage', () => {
 
   it('throws an error naming the file path (not a bare pngjs message) for a corrupt/truncated PNG', () => {
     const a = writeSolidPng(10, 10, [255, 0, 0, 255]);
-    const corruptPath = path.join(os.tmpdir(), `autodocs-diff-corrupt-${Date.now()}-${Math.random()}.png`);
+    const corruptPath = path.join(os.tmpdir(), `docsolace-diff-corrupt-${Date.now()}-${Math.random()}.png`);
     fs.writeFileSync(corruptPath, 'not actually a png');
     tmpFiles.push(corruptPath);
 

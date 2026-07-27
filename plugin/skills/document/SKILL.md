@@ -8,11 +8,11 @@ allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 Arguments: $ARGUMENTS
 
 All commands below run against `${CLAUDE_PROJECT_DIR}` (the project you're
-in) using the AutoDocs engine bundled with this plugin, copied to
+in) using the DocSolace engine bundled with this plugin, copied to
 `${CLAUDE_PLUGIN_DATA}/scripts/` on session start (see `hooks/hooks.json`) —
 run every script as `node "${CLAUDE_PLUGIN_DATA}/scripts/<name>.mjs" ...`,
 never `npm run ...`; the project you're documenting has no reason to have
-AutoDocs' own npm scripts.
+DocSolace's own npm scripts.
 
 ## Autonomy
 
@@ -37,7 +37,7 @@ stops and reports instead of pushing through:
   under "Steps" below); relay the exact `save-auth-state.mjs` command and
   stop.
 - `generate-docs.mjs` (or `generate-product-docs.mjs`, for a product page)
-  refuses because a page was hand-edited outside a `<!-- autodocs:keep -->`
+  refuses because a page was hand-edited outside a `<!-- docsolace:keep -->`
   region (hash mismatch) — never `--force` past this; a human needs to look.
 - `verify-docs.mjs` (Step 6 Ship's first sub-step) reports an **`error`**
   finding — a broken image reference or a dead internal link/anchor
@@ -72,14 +72,14 @@ human's explicit call.
 
 ## Step 0 — first run in this project: bootstrap
 
-If `${CLAUDE_PROJECT_DIR}/autodocs.config.yaml` doesn't exist yet, **or** it
+If `${CLAUDE_PROJECT_DIR}/docsolace.config.yaml` doesn't exist yet, **or** it
 exists but `${CLAUDE_PROJECT_DIR}/tours/` doesn't — a sign a previous
 bootstrap was interrupted (crashed, killed) before it finished; every
 artifact `init-project.mjs` writes is independently idempotent, so it's
 always safe to resume this way — this project needs bootstrapping. Before
 anything else:
 
-1. If `autodocs.config.yaml` doesn't exist yet, ask the user for the app's
+1. If `docsolace.config.yaml` doesn't exist yet, ask the user for the app's
    local base URL (e.g. `http://localhost:3000`) — don't guess a port. If it
    already exists (the resume case above), skip straight to step 2 — the
    existing `baseUrl` is kept, not re-asked.
@@ -89,7 +89,7 @@ anything else:
    ```
    (omit `--base-url` on the resume case; it's only required when writing a
    fresh config, and is ignored otherwise). This writes a real, valid
-   `autodocs.config.yaml` at the project root (live
+   `docsolace.config.yaml` at the project root (live
    `baseUrl`/`viewports`/`outputDir`, plus every optional section — both
    `auth` shapes, `defaultMask`, `pixelDiffThreshold`, `seeds` — as
    commented-out examples right there in the file, so there's no dead
@@ -97,7 +97,7 @@ anything else:
    never overwritten. It also creates whatever's missing among an empty
    `tours/` directory, a short `tours/README.md` "what's next" pointer, and
    — security-critical, don't skip or reimplement this by hand — merges
-   `.autodocs/artifacts/` and `.env` into the project's `.gitignore`
+   `.docsolace/artifacts/` and `.env` into the project's `.gitignore`
    (idempotently; safe to re-run) so a live session-cookie file or
    scripted-login credentials can't get committed by accident, plus a
    `.env.example` if one doesn't already exist. Report whatever it reports —
@@ -113,7 +113,7 @@ anything else:
    `/document init-site` scaffolds a browsable docs site for `docs/`. Then
    stop; there's nothing to capture/generate until a tour exists.
 
-If both `autodocs.config.yaml` and `tours/` already exist, skip straight to
+If both `docsolace.config.yaml` and `tours/` already exist, skip straight to
 the arguments below.
 
 Parse `--review` and `--no-style` out of the arguments wherever they appear
@@ -136,7 +136,7 @@ If the arguments are `status`, follow **"Report project status"** below.
 If the arguments are `init-site`, follow **"Scaffold a docs site"** below —
 this also covers re-applying styling to an already-scaffolded site, so
 there's no separate "restyle" mode.
-Otherwise: run the AutoDocs pipeline — apply the project's design skill (once,
+Otherwise: run the DocSolace pipeline — apply the project's design skill (once,
 if not already applied and `--no-style` wasn't given) → capture → drift gate
 → dispatch dirty tours needing new prose to the `doc-scribe` subagent (plus
 the product pages, if dirty, to `product-scribe` — see "Document the product
@@ -176,7 +176,7 @@ stopping early only at a hard stop (see "Autonomy" above).
 4. Invoke the `tour-scout` subagent with: the slug, the description verbatim,
    the candidate `code_paths` list, the existing tour filenames and fixture
    filenames from step 3, and the app's `baseUrl` (from
-   `autodocs.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
+   `docsolace.config.yaml`). Wait for it to write `tours/<slug>.yaml` — don't
    draft the tour yourself, that exploration is tour-scout's job, grounded in
    what it actually finds by driving the app.
 5. **Check for a hard stop.** Read tour-scout's own report. Any of these
@@ -236,7 +236,7 @@ through" discipline as **"Propose a new tour"** above, just applied across
 many candidate features at once instead of one you were told about.
 
 1. **Preflight.** Config must exist (Step 0 above bootstraps it if not). Note
-   every profile under `autodocs.config.yaml`'s `auth` — each one gets its own
+   every profile under `docsolace.config.yaml`'s `auth` — each one gets its own
    crawl pass below, so a feature gated behind any configured role gets
    found, not just what an anonymous visitor can reach. If `--interactive`
    was requested, this crawl fills in and submits safe-looking forms with
@@ -245,7 +245,7 @@ many candidate features at once instead of one you were told about.
    real data**, before proceeding (in both autonomous and `--review` mode —
    this confirmation is never skipped). `crawl.mjs` itself refuses to run
    interactively unless `crawl.allowInteractive: true` is also set in
-   `autodocs.config.yaml` (see the README's "Mapping a whole app
+   `docsolace.config.yaml` (see the README's "Mapping a whole app
    automatically") — if it reports that, that config flag still needs to be
    turned on deliberately; don't work around it by any other means.
 2. **Discovery crawl.** Run:
@@ -259,7 +259,7 @@ many candidate features at once instead of one you were told about.
    skipped with a clear reason and doesn't abort the run — the report at the
    end calls out anything skipped so you know that role's features may be
    under-covered this run, without blocking discovery of everything else.
-   Writes `.autodocs/artifacts/site-map.json`. This proves *reachability*; it
+   Writes `.docsolace/artifacts/site-map.json`. This proves *reachability*; it
    doesn't replace reading the code (next step), since a route can exist
    without being linked from anywhere any configured profile can reach (e.g.
    gated behind a role nobody's configured, or only reachable via in-app
@@ -272,11 +272,11 @@ many candidate features at once instead of one you were told about.
    a brittle script — same reasoning as `init-site` below). Enumerate real
    features: each one's route, a short description, and its backing
    `code_paths`. Write every route found this way, site-relative
-   (`/foo/bar`, not absolute), to `.autodocs/artifacts/source-routes.json` as
+   (`/foo/bar`, not absolute), to `.docsolace/artifacts/source-routes.json` as
    a plain JSON array — the input for the confirmation crawl next.
 4. **Confirmation crawl.** Run:
    ```
-   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth --routes-file .autodocs/artifacts/source-routes.json --max-depth 0
+   node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth --routes-file .docsolace/artifacts/source-routes.json --max-depth 0
    ```
    Directly visits every route the code review just found, under every auth
    profile plus anonymous, instead of relying on the discovery crawl having
@@ -322,7 +322,7 @@ many candidate features at once instead of one you were told about.
    reachability" note for a gap feature no crawl pass reached. **`--review`
    mode lists every candidate (both confidence levels) and archives
    nothing this run** — ask-first posture, same as gap drafting below.
-6. **Write the doc plan.** Write `.autodocs/artifacts/doc-plan.md`: the
+6. **Write the doc plan.** Write `.docsolace/artifacts/doc-plan.md`: the
    reconciled feature list — slug (run each through the same
    lowercase-kebab-case rule `tours.mjs`'s `assertSafeSlug` enforces),
    route, one-line description, `code_paths`, which role(s) (`reachedBy`)
@@ -385,7 +385,7 @@ yourself. No browser is launched unless a previous `/document map` run left
    ```
    Checks every confirmed/stable tour's `code_paths` still resolves to real
    files (the `code-removed` signal — works standalone, no crawl needed). If
-   `.autodocs/artifacts/site-map.json` and/or `source-routes.json` already
+   `.docsolace/artifacts/site-map.json` and/or `source-routes.json` already
    exist from an earlier `/document map` run, it also checks each tour's
    `goto` step paths against them (`route-unreachable`) — it never crawls or
    reads source itself; run `/document map` first if you want that fuller
@@ -429,9 +429,9 @@ Parses as `product [--review]`. Tours and `doc-scribe` describe individual UI
 flows; this generates the layer above them — up to seven pages, `overview`,
 `getting-started`, `concepts`, `configuration`, `troubleshooting`,
 `changelog`, `decisions`
-(whichever are enabled — see `autodocs.config.yaml`'s `product.pages`,
+(whichever are enabled — see `docsolace.config.yaml`'s `product.pages`,
 default all seven) — describing what the product **is**, grounded in the repo
-itself (README, `package.json`, `.env.example`, `autodocs.config.yaml`,
+itself (README, `package.json`, `.env.example`, `docsolace.config.yaml`,
 `CHANGELOG.md` if present, any `docs/adr/*.md` files, any extra
 `product.sources` globs, and the confirmed tour inventory), never the
 running app. This needs no browser and no tours, so it's runnable
@@ -459,7 +459,7 @@ file documents everywhere else (see `agents/product-scribe.md`'s hard rule).
    `git tag --sort=-creatordate` yourself (you have `Bash(git *)`;
    `product-scribe` doesn't — it only ever gets a file list, never runs
    anything) and write the output, one tag per line, to
-   `.autodocs/artifacts/git-tags.txt` — this is what lets the changelog page
+   `.docsolace/artifacts/git-tags.txt` — this is what lets the changelog page
    ground in a real version history instead of being silently omitted on a
    project with no changelog file. Skip this step entirely for any other
    page combination; it's changelog-specific.
@@ -467,12 +467,12 @@ file documents everywhere else (see `agents/product-scribe.md`'s hard rule).
    Then dispatch the `product-scribe` subagent with: which pages to generate
    (`product.pages`, default all seven), the grounding file list
    (`collectProductSources` — README/package.json/.env.example/
-   autodocs.config.yaml/CHANGELOG.md/`docs/adr/*.md` plus any
+   docsolace.config.yaml/CHANGELOG.md/`docs/adr/*.md` plus any
    `product.sources` globs, already filtered to exclude `.env`/key
    files/`.auth/` — plus
-   `.autodocs/artifacts/git-tags.txt` too, if you just wrote it), and the
+   `.docsolace/artifacts/git-tags.txt` too, if you just wrote it), and the
    confirmed tour inventory (id/title/intent). Wait for it to write
-   `.autodocs/artifacts/prose/_product.json` — don't write this prose
+   `.docsolace/artifacts/prose/_product.json` — don't write this prose
    yourself, same "never invent" discipline as `doc-scribe`. If dirty only
    for `render`, skip this dispatch — the existing prose file is reused
    as-is.
@@ -485,8 +485,8 @@ file documents everywhere else (see `agents/product-scribe.md`'s hard rule).
    content — this is **not** a hard stop, unlike a tour's own generation
    failure; the other pages and every tour still ship), applies the current
    `docs:`/design-style layout and frontmatter, preserves any human-edited
-   `<!-- autodocs:keep -->` regions, and writes
-   `docs/_sidebar.autodocs.json` (the ordered page/section structure
+   `<!-- docsolace:keep -->` regions, and writes
+   `docs/_sidebar.docsolace.json` (the ordered page/section structure
    `init-site` wires the scaffolded site's sidebar to, if one exists). A
    hash-mismatch refusal here (a human edited a page outside its keep-region)
    is a hard stop, same as a tour's — never `--force` past it in this mode.
@@ -505,7 +505,7 @@ tours, without needing a separate `/document product` invocation every time.
 
 ## Validate a project
 
-Preflight-checks `autodocs.config.yaml`, every tour under `tours/`, and the
+Preflight-checks `docsolace.config.yaml`, every tour under `tours/`, and the
 product pages, without launching a browser — catches problems that would
 otherwise only surface mid-run (an undefined `preconditions.auth` profile
 fails partway through `capture.mjs`, after it's already launched a browser).
@@ -560,7 +560,7 @@ a leftover from a tour that was renamed/deleted without going through
 This never changes what a real `/document` run would do — report it plainly
 and stop; don't act on a `dirty` tour or an anomaly yourself here.
 
-`autodocs.config.yaml`'s `docs.stampVerified: true` (opt-in, default off)
+`docsolace.config.yaml`'s `docs.stampVerified: true` (opt-in, default off)
 additionally stamps each generated page's frontmatter with `last_verified:
 "<date> (<short-sha>)"` — the same values this report reads out of
 `state.json`, now visible on the page itself. Flipping it re-renders every
@@ -590,7 +590,7 @@ repo runs it):
      `@easyops-cn/docusaurus-search-local`; if not, apply step 5 below
      (install + config) to this existing site now.
    - **Backfill the sidebar wiring too, unconditionally — same reasoning.**
-     If `docs/_sidebar.autodocs.json` exists but `site/sidebars.js` still
+     If `docs/_sidebar.docsolace.json` exists but `site/sidebars.js` still
      uses the default `{type: 'autogenerated', ...}` array (no reference to
      that file), apply step 6 below to this existing site now.
    - **Backfill the homepage link too, unconditionally — same reasoning
@@ -606,7 +606,7 @@ repo runs it):
      link were backfilled, otherwise there's nothing left to do. Report
      accordingly and stop.
    - Otherwise, re-run **"Apply the project's design skill"** below,
-     ignoring its own "skip if `.autodocs/doc-style.json` already exists"
+     ignoring its own "skip if `.docsolace/doc-style.json` already exists"
      shortcut so it actually re-detects and re-applies, then `cd site && npm
      install && npm run build` (`npm install` is a no-op if step 5 didn't
      just add a new dependency, so always safe to include) to confirm the
@@ -632,7 +632,7 @@ repo runs it):
    - **`markdown: { format: 'md' }` at the top level of the config, sibling
      to `presets`/`themeConfig` — not optional.** Docusaurus's default
      parser treats `.md` files as MDX, and MDX fails to compile the
-     `<!-- autodocs:keep -->` HTML comments `generate-docs.mjs` writes (it
+     `<!-- docsolace:keep -->` HTML comments `generate-docs.mjs` writes (it
      parses `<!--` as JSX and errors). This is a real, verified bug, not a
      hypothetical — confirm by running a build before and after this line
      if you want to see it yourself.
@@ -672,7 +672,7 @@ repo runs it):
    indexes anything under `docs/archive/` automatically — it's just more
    docs-plugin content, no separate config needed.
 6. **Wire the generated sidebar structure, if one exists.**
-   `generate-product-docs.mjs` writes `docs/_sidebar.autodocs.json` — a
+   `generate-product-docs.mjs` writes `docs/_sidebar.docsolace.json` — a
    plain, framework-neutral `{productPages, sections, unsectionedTours}`
    payload — the first time at least one product page has been generated
    (see "Document the product itself"). If that file doesn't exist yet (a
@@ -728,7 +728,7 @@ repo runs it):
     and point at this plugin's own README section "Publishing a docs site"
     for publishing it somewhere. Note which design skill (if any) was
     applied, that search is set up, and whether the sidebar is wired to
-    `docs/_sidebar.autodocs.json` yet or still on the scaffolded default.
+    `docs/_sidebar.docsolace.json` yet or still on the scaffolded default.
 
 ## Apply the project's design skill
 
@@ -739,7 +739,7 @@ wrapped in a `<figure>`), never what `doc-scribe` writes or which UI a tour
 describes, and it never injects a tagline or marketing copy into a generated
 page. Runs once per invocation of the normal pipeline/`propose`/`map`,
 immediately before Step 1 (Capture) under "Steps" below — skip it entirely
-if `--no-style` was passed, or if `.autodocs/doc-style.json` already exists
+if `--no-style` was passed, or if `.docsolace/doc-style.json` already exists
 (nothing to redo; re-running `init-site` above is the explicit way to redo
 it, e.g. after installing or changing a design skill).
 
@@ -762,14 +762,14 @@ it, e.g. after installing or changing a design skill).
    found, name which one was chosen and why in the run's final report.
 4. Distill what the skill actually returned — never invent a value it
    didn't specify — into:
-   - `Write` `.autodocs/doc-style.json` (committed, not gitignored —
+   - `Write` `.docsolace/doc-style.json` (committed, not gitignored —
      generated docs depend on it):
      `{ "skill": "<name>", "page": { ... } }`. The `page` object may set
      `stepsHeading`, `viewportLabels` (per-viewport summary text for the
      collapsed blocks non-primary viewports render into — see
-     `autodocs.config.yaml`'s `docs:` section for which viewport stays
+     `docsolace.config.yaml`'s `docs:` section for which viewport stays
      primary), and `figures` (wraps each screenshot in
-     `<figure class="autodocs-figure">` for the theme to style — leave this
+     `<figure class="docsolace-figure">` for the theme to style — leave this
      `false` unless the skill's own guidance calls for a captioned/framed
      screenshot treatment). Every value here passes through
      `lib/design.mjs`'s `loadDocStyle` validation (plain single-line labels,
@@ -779,13 +779,13 @@ it, e.g. after installing or changing a design skill).
      `site/src/css/custom.css` (Infima's `--ifm-color-primary` ramp and
      fonts) and `site/docusaurus.config.js`'s `themeConfig` (logo — use the
      skill's own light/dark-safe asset, never recreate one — and favicon),
-     plus CSS rules for the `.autodocs-viewport`/`.autodocs-figure` classes
+     plus CSS rules for the `.docsolace-viewport`/`.docsolace-figure` classes
      `lib/docgen.mjs` emits (style the `<summary>` and the collapsed block;
      don't fight `<details>`'s native disclosure behavior).
 5. Report which skill (if any) was applied. A generated page itself only
    picks up a layout/style change (e.g. a new `stepsHeading`) the next time
    `/document` runs against it — the render hash in
-   `.autodocs/artifacts/state.json` makes that automatic, no `--force`
+   `.docsolace/artifacts/state.json` makes that automatic, no `--force`
    needed (see "Check drift" under "Steps" below).
 
 ## Steps
@@ -793,7 +793,7 @@ it, e.g. after installing or changing a design skill).
 Runs against whichever tour(s) were resolved above (one slug, or every
 `tours/*.yaml` plus the product pages, on a no-slug run — see Steps 2–4's
 call-outs below). Unless `--no-style` was passed or
-`.autodocs/doc-style.json` already exists, run **"Apply the project's design
+`.docsolace/doc-style.json` already exists, run **"Apply the project's design
 skill"** above first. In `--review` mode, stop after Step 5's summary — the
 same behavior as before autonomy existed. Otherwise (the default), continue
 into Step 6 and ship a PR.
@@ -861,7 +861,7 @@ failure, report the exact fix (`gh auth login`) and stop.
    check reports dirty for `screenshots` and/or `code` (not the render-only
    ones), invoke the `doc-scribe` subagent with that tour's file slug as its
    task input. Wait for it to write
-   `.autodocs/artifacts/prose/<tour-id>.json` before continuing — do not
+   `.docsolace/artifacts/prose/<tour-id>.json` before continuing — do not
    write any prose yourself, that's the subagent's job, done in an isolated
    context so it doesn't pollute this session. A render-only dirty tour
    skips this step entirely — `generate-docs.mjs` (next step) reuses its
@@ -877,10 +877,10 @@ failure, report the exact fix (`gh auth login`) and stop.
    This reads whatever prose exists (freshly written by doc-scribe, or
    reused as-is for a render-only tour), applies the pixel-diff gate to
    screenshots, applies the current `docs:`/design-style layout, preserves
-   any human-edited `<!-- autodocs:keep -->` regions, and advances that
+   any human-edited `<!-- docsolace:keep -->` regions, and advances that
    tour's entry (including its render hash) in
-   `.autodocs/artifacts/state.json`. A hash-mismatch refusal here (a human
-   edited a page outside its `autodocs:keep` region) is a hard stop — never
+   `.docsolace/artifacts/state.json`. A hash-mismatch refusal here (a human
+   edited a page outside its `docsolace:keep` region) is a hard stop — never
    `--force` past it. **On a no-slug run, if `_product` was dirty at all**,
    also run
    `node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs"` (no
@@ -923,13 +923,13 @@ failure, report the exact fix (`gh auth login`) and stop.
       before it's pushed, and it becomes part of the commit/PR body.
    4. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
       `docs/archive/**` (any tour this run archived — see "Prune orphaned
-      tours"/"Map the whole app" step 5), `docs/_sidebar.autodocs.json` (only
+      tours"/"Map the whole app" step 5), `docs/_sidebar.docsolace.json` (only
       if this run wrote or changed it — see "Document the product itself"),
       any `tours/*.yaml` this run wrote, confirmed, or archived, and — only
-      if this run applied or changed one — `.autodocs/doc-style.json`
+      if this run applied or changed one — `.docsolace/doc-style.json`
       (committed, not gitignored) plus any
       `site/src/css/custom.css`/`site/docusaurus.config.js` theming edits.
-      Never stage `.autodocs/artifacts/` (gitignored; it's local working
+      Never stage `.docsolace/artifacts/` (gitignored; it's local working
       state, not a deliverable) or anything else in the working tree
       unrelated to this run.
    5. Commit (message: which tour(s) changed and why — code, screenshots, or
@@ -943,7 +943,7 @@ failure, report the exact fix (`gh auth login`) and stop.
 
 Never hand-write or hand-edit anything under `docs/` yourself in this
 skill — every page in `docs/` is either subagent-authored prose assembled by
-`generate-docs.mjs`, a human edit inside a `<!-- autodocs:keep -->` region,
+`generate-docs.mjs`, a human edit inside a `<!-- docsolace:keep -->` region,
 or (only under `docs/archive/`) `archive-tour.mjs`'s own banner prepended at
 archive time. If a step above fails, stop and report it rather than working around
 it. If a script fails with a missing-dependency or missing-browser error,

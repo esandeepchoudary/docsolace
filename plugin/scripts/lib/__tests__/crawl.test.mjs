@@ -353,13 +353,13 @@ describe('crawl', () => {
 
     const siteMap = await crawl(page, { baseUrl, interactive: true });
 
-    expect(locatorCalls).toContain('[data-autodocs-crawl-id="input-0-0"]');
-    expect(locatorCalls).toContain('[data-autodocs-crawl-id="submit-0"]');
-    expect(locatorCalls).toContain('[data-autodocs-crawl-id="button-0"]');
+    expect(locatorCalls).toContain('[data-docsolace-crawl-id="input-0-0"]');
+    expect(locatorCalls).toContain('[data-docsolace-crawl-id="submit-0"]');
+    expect(locatorCalls).toContain('[data-docsolace-crawl-id="button-0"]');
 
-    expect(locatorCalls).not.toContain('[data-autodocs-crawl-id="input-1-0"]');
-    expect(locatorCalls).not.toContain('[data-autodocs-crawl-id="submit-1"]');
-    expect(locatorCalls).not.toContain('[data-autodocs-crawl-id="button-1"]');
+    expect(locatorCalls).not.toContain('[data-docsolace-crawl-id="input-1-0"]');
+    expect(locatorCalls).not.toContain('[data-docsolace-crawl-id="submit-1"]');
+    expect(locatorCalls).not.toContain('[data-docsolace-crawl-id="button-1"]');
 
     expect(siteMap[0].interactions).toEqual([
       { type: 'submitForm', formIndex: 0, submitText: 'Search' },
@@ -382,7 +382,7 @@ describe('crawl', () => {
     const originalLocator = page.locator;
     page.locator = (selector) => {
       const result = originalLocator(selector);
-      if (selector === '[data-autodocs-crawl-id="submit-0"]') {
+      if (selector === '[data-docsolace-crawl-id="submit-0"]') {
         return { ...result, click: async () => { await page.goto('http://localhost:3000/search?q=x'); } };
       }
       return result;

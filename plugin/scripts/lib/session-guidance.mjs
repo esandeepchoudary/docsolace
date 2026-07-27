@@ -2,7 +2,7 @@
 // SessionStart hook (see hooks/hooks.json and scripts/session-guidance.mjs).
 //
 // This ports this project's own "Tutorial-need check" convention (previously
-// only written down in AutoDocs' own CLAUDE.md, so it never reached a
+// only written down in DocSolace's own CLAUDE.md, so it never reached a
 // project that merely installs the plugin) so it travels with the plugin
 // itself. It is deliberately *soft* guidance, not an automated trigger: the
 // brief (§8 Phase 7) explicitly rejects a git hook that heuristically
@@ -16,13 +16,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const CONFIG_FILENAME = 'autodocs.config.yaml';
+const CONFIG_FILENAME = 'docsolace.config.yaml';
 
-const NOT_INITIATED_GUIDANCE = `AutoDocs is installed in this project but hasn't been set up yet (no \
-autodocs.config.yaml). Run \`/document\` to bootstrap it — it will ask for the app's base URL and \
+const NOT_INITIATED_GUIDANCE = `DocSolace is installed in this project but hasn't been set up yet (no \
+docsolace.config.yaml). Run \`/document\` to bootstrap it — it will ask for the app's base URL and \
 scaffold a starter config and empty tours/ directory. Nothing else below applies until then.`;
 
-const INITIATED_GUIDANCE = `AutoDocs is installed and set up in this project. When you finish \
+const INITIATED_GUIDANCE = `DocSolace is installed and set up in this project. When you finish \
 implementing a user-facing feature or flow, before wrapping up, evaluate whether it's worth a \
 tutorial and surface that to the user — don't silently decide either way.
 

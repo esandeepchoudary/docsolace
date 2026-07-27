@@ -14,7 +14,7 @@ Show how to export the current activity table as a CSV.
 
    ![Export CSV button visible on the dashboard](images/dashboard-export/export-button@desktop.png)
 
-   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <details class="docsolace-viewport docsolace-viewport--mobile">
    <summary>Mobile view</summary>
 
    ![Export CSV button visible on the dashboard (mobile)](images/dashboard-export/export-button@mobile.png)
@@ -27,7 +27,7 @@ Show how to export the current activity table as a CSV.
 
    ![Confirmation message after exporting](images/dashboard-export/export-confirmed@desktop.png)
 
-   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <details class="docsolace-viewport docsolace-viewport--mobile">
    <summary>Mobile view</summary>
 
    ![Confirmation message after exporting (mobile)](images/dashboard-export/export-confirmed@mobile.png)
@@ -36,6 +36,6 @@ Show how to export the current activity table as a CSV.
 
    After clicking Export CSV, a confirmation message appears next to the buttons showing how many rows were exported — matching the row count currently visible in the table below.
 
-<!-- autodocs:keep -->
+<!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->
-<!-- /autodocs:keep -->
+<!-- /docsolace:keep -->

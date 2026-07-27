@@ -3,7 +3,7 @@
 Edge cases beyond the common path: uploads, forms, async waits, CAPTCHA,
 non-password logins, third-party integrations, seed data, voice input,
 mapping a whole app automatically, running without Claude Code, and CI.
-Part of [AutoDocs](./README.md).
+Part of [DocSolace](./README.md).
 
 Not needed for the common path described in the main [README](./README.md) — reach for these when you hit the
 specific case: uploading a file, filling out forms, waiting on async
@@ -120,7 +120,7 @@ drift/pixel-diff result every run.
 
 ## CAPTCHA
 
-AutoDocs doesn't attempt to solve, guess past, or script around a CAPTCHA —
+DocSolace doesn't attempt to solve, guess past, or script around a CAPTCHA —
 that's a different kind of feature than "drive an app that trusts you," and
 not one this project builds. If a flow you want documented is
 CAPTCHA-gated, the realistic path is the same one this project already uses
@@ -130,7 +130,7 @@ CAPTCHA for testing, rather than trying to defeat it.
 
 ## If your app doesn't use a plain username/password login
 
-The `auth` profile shape shown in `autodocs.config.yaml` — fill a username
+The `auth` profile shape shown in `docsolace.config.yaml` — fill a username
 field, fill a password field, click submit — only covers that one flow. For
 OAuth, SSO, a magic link, 2FA, or anything else too varied to script
 reliably, give the profile a `storageStatePath` instead:
@@ -138,7 +138,7 @@ reliably, give the profile a `storageStatePath` instead:
 ```yaml
 auth:
   oauth-user:
-    storageStatePath: .autodocs/artifacts/.auth/oauth-user.manual.json
+    storageStatePath: .docsolace/artifacts/.auth/oauth-user.manual.json
 ```
 
 Then record a session for it once — this opens a real, visible browser
@@ -173,7 +173,7 @@ set at all.
 ## Third-party integrations (Slack, Google, Stripe, etc.)
 
 A "Connect to Slack" button that pops open a real OAuth consent screen on
-someone else's domain isn't something AutoDocs scripts through — same call
+someone else's domain isn't something DocSolace scripts through — same call
 as CAPTCHA above, and for the same reasons: a third party's login/consent
 UI changes without notice, can add MFA at any time, and automating it
 starts to look like credential automation against a service you don't
@@ -185,14 +185,14 @@ The fix is the same idea as OAuth/SSO login above, just applied to the
 it once, out of band, in whatever environment you capture against (most
 apps happily keep an integration connected indefinitely once it's set up),
 then write the tour against the already-connected UI. There's nothing
-AutoDocs-specific to configure for this — it's just making sure the
+DocSolace-specific to configure for this — it's just making sure the
 environment your tours run against already has the integration turned on
 before you draft or capture anything that assumes it.
 
 ## Reproducible data with seeds
 
 A tour's `preconditions.seed` names a fixture — declared under
-`autodocs.config.yaml`'s `seeds` map — so a data-dependent flow captures
+`docsolace.config.yaml`'s `seeds` map — so a data-dependent flow captures
 against the same data every run instead of whatever happens to be there.
 Most apps don't need anything to actually *run*: static/demo data (like this
 repo's own `demo-baseline`) just needs a `description` and capture treats it
@@ -247,7 +247,7 @@ non-deterministic even when it's working correctly.
 
 ## Mapping a whole app automatically
 
-`/autodocs:document map` discovers what to document instead of you naming
+`/docsolace:document map` discovers what to document instead of you naming
 one feature at a time, via three complementary passes designed to actually
 reach *every* feature, not just whatever's linked from the homepage:
 
@@ -277,14 +277,14 @@ node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth
 
 By **default the crawl is read-only**: it navigates same-origin links and
 records what it finds — page titles, and the buttons/forms/links present —
-into `.autodocs/artifacts/site-map.json`, tagging each page with
+into `.docsolace/artifacts/site-map.json`, tagging each page with
 `reachedBy: [...]` (which profile(s), or `"anonymous"`, reached it). It never
 submits a form or clicks an action button in this mode. Bounded by
 `crawl.maxPages` / `crawl.maxDepth` in config (defaults: 50 pages, depth 4)
 so it can't run away on a large app, and it never follows a logout/sign-out
 link (that would kill its own session mid-crawl) or leave the app's origin.
 
-`--all-auth` runs one crawl pass per profile under `autodocs.config.yaml`'s
+`--all-auth` runs one crawl pass per profile under `docsolace.config.yaml`'s
 `auth` map, plus one signed-out pass, and merges them (unioning
 `reachedBy`/affordances per route, keeping the shallowest depth any pass
 found it at) — pass a single `--auth <profile>` instead for just one role, or
@@ -299,7 +299,7 @@ never blocks mapping the rest of the app.
 link-following BFS, it directly visits every site-relative route listed in
 the given JSON array (one per line, e.g.
 `["/", "/dashboard", "/admin/users"]`) — the route list `/document map`
-writes to `.autodocs/artifacts/source-routes.json` after reading the app's
+writes to `.docsolace/artifacts/source-routes.json` after reading the app's
 source. Combine it with `--max-depth 0` (no following links out from these
 routes) and `--all-auth` to probe every source-declared route under every
 role in one pass. A route that redirects to a login/error page under a given
@@ -314,7 +314,7 @@ security conventions.
 submits forms with synthetic data, and clicks buttons, to reach states a
 pure link-crawl can't reach on its own (e.g. a search results page). This
 is **double opt-in, off by default** — it requires *both* the `--interactive`
-flag *and* `crawl.allowInteractive: true` in `autodocs.config.yaml`, the
+flag *and* `crawl.allowInteractive: true` in `docsolace.config.yaml`, the
 same shape as `allowSeedCommands` above, since a crawler that submits forms
 on a real authenticated app can trigger real side effects (an email sent, a
 support ticket filed) if pointed at anything but a throwaway/dev
@@ -334,7 +334,7 @@ crawl:
 
 After both crawls, `/document map` reads the app's own routing/source to name
 each feature and its backing files, cross-checks that against the merged
-`site-map.json`, and writes `.autodocs/artifacts/doc-plan.md` — the
+`site-map.json`, and writes `.docsolace/artifacts/doc-plan.md` — the
 reconciled list (each feature's route, description, `code_paths`, and which
 role(s) reached it, or a flag if none did) plus a suggested section
 structure, and the audit trail for what gets drafted next (all of it, by
@@ -351,7 +351,7 @@ confusing error the next time it runs.
 reconciliation), or run just this check on its own:
 
 ```
-/autodocs:document prune
+/docsolace:document prune
 ```
 
 It flags a **confirmed** tour as an orphan candidate on two mechanical
@@ -390,7 +390,7 @@ tours are — its feature is gone, so there's nothing left to capture.
 
 ## Running it without Claude Code
 
-The plugin is the primary way to use AutoDocs, but the pipeline underneath
+The plugin is the primary way to use DocSolace, but the pipeline underneath
 it is just plain Node scripts — nothing about it requires Claude Code. This
 repo bundles a tiny demo app (a login page + dashboard) so you can see the
 whole loop work without installing the plugin at all.
@@ -415,7 +415,7 @@ cat docs/login.md        # <- look at what it wrote
 That's the whole loop: a real screenshot went in, a grounded Markdown
 tutorial came out.
 
-Everyday commands, once you've got your own `autodocs.config.yaml` and
+Everyday commands, once you've got your own `docsolace.config.yaml` and
 `tours/` (see ["Configuring tours and auth"](./CONFIGURATION.md)):
 
 | Command | What it does |
@@ -427,14 +427,14 @@ Everyday commands, once you've got your own `autodocs.config.yaml` and
 | `npm run drift` | Show which tours changed, without generating anything |
 | `npm run status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
-| `npm run generate-product-docs` | Write/update the enabled product-level pages (overview/getting-started/concepts/configuration/troubleshooting/changelog) from `.autodocs/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
+| `npm run generate-product-docs` | Write/update the enabled product-level pages (overview/getting-started/concepts/configuration/troubleshooting/changelog) from `.docsolace/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
 | `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
 | `npm run verify-docs` | Check every image reference and internal link/anchor under `docs/` resolves (add `--build` to also build `site/`) — run before a docs PR opens |
-| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.autodocs/artifacts/diff-report.html` |
-| `npm test` | Run the unit test suite (for anyone changing AutoDocs itself, not required to just use it) |
+| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.docsolace/artifacts/diff-report.html` |
+| `npm test` | Run the unit test suite (for anyone changing DocSolace itself, not required to just use it) |
 
-These are the exact same scripts `/autodocs:document` calls under the hood —
+These are the exact same scripts `/docsolace:document` calls under the hood —
 see ["Developing on the plugin itself"](./CONTRIBUTING.md#developing-on-the-plugin-itself).
 
 ## CI (optional, off by default)
@@ -443,7 +443,7 @@ see ["Developing on the plugin itself"](./CONTRIBUTING.md#developing-on-the-plug
 and open a PR with anything that changed, but it's parked on manual trigger
 (`workflow_dispatch`) rather than firing automatically — this is a
 solo-developer tool, so running things yourself is the default, not
-something to set up before you can use AutoDocs. If you ever want it
+something to set up before you can use DocSolace. If you ever want it
 automatic (e.g. on every merge to `main`), the job is ready; you'd flip its
 `on:` trigger and set an `ANTHROPIC_API_KEY` repo secret.
 

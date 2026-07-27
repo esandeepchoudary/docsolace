@@ -83,7 +83,7 @@ export function withFileLock(filePath, fn, { retries = 200, retryDelayMs = 20 } 
       }
       if (attempt >= retries) {
         throw new Error(
-          `Timed out waiting for lock on "${filePath}" (held by another AutoDocs process?). ` +
+          `Timed out waiting for lock on "${filePath}" (held by another DocSolace process?). ` +
             `Delete "${lockPath}" if you're sure nothing else is running.`,
         );
       }
