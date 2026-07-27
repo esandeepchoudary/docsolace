@@ -1,6 +1,7 @@
 import clsx from 'clsx';
 import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
+import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
 
 import Heading from '@theme/Heading';
@@ -15,6 +16,11 @@ function HomepageHeader() {
           {siteConfig.title}
         </Heading>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
+        <img
+          src={useBaseUrl('/img/og.png')}
+          alt={siteConfig.title}
+          className={styles.heroImage}
+        />
         <div className={styles.buttons}>
           <Link className="button button--secondary button--lg" to="/docs/overview">
             Browse the docs

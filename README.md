@@ -1,5 +1,7 @@
 # DocSolace
 
+![DocSolace](.github/social-preview.png)
+
 Claude Code plugin that drives your running web app with Playwright, takes
 screenshots, and writes tutorial-style Markdown docs that stay in sync as the
 app changes — screenshot-driven, docs-as-code, built for solo developers.

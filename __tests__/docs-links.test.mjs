@@ -49,8 +49,8 @@ function extractHeadingSlugs(text) {
   return slugs;
 }
 
-// [text](target) — ignore image embeds (![alt](src)), which this test
-// doesn't need to check.
+// [text](target) — ignore image embeds (![alt](src)), checked separately
+// below by extractImages.
 const LINK_RE = /(?<!!)\[[^\]]*\]\(([^)]+)\)/g;
 
 function extractLinks(text) {
@@ -60,6 +60,18 @@ function extractLinks(text) {
     links.push(match[1]);
   }
   return links;
+}
+
+// ![alt](src) — e.g. the README's social-preview banner.
+const IMAGE_RE = /!\[[^\]]*\]\(([^)]+)\)/g;
+
+function extractImages(text) {
+  const images = [];
+  let match;
+  while ((match = IMAGE_RE.exec(text))) {
+    images.push(match[1]);
+  }
+  return images;
 }
 
 const fileCache = new Map();
@@ -105,6 +117,24 @@ describe('top-level docs cross-links', () => {
               `dead anchor: ${target} (#${anchor} not found in ${targetPath})`
             );
           }
+        }
+      }
+
+      expect(problems, problems.join('\n')).toEqual([]);
+    });
+
+    it(`every image embed in ${docFile} resolves`, () => {
+      const text = readDoc(docFile);
+      expect(text, `${docFile} should exist`).not.toBeNull();
+
+      const images = extractImages(text).filter((target) => !/^https?:/i.test(target));
+
+      const problems = [];
+      for (const target of images) {
+        const targetPath = path.posix.normalize(path.posix.join(path.posix.dirname(docFile), target));
+        const abs = path.join(repoRoot, targetPath);
+        if (!fs.existsSync(abs)) {
+          problems.push(`dead image: ${target} (resolved to ${targetPath})`);
         }
       }
 
