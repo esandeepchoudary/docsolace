@@ -134,16 +134,21 @@ outputDir: .autodocs/artifacts
 #
 # Controls \`/autodocs:document product\` — the generated product-level pages
 # describing the product itself: overview/getting-started/concepts plus
-# configuration/troubleshooting/changelog where there's something real to
-# ground them in (see the README's "Documenting the product itself"). "pages"
-# defaults to all six — an ungrounded one (e.g. no CHANGELOG.md, no
-# troubleshooting section in your README) is just skipped and reported, no
-# config needed to turn it off. "sources" adds extra grounding files/globs
-# beyond the standing README.md / package.json / .env.example /
-# autodocs.config.yaml / CHANGELOG.md set.
+# configuration/troubleshooting/changelog/decisions where there's something
+# real to ground them in (see the README's "Documenting the product
+# itself"). "pages" defaults to all seven — an ungrounded one (e.g. no
+# CHANGELOG.md, no troubleshooting section in your README, no docs/adr/
+# directory) is just skipped and reported, no config needed to turn it off.
+# "decisions" needs no config at all — drop Architecture Decision Record
+# files under docs/adr/*.md and they're picked up automatically, same as
+# CHANGELOG.md; it's the one page where "why" a decision was made is ever in
+# scope, and only a decision a human actually wrote down, never inferred
+# from code. "sources" adds extra grounding files/globs beyond the standing
+# README.md / package.json / .env.example / autodocs.config.yaml /
+# CHANGELOG.md / docs/adr/*.md set.
 # product:
 #   name: "My App"
-#   pages: [overview, getting-started, concepts, configuration, troubleshooting, changelog]
+#   pages: [overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions]
 #   sources:
 #     - "docs-src/**/*.md"
 `;

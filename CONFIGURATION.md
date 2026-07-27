@@ -164,12 +164,14 @@ Two more optional `autodocs.config.yaml` sections, both consumed by
 ```yaml
 product:
   name: "My App"                                  # optional; defaults to package.json's name
-  pages: [overview, getting-started, concepts,     # default: all six — configuration/
-    configuration, troubleshooting, changelog]     # troubleshooting/changelog just get skipped
-                                                    # when there's nothing to ground them in
+  pages: [overview, getting-started, concepts,     # default: all seven — configuration/
+    configuration, troubleshooting, changelog,     # troubleshooting/changelog/decisions just
+    decisions]                                     # get skipped when there's nothing to
+                                                    # ground them in
   sources:                                         # extra grounding files/globs, beyond the
     - "docs-src/**/*.md"                           # standing README/package.json/.env.example/
-                                                    # autodocs.config.yaml/CHANGELOG.md set
+                                                    # autodocs.config.yaml/CHANGELOG.md/
+                                                    # docs/adr/*.md set
 docs:
   sections:                                        # groups tour pages in the generated sidebar
     - label: "Getting started"                     # (docs/_sidebar.autodocs.json); a tour named
@@ -179,11 +181,19 @@ docs:
 ```
 
 Every tour page always gets a `sidebar_position` (the product pages pin
-above them at 1–6) so the sidebar sorts deterministically even without
+above them at 1–7) so the sidebar sorts deterministically even without
 `docs.sections` — grouping into named categories is the opt-in part, not the
 ordering. `product.sources` entries must be project-relative globs (no
 absolute paths, no `..` segments) — `/document validate` warns if one
 matches nothing, or if `docs.sections` names a tour that doesn't exist.
 `product-scribe` never reads `.env`, key/credential files, or anything under
 a `.auth/` directory, no matter what a glob would otherwise match.
+
+The `decisions` page needs no config at all: drop one or more Architecture
+Decision Record files under `docs/adr/*.md` and it's picked up automatically,
+same zero-config detection as `CHANGELOG.md`. It's the one page where
+`product-scribe` is allowed to describe *why* something was built a certain
+way — but only a decision a human actually wrote down; it never infers or
+guesses rationale from code or config. No `docs/adr/` directory → the page
+is simply skipped, same as any other ungrounded page.
 

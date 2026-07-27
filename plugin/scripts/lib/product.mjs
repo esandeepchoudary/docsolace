@@ -26,6 +26,16 @@ import { KEEP_END, KEEP_START } from './docgen.mjs';
 // one is simply skipped and reported (see agents/product-scribe.md), never
 // padded, so a project with no CHANGELOG.md/troubleshooting section pays
 // nothing beyond "skipped" showing up in the run summary.
+//
+// decisions (position 7, appended rather than interleaved — same "add at
+// the tail, don't renumber existing pages" precedent as troubleshooting/
+// changelog before it) surfaces human-written architectural decision
+// records: never AI-inferred rationale (why a framework/pattern was
+// chosen), only decisions someone actually wrote down — see
+// collectAdrSources below and agents/product-scribe.md's hard rule for this
+// page. Skipped like any other page when there's nothing to ground it in
+// (no ADR directory in the project at all), so a project that doesn't use
+// this convention pays nothing beyond "skipped" in the run summary.
 export const PRODUCT_PAGES = [
   { id: 'overview', title: 'Overview', sidebarLabel: 'Overview', sidebarPosition: 1, includeTourIndex: true },
   { id: 'getting-started', title: 'Getting started', sidebarLabel: 'Getting started', sidebarPosition: 2, includeTourIndex: false },
@@ -33,6 +43,7 @@ export const PRODUCT_PAGES = [
   { id: 'configuration', title: 'Configuration', sidebarLabel: 'Configuration', sidebarPosition: 4, includeTourIndex: false },
   { id: 'troubleshooting', title: 'Troubleshooting', sidebarLabel: 'Troubleshooting', sidebarPosition: 5, includeTourIndex: false },
   { id: 'changelog', title: 'Changelog', sidebarLabel: 'Changelog', sidebarPosition: 6, includeTourIndex: false },
+  { id: 'decisions', title: 'Decisions', sidebarLabel: 'Decisions', sidebarPosition: 7, includeTourIndex: false },
 ];
 
 export const PRODUCT_PAGE_IDS = PRODUCT_PAGES.map((p) => p.id);
@@ -134,6 +145,16 @@ export function collectProductSources(cwd, config) {
   const files = new Set();
   for (const rel of DEFAULT_SOURCES) {
     if (fs.existsSync(path.join(cwd, rel))) files.add(rel);
+  }
+  // Architecture Decision Records — a well-known convention (docs/adr/*.md,
+  // per Michael Nygard's original ADR format), auto-detected the same
+  // zero-config way DEFAULT_SOURCES is: included only when a human actually
+  // wrote one there. This is the *only* thing that grounds the 'decisions'
+  // page (see PRODUCT_PAGES above) — no directory, no page, by design
+  // (never an AI-inferred substitute for someone writing down why a
+  // decision was made — see agents/product-scribe.md's hard rule for it).
+  for (const rel of globSync('docs/adr/*.md', { cwd, nodir: true, ignore: SOURCE_IGNORE })) {
+    files.add(rel);
   }
   for (const pattern of config?.product?.sources ?? []) {
     // nobrace: true — brace expansion (e.g. "{..,x}/*") is not a feature

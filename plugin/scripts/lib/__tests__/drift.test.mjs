@@ -8,6 +8,7 @@ import {
   getDirtyReasons,
   isRenderOnlyDirty,
   isTourDirty,
+  resolveChangedCodePaths,
   resolveCodePathFiles,
 } from '../drift.mjs';
 
@@ -90,6 +91,96 @@ describe('computeCodePathsHash', () => {
     const after = computeCodePathsHash(['Dashboard.jsx'], dir);
 
     expect(after).toBe(before);
+  });
+});
+
+describe('resolveChangedCodePaths', () => {
+  it('lists a code_path file that changed since the given commit', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    commitAll(dir, 'initial');
+    const since = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v2');
+    commitAll(dir, 'update');
+
+    expect(resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: since, cwd: dir })).toEqual([
+      'Dashboard.jsx',
+    ]);
+  });
+
+  it('returns an empty list when nothing in code_paths changed since the given commit', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    fs.writeFileSync(path.join(dir, 'Login.jsx'), 'v1');
+    commitAll(dir, 'initial');
+    const since = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+
+    fs.writeFileSync(path.join(dir, 'Login.jsx'), 'v2'); // outside code_paths
+    commitAll(dir, 'unrelated update');
+
+    expect(resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: since, cwd: dir })).toEqual([]);
+  });
+
+  it('only lists the code_path files that actually changed, not every one declared', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    fs.writeFileSync(path.join(dir, 'Dashboard.css'), 'v1');
+    commitAll(dir, 'initial');
+    const since = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v2');
+    commitAll(dir, 'update jsx only');
+
+    expect(
+      resolveChangedCodePaths({ codePaths: ['Dashboard.jsx', 'Dashboard.css'], sinceCommit: since, cwd: dir }),
+    ).toEqual(['Dashboard.jsx']);
+  });
+
+  it('returns an empty list when sinceCommit is undefined (no previous generation to diff against)', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    commitAll(dir, 'initial');
+
+    expect(resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: undefined, cwd: dir })).toEqual([]);
+  });
+
+  it("returns an empty list when sinceCommit is 'unknown' (a state entry that predates commit tracking)", () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    commitAll(dir, 'initial');
+
+    expect(resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: 'unknown', cwd: dir })).toEqual([]);
+  });
+
+  it('degrades to an empty list, rather than throwing, when sinceCommit does not resolve to a real commit', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    fs.writeFileSync(path.join(dir, 'Dashboard.jsx'), 'v1');
+    commitAll(dir, 'initial');
+
+    expect(() =>
+      resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: 'deadbeef0000', cwd: dir }),
+    ).not.toThrow();
+    expect(resolveChangedCodePaths({ codePaths: ['Dashboard.jsx'], sinceCommit: 'deadbeef0000', cwd: dir })).toEqual(
+      [],
+    );
+  });
+
+  it('returns an empty list when code_paths resolves to no files at all', () => {
+    const dir = mkTmpDir();
+    initGitRepo(dir);
+    execFileSync('git', ['commit', '-q', '--allow-empty', '-m', 'empty initial commit'], { cwd: dir });
+    const since = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: dir, encoding: 'utf8' }).trim();
+
+    expect(resolveChangedCodePaths({ codePaths: ['nothing-matches-*.jsx'], sinceCommit: since, cwd: dir })).toEqual(
+      [],
+    );
   });
 });
 

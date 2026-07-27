@@ -170,7 +170,7 @@ there:
 | `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
 | `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
 | `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
-| `/autodocs:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog where grounded (via the `product-scribe` subagent), then ship |
+| `/autodocs:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded (via the `product-scribe` subagent), then ship |
 | `/autodocs:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
 | `/autodocs:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
 | `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
@@ -231,21 +231,29 @@ above), unless it hits one of that section's hard stops. See
 Tours describe individual UI flows; a separate, smaller set of pages
 describes the product as a whole so a fresh reader lands somewhere that
 actually explains what they're looking at instead of an alphabetical list of
-tutorials. `/autodocs:document product` (re)generates up to six pages —
+tutorials. `/autodocs:document product` (re)generates up to seven pages —
 `docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md`,
-`docs/configuration.md`, `docs/troubleshooting.md`, `docs/changelog.md` — via
+`docs/configuration.md`, `docs/troubleshooting.md`, `docs/changelog.md`,
+`docs/decisions.md` — via
 the `product-scribe` subagent, grounded strictly in files already in your
 repo: `README.md`, `package.json`, `.env.example`, `autodocs.config.yaml`,
-`CHANGELOG.md` (if present), any extra globs you list under
+`CHANGELOG.md` (if present), any `docs/adr/*.md` files, any extra globs you
+list under
 `product.sources`, and the confirmed tour inventory (id/title/intent) — never
 the running app, and never `.env`, key/credential files, or anything under a
 `.auth/` directory, even if a glob would otherwise match them. If a page has
 nothing real to ground it in (e.g. no `README.md` at all, no troubleshooting
-section, no changelog), it's skipped and reported rather than padded with
-invented content — the last three pages are exactly this by default on a
+section, no changelog, no `docs/adr/` directory), it's skipped and reported
+rather than padded with
+invented content — the last four pages are exactly this by default on a
 project that doesn't have their grounding, no config needed to turn them
 off. With no `CHANGELOG.md`, the changelog page falls back to your repo's own
 git tags (newest first) as a bare version history instead of being skipped.
+`decisions` is narrower still: it only ever surfaces a decision a human
+actually wrote down in a `docs/adr/*.md` file (the well-known "Architecture
+Decision Record" convention) — `product-scribe` never infers or guesses
+*why* something was built a certain way, even when the reasoning seems
+obvious from the code.
 
 This isn't a separate chore — the normal no-argument `/autodocs:document` run
 keeps these pages in sync automatically too, the same drift-gated way it
@@ -288,8 +296,8 @@ scripts; see
 
 Alongside tours, the same capture → drift → generate shape maintains the
 product-level pages — overview/getting-started/concepts plus configuration/
-troubleshooting/changelog where grounded (see "It also documents the product
-itself" above) — except step 1 (capture) doesn't apply
+troubleshooting/changelog/decisions where grounded (see "It also documents
+the product itself" above) — except step 1 (capture) doesn't apply
 to them at all: there's no browser involved, their "ground truth" is the
 repo's own README/package.json/config/tour inventory instead of an
 accessibility snapshot.
