@@ -15,7 +15,7 @@ import {
 const tmpDirs = [];
 
 function mkTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-drift-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-drift-test-'));
   tmpDirs.push(dir);
   return dir;
 }

@@ -11,7 +11,7 @@ describe('plugin.json', () => {
   );
 
   it('has a kebab-case name and a description', () => {
-    expect(manifest.name).toBe('autodocs');
+    expect(manifest.name).toBe('docsolace');
     expect(manifest.description?.length).toBeGreaterThan(0);
   });
 
@@ -104,7 +104,7 @@ describe('.claude-plugin/marketplace.json (repo root)', () => {
   });
 
   it('lists the plugin with a relative source pointing at ./plugin', () => {
-    const entry = marketplace.plugins.find((p) => p.name === 'autodocs');
+    const entry = marketplace.plugins.find((p) => p.name === 'docsolace');
     expect(entry).toBeTruthy();
     expect(entry.source).toBe('./plugin');
   });
@@ -117,7 +117,7 @@ describe('.claude-plugin/marketplace.json (repo root)', () => {
     // reads as sloppy to anyone diffing the two manifests. Catching that
     // here beats relying on remembering to bump both by hand.
     const manifest = JSON.parse(fs.readFileSync(path.join(pluginRoot, '.claude-plugin/plugin.json'), 'utf8'));
-    const entry = marketplace.plugins.find((p) => p.name === 'autodocs');
+    const entry = marketplace.plugins.find((p) => p.name === 'docsolace');
     expect(entry.version).toBe(manifest.version);
   });
 });
@@ -141,7 +141,7 @@ describe('skills/document/SKILL.md', () => {
     // matches. Bash(git *)/Bash(gh pr *) cover the Ship step's branch/commit/
     // push/PR commands; Edit covers the targeted status/maturity flip on a
     // proposed tour and site theme edits. Read/Write cover distilling a
-    // detected design skill into .autodocs/doc-style.json (see "Apply the
+    // detected design skill into .docsolace/doc-style.json (see "Apply the
     // project's design skill"); Skill invokes that detected skill. This is
     // broader than before autonomy existed — Claude itself is still the one
     // constructing every command, but this is the surface a security review
@@ -150,8 +150,8 @@ describe('skills/document/SKILL.md', () => {
     expect(tools).toEqual(['Bash(git *)', 'Bash(gh pr *)', 'Bash(node *)', 'Edit', 'Read', 'Write', 'Skill']);
   });
 
-  it('bootstraps autodocs.config.yaml/tours in a project on first use', () => {
-    expect(body).toContain('autodocs.config.yaml');
+  it('bootstraps docsolace.config.yaml/tours in a project on first use', () => {
+    expect(body).toContain('docsolace.config.yaml');
     expect(body.toLowerCase()).toContain('bootstrap');
     expect(body).toContain('tours/');
   });
@@ -185,10 +185,10 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toMatch(/Unless this run is in `--review` mode.*gh auth status/s);
   });
 
-  it("invokes the AutoDocs pipeline from the plugin's data directory, not via npm run", () => {
+  it("invokes the DocSolace pipeline from the plugin's data directory, not via npm run", () => {
     expect(body).toContain('${CLAUDE_PLUGIN_DATA}/scripts/');
     // "npm run build" is legitimate here — it's the *scaffolded site's own*
-    // build script (see "Scaffold a docs site"), not the AutoDocs pipeline.
+    // build script (see "Scaffold a docs site"), not the DocSolace pipeline.
     expect(body).not.toMatch(/npm run (capture|drift|generate-docs)\b/);
   });
 
@@ -223,7 +223,7 @@ describe('skills/document/SKILL.md', () => {
     expect(frontmatter['argument-hint']).toContain('init-site');
     expect(body).toContain('init-site');
     // The non-obvious bug this codifies: Docusaurus's default MDX parser
-    // fails on the <!-- autodocs:keep --> comments generate-docs.mjs
+    // fails on the <!-- docsolace:keep --> comments generate-docs.mjs
     // writes. Losing this line from the recipe silently breaks the site.
     expect(body).toContain("markdown: { format: 'md' }");
     expect(body.toLowerCase()).toContain('not optional');
@@ -334,12 +334,12 @@ describe('skills/document/SKILL.md', () => {
     expect(body.toLowerCase()).toContain('no-slug');
   });
 
-  it('the shared Ship step stages docs/archive/** and docs/_sidebar.autodocs.json alongside docs/*.md', () => {
+  it('the shared Ship step stages docs/archive/** and docs/_sidebar.docsolace.json alongside docs/*.md', () => {
     expect(body).toContain('docs/archive/**');
-    expect(body).toContain('docs/_sidebar.autodocs.json');
+    expect(body).toContain('docs/_sidebar.docsolace.json');
   });
 
-  it('init-site wires the sidebar to docs/_sidebar.autodocs.json when it exists, and fixes the homepage link to /docs/overview', () => {
+  it('init-site wires the sidebar to docs/_sidebar.docsolace.json when it exists, and fixes the homepage link to /docs/overview', () => {
     expect(body).toContain('sidebars.js');
     expect(body).toContain('/docs/overview');
   });
@@ -451,8 +451,8 @@ describe('agents/product-scribe.md', () => {
     expect(body.toLowerCase()).toContain('omit');
   });
 
-  it('writes exactly one output file, .autodocs/artifacts/prose/_product.json', () => {
-    expect(body).toContain('.autodocs/artifacts/prose/_product.json');
+  it('writes exactly one output file, .docsolace/artifacts/prose/_product.json', () => {
+    expect(body).toContain('.docsolace/artifacts/prose/_product.json');
   });
 
   it('is brand-neutral — no tagline or marketing voice, even if the README has one', () => {
@@ -489,7 +489,7 @@ describe('agents/tour-scout.md', () => {
     // a plugin-bundled server, verified live: tour-scout reported having
     // only Read/Write with that pattern. See
     // https://code.claude.com/docs/en/mcp.md#plugin-mcp-tool-names.
-    expect(tools).toContain('mcp__plugin_autodocs_playwright__*');
+    expect(tools).toContain('mcp__plugin_docsolace_playwright__*');
   });
 
   it('does not declare mcpServers, hooks, or permissionMode (unsupported for plugin agents)', () => {

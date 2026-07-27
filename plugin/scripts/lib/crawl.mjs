@@ -15,7 +15,7 @@ import { isDestructiveControl, isSensitiveField, syntheticValueFor } from './syn
 import { withRetry } from './retry.mjs';
 
 const LOGOUT_RE = /\blog ?out\b|\bsign ?out\b/i;
-const CRAWL_ID_ATTR = 'data-autodocs-crawl-id';
+const CRAWL_ID_ATTR = 'data-docsolace-crawl-id';
 
 // A candidate link is only followed if it resolves to an http(s) URL on
 // exactly the same origin as the app's baseUrl — rejects absolute-external
@@ -113,11 +113,11 @@ export function mergeSiteMaps(siteMaps) {
 
 // Runs in the page context: inventories links, forms (with per-field name/
 // type), and standalone buttons, tagging each candidate element with a
-// data-autodocs-crawl-id attribute so a later interactive pass can address
+// data-docsolace-crawl-id attribute so a later interactive pass can address
 // the exact element without re-deriving brittle CSS selectors.
 /* istanbul ignore next -- exercised only inside a real browser (page.evaluate), covered by live verification, not unit tests */
 function collectPageData() {
-  const ATTR = 'data-autodocs-crawl-id';
+  const ATTR = 'data-docsolace-crawl-id';
   const links = Array.from(document.querySelectorAll('a[href]')).map((a) => ({
     href: a.getAttribute('href'),
     text: (a.textContent || '').trim(),
@@ -179,7 +179,7 @@ export function planSafeInteractions(pageData) {
 }
 
 // Executes an already-filtered interaction plan against the real page, using
-// the data-autodocs-crawl-id tags collectPageData stamped. Best-effort: one
+// the data-docsolace-crawl-id tags collectPageData stamped. Best-effort: one
 // action failing (e.g. a field that vanished between extract and act) is
 // recorded, not thrown, so it can't abort the whole crawl.
 async function executeSafeInteractions(page, actions, { navTimeoutMs }) {
@@ -187,7 +187,7 @@ async function executeSafeInteractions(page, actions, { navTimeoutMs }) {
   const startUrl = page.url();
   for (const action of actions) {
     // A prior action in this plan may have navigated the page (a form
-    // submit is the common case) — every data-autodocs-crawl-id tag was
+    // submit is the common case) — every data-docsolace-crawl-id tag was
     // stamped on the pre-navigation DOM, so it no longer exists on whatever
     // loaded next. Stop rather than let a later action time out hunting for
     // an element that's gone; the crawl's own BFS will visit wherever this

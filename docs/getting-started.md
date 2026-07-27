@@ -15,20 +15,20 @@ Claude Code, installed and logged in per its own docs (the underlying pipeline i
 
 Inside Claude Code, add this repo as a plugin marketplace and install the plugin from it:
 
-/plugin marketplace add esandeepchoudary/autodocs
-/plugin install autodocs@autodocs-marketplace
+/plugin marketplace add esandeepchoudary/docsolace
+/plugin install docsolace@docsolace-marketplace
 /reload-plugins
 
-(Working from a local clone instead of GitHub shorthand: use /plugin marketplace add /path/to/autodocs.) The first time a session starts with the plugin active, a SessionStart hook installs the plugin's own runtime dependencies and the Playwright browser into a private data directory — this can take a minute the first time (browser download) and is instant afterward. Verify the install with /plugin list, which should show autodocs@autodocs-marketplace enabled.
+(Working from a local clone instead of GitHub shorthand: use /plugin marketplace add /path/to/docsolace.) The first time a session starts with the plugin active, a SessionStart hook installs the plugin's own runtime dependencies and the Playwright browser into a private data directory — this can take a minute the first time (browser download) and is instant afterward. Verify the install with /plugin list, which should show docsolace@docsolace-marketplace enabled.
 
 ## Use it in a project
 
-Open Claude Code in the project to document and run /autodocs:document (namespaced; plain /document may also resolve if unambiguous). The first time, it notices there's no autodocs.config.yaml yet, asks for the app's local base URL, and bootstraps the project: a real, annotated autodocs.config.yaml with every optional section included as commented-out examples, an empty tours/ directory with a short tours/README.md, a .env.example, and it adds .autodocs/artifacts/ and .env to the project's .gitignore automatically so session cookies and credentials never end up committed. It then reports there's nothing to generate until a tour exists. From there, /autodocs:document propose <slug> "<description>" drafts a tour for a feature just built (via the tour-scout subagent) and, by default, carries it all the way through to an opened docs PR.
+Open Claude Code in the project to document and run /docsolace:document (namespaced; plain /document may also resolve if unambiguous). The first time, it notices there's no docsolace.config.yaml yet, asks for the app's local base URL, and bootstraps the project: a real, annotated docsolace.config.yaml with every optional section included as commented-out examples, an empty tours/ directory with a short tours/README.md, a .env.example, and it adds .docsolace/artifacts/ and .env to the project's .gitignore automatically so session cookies and credentials never end up committed. It then reports there's nothing to generate until a tour exists. From there, /docsolace:document propose <slug> "<description>" drafts a tour for a feature just built (via the tour-scout subagent) and, by default, carries it all the way through to an opened docs PR.
 
 ## Running it without Claude Code
 
-The pipeline underneath the plugin is plain Node scripts; this repo bundles a small demo app (a login page plus a dashboard) to demonstrate the loop directly. In one terminal: npm install, cp .env.example .env, cd demo-app && npm install, then npm run dev (serves the demo app at http://localhost:5173, left running). In a second terminal, from the repo root: npm run capture -- --tour login followed by npm run generate-docs -- --tour login, then cat docs/login.md to see the generated tutorial. Everyday commands once a project has its own autodocs.config.yaml and tours/ include npm run validate (preflight-checks config/tours without a browser), npm run capture -- --tour <id>, npm run drift, npm run status, npm run generate-docs -- --tour <id>, npm run generate-product-docs, npm run prune, npm run archive-tour -- --tour <id>, npm run verify-docs, and npm run review-diffs.
+The pipeline underneath the plugin is plain Node scripts; this repo bundles a small demo app (a login page plus a dashboard) to demonstrate the loop directly. In one terminal: npm install, cp .env.example .env, cd demo-app && npm install, then npm run dev (serves the demo app at http://localhost:5173, left running). In a second terminal, from the repo root: npm run capture -- --tour login followed by npm run generate-docs -- --tour login, then cat docs/login.md to see the generated tutorial. Everyday commands once a project has its own docsolace.config.yaml and tours/ include npm run validate (preflight-checks config/tours without a browser), npm run capture -- --tour <id>, npm run drift, npm run status, npm run generate-docs -- --tour <id>, npm run generate-product-docs, npm run prune, npm run archive-tour -- --tour <id>, npm run verify-docs, and npm run review-diffs.
 
-<!-- autodocs:keep -->
+<!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->
-<!-- /autodocs:keep -->
+<!-- /docsolace:keep -->

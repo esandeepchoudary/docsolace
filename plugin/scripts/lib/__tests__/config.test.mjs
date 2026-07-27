@@ -5,11 +5,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadConfig } from '../config.mjs';
 
 const tmpFiles = [];
-const VALID_BASE = 'baseUrl: http://localhost:5173\noutputDir: .autodocs/artifacts\n';
+const VALID_BASE = 'baseUrl: http://localhost:5173\noutputDir: .docsolace/artifacts\n';
 const VALID_VIEWPORTS = 'viewports:\n  desktop:\n    width: 1280\n    height: 800\n';
 
 function writeTmpYaml(contents) {
-  const filePath = path.join(os.tmpdir(), `autodocs-config-test-${Date.now()}-${Math.random()}.yaml`);
+  const filePath = path.join(os.tmpdir(), `docsolace-config-test-${Date.now()}-${Math.random()}.yaml`);
   fs.writeFileSync(filePath, contents);
   tmpFiles.push(filePath);
   return filePath;
@@ -24,13 +24,13 @@ describe('loadConfig', () => {
     const filePath = writeTmpYaml(VALID_BASE + VALID_VIEWPORTS);
     expect(loadConfig(filePath)).toEqual({
       baseUrl: 'http://localhost:5173',
-      outputDir: '.autodocs/artifacts',
+      outputDir: '.docsolace/artifacts',
       viewports: { desktop: { width: 1280, height: 800 } },
     });
   });
 
   it('throws when baseUrl is missing', () => {
-    const filePath = writeTmpYaml('outputDir: .autodocs/artifacts\n' + VALID_VIEWPORTS);
+    const filePath = writeTmpYaml('outputDir: .docsolace/artifacts\n' + VALID_VIEWPORTS);
     expect(() => loadConfig(filePath)).toThrow(/baseUrl/);
   });
 
@@ -39,7 +39,7 @@ describe('loadConfig', () => {
     // for a fully empty file — rewrapped so it includes the config path and
     // matches this file's error-message convention.
     const filePath = writeTmpYaml('');
-    expect(() => loadConfig(filePath)).toThrow(`autodocs config at "${filePath}"`);
+    expect(() => loadConfig(filePath)).toThrow(`docsolace config at "${filePath}"`);
     expect(() => loadConfig(filePath)).toThrow(/not valid YAML/);
   });
 
@@ -306,7 +306,7 @@ describe('loadConfig', () => {
 
   it('throws when the same tour id appears in two different docs.sections entries', () => {
     // Regression: a tour listed in two sections shows up in both categories
-    // in the generated sidebar (docs/_sidebar.autodocs.json) and throws off
+    // in the generated sidebar (docs/_sidebar.docsolace.json) and throws off
     // every later tour's computed sidebar_position — reproduced directly
     // via lib/product.mjs's buildSidebarStructure/computeTourSidebarPositions
     // before this check existed.

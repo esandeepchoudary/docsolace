@@ -1,6 +1,6 @@
 // First-run project bootstrap, called from skills/document/SKILL.md's Step 0
 // after it asks the user for their app's base URL. Writes a real, valid
-// autodocs.config.yaml (not a pointer at a file that doesn't exist in an
+// docsolace.config.yaml (not a pointer at a file that doesn't exist in an
 // installed plugin — see plugin/scripts/lib/bootstrap.mjs), makes sure
 // secrets/session state can't be accidentally committed, and drops a short
 // tours/README.md so "what do I do next" survives past the chat session.
@@ -18,7 +18,7 @@ import { writeFileAtomic } from './lib/fs-atomic.mjs';
 // runs — confirmed by actually running it; without this it's un-ignored and
 // can get committed by accident, the exact thing this bootstrap step exists
 // to prevent.
-const GITIGNORE_ENTRIES = ['.autodocs/artifacts/', '.env', '.playwright-mcp/'];
+const GITIGNORE_ENTRIES = ['.docsolace/artifacts/', '.env', '.playwright-mcp/'];
 
 const TOURS_README = `# tours/
 
@@ -29,26 +29,26 @@ and a worked example.
 Quick path to your first tour, from inside Claude Code:
 
 1. Implement or point at a feature you want documented.
-2. \`/autodocs:document propose <slug> "<description>"\` — drafts a candidate
+2. \`/docsolace:document propose <slug> "<description>"\` — drafts a candidate
    tour by actually driving the app (\`status: proposed\`, \`maturity: draft\`).
 3. Review the draft, fill in anything left as a TODO, then flip
    \`status: confirmed\` yourself — nothing here does that for you.
-4. \`/autodocs:document <slug>\` — captures screenshots and generates its page.
-5. \`/autodocs:document init-site\` once you've got at least one generated
+4. \`/docsolace:document <slug>\` — captures screenshots and generates its page.
+5. \`/docsolace:document init-site\` once you've got at least one generated
    page, to scaffold a browsable docs site.
 
 **Security reminder:** never commit \`.env\` or anything under
-\`.autodocs/artifacts/.auth/\` — both can hold live credentials or session
+\`.docsolace/artifacts/.auth/\` — both can hold live credentials or session
 cookies. This project's \`.gitignore\` already excludes them.
 `;
 
 const ENV_EXAMPLE = `# Copy to .env and fill in. .env is gitignored — never commit real credentials.
 # Add one USERNAME/PASSWORD pair per scripted-login auth profile you define
-# in autodocs.config.yaml (see its "auth" comments), matching the profile's
+# in docsolace.config.yaml (see its "auth" comments), matching the profile's
 # usernameEnv/passwordEnv fields. Example:
 #
-# AUTODOCS_STANDARD_USER_USERNAME=demo
-# AUTODOCS_STANDARD_USER_PASSWORD=demo-pass
+# DOCSOLACE_STANDARD_USER_USERNAME=demo
+# DOCSOLACE_STANDARD_USER_PASSWORD=demo-pass
 `;
 
 // --base-url is only actually required when writing a fresh config (see
@@ -66,7 +66,7 @@ function parseArgs(argv) {
 function main() {
   const { baseUrl } = parseArgs(process.argv.slice(2));
   const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
-  const configPath = path.join(projectDir, 'autodocs.config.yaml');
+  const configPath = path.join(projectDir, 'docsolace.config.yaml');
 
   // Every artifact below is independently existsSync-gated, so it's always
   // safe to re-run this whole function — including after a crash that left
@@ -109,19 +109,19 @@ function main() {
   }
 
   if (!configAlreadyExisted) {
-    console.log(`Bootstrapped AutoDocs in ${projectDir}:`);
-    console.log(`  - autodocs.config.yaml (baseUrl: ${baseUrl})`);
+    console.log(`Bootstrapped DocSolace in ${projectDir}:`);
+    console.log(`  - docsolace.config.yaml (baseUrl: ${baseUrl})`);
   } else if (gitignoreChanged || !toursDirExisted || toursReadmeWritten || envExampleWritten) {
-    console.log(`AutoDocs was already bootstrapped in ${projectDir} — filled in what was missing:`);
-    console.log('  - autodocs.config.yaml already existed, left untouched');
+    console.log(`DocSolace was already bootstrapped in ${projectDir} — filled in what was missing:`);
+    console.log('  - docsolace.config.yaml already existed, left untouched');
   } else {
-    console.log(`AutoDocs is already fully bootstrapped in ${projectDir} — nothing to do.`);
+    console.log(`DocSolace is already fully bootstrapped in ${projectDir} — nothing to do.`);
     return;
   }
   console.log(
     gitignoreChanged
-      ? '  - .gitignore now excludes .autodocs/artifacts/, .env, and .playwright-mcp/'
-      : '  - .gitignore already excluded .autodocs/artifacts/, .env, and .playwright-mcp/',
+      ? '  - .gitignore now excludes .docsolace/artifacts/, .env, and .playwright-mcp/'
+      : '  - .gitignore already excluded .docsolace/artifacts/, .env, and .playwright-mcp/',
   );
   console.log(
     toursDirExisted ? '  - tours/ already existed' : '  - tours/ (empty — see tours/README.md for next steps)',

@@ -3,7 +3,7 @@
 // varied to automate reliably. Opens a real (headed) browser, a human logs
 // in however the app requires, and once completion is detected, the
 // resulting cookies/storage are saved to the auth profile's
-// `storageStatePath` in autodocs.config.yaml — capture.mjs then reuses that
+// `storageStatePath` in docsolace.config.yaml — capture.mjs then reuses that
 // file directly and never attempts a scripted login for that profile.
 //
 // Completion detection has two modes (see lib/auth-save.mjs): waiting for
@@ -41,10 +41,10 @@ function waitForEnter(promptText) {
 
 async function main() {
   const { profile: profileId, waitFor: waitForArg } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const profile = config.auth?.[profileId];
   if (!profile) {
-    throw new Error(`Auth profile "${profileId}" not found in autodocs.config.yaml`);
+    throw new Error(`Auth profile "${profileId}" not found in docsolace.config.yaml`);
   }
   if (!profile.storageStatePath) {
     throw new Error(

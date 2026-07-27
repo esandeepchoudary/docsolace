@@ -1,7 +1,7 @@
 // Assembles docs/<tour-id>.md from a tour's captures (screenshots + a11y
 // snapshots) via scripts/lib/docgen.mjs, gated by the drift check and the
 // pixel-diff threshold. Prose comes from whichever the `doc-scribe` subagent
-// wrote to .autodocs/artifacts/prose/<tour-id>.json (see plugin/agents/
+// wrote to .docsolace/artifacts/prose/<tour-id>.json (see plugin/agents/
 // doc-scribe.md); the PARAGRAPHS map below is a fallback for the two demo
 // tours so the pipeline is runnable without invoking a subagent.
 import fs from 'node:fs';
@@ -54,7 +54,7 @@ function parseArgs(argv) {
 
 function main() {
   const { tour: tourId, force } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const tour = loadTour('tours', tourId);
 
   // Checked before the manifest lookup below (not after) so a draft/
@@ -113,7 +113,7 @@ function main() {
   const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
   const previousEntry = loadState(statePath)[tour.id];
 
-  // docsConfig (autodocs.config.yaml's `docs:` block) picks the primary
+  // docsConfig (docsolace.config.yaml's `docs:` block) picks the primary
   // viewport / whether others collapse; doc-style.json's `page` section (if
   // a design skill was applied — see lib/design.mjs) layers presentation
   // knobs (heading text, viewport labels, figure wrapping) on top. Neither
@@ -251,7 +251,7 @@ function main() {
     if (currentBodyHash !== previousEntry.bodyHash) {
       if (!force) {
         console.error(
-          `"${tour.id}": ${docPath} was edited outside its <!-- autodocs:keep --> region since the ` +
+          `"${tour.id}": ${docPath} was edited outside its <!-- docsolace:keep --> region since the ` +
             `last generation. Move the edit into the keep-region, or re-run with --force to overwrite it.`,
         );
         process.exit(1);

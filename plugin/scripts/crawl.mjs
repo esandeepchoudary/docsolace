@@ -75,7 +75,7 @@ async function runPass(browser, config, { passId, authProfileId, startPaths, max
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
 
   if (args.auth && args.allAuth) {
     console.error('Error: pass either --auth <profile> or --all-auth, not both.');
@@ -91,7 +91,7 @@ async function main() {
   if (args.interactive && config.crawl?.allowInteractive !== true) {
     console.error(
       'Error: --interactive was passed but "crawl.allowInteractive" is not set to true in ' +
-        'autodocs.config.yaml. Interactive crawling fills in and submits forms with synthetic data on a ' +
+        'docsolace.config.yaml. Interactive crawling fills in and submits forms with synthetic data on a ' +
         'real running app — only enable it against a throwaway/dev environment, never production, by ' +
         'setting "crawl:\\n  allowInteractive: true" in config as well.',
     );

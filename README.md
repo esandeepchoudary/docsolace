@@ -1,4 +1,4 @@
-# AutoDocs
+# DocSolace
 
 Claude Code plugin that drives your running web app with Playwright, takes
 screenshots, and writes tutorial-style Markdown docs that stay in sync as the
@@ -6,14 +6,14 @@ app changes — screenshot-driven, docs-as-code, built for solo developers.
 
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue)](./LICENSE)
 [![Node](https://img.shields.io/badge/node-%3E%3D22-339933?logo=node.js&logoColor=white)](#prerequisites)
-[![Plugin version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fesandeepchoudary%2Fautodocs%2Fmain%2Fplugin%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=informational)](./plugin/.claude-plugin/plugin.json)
-[![Tests](https://github.com/esandeepchoudary/autodocs/actions/workflows/test.yml/badge.svg)](https://github.com/esandeepchoudary/autodocs/actions/workflows/test.yml)
-[![Docs site](https://img.shields.io/badge/docs-live%20site-DF3274)](https://esandeepchoudary.github.io/autodocs/)
+[![Plugin version](https://img.shields.io/badge/dynamic/json?url=https%3A%2F%2Fraw.githubusercontent.com%2Fesandeepchoudary%2Fdocsolace%2Fmain%2Fplugin%2F.claude-plugin%2Fplugin.json&query=%24.version&label=plugin&color=informational)](./plugin/.claude-plugin/plugin.json)
+[![Tests](https://github.com/esandeepchoudary/docsolace/actions/workflows/test.yml/badge.svg)](https://github.com/esandeepchoudary/docsolace/actions/workflows/test.yml)
+[![Docs site](https://img.shields.io/badge/docs-live%20site-DF3274)](https://esandeepchoudary.github.io/docsolace/)
 
-AutoDocs writes and maintains your app's tutorials for you, by actually
+DocSolace writes and maintains your app's tutorials for you, by actually
 using it. Instead of a human clicking through the app, taking screenshots,
 and writing "here's how the dashboard works" — which goes stale the moment
-the UI changes — AutoDocs drives a real headless browser against your
+the UI changes — DocSolace drives a real headless browser against your
 *running* app, takes the screenshots itself, and writes grounded,
 tutorial-style docs from what it actually saw. It's built for **solo
 developers**: one person runs it themselves when a feature's worth
@@ -38,7 +38,7 @@ section walks through installing it.
   source `code_paths` against the last run, so regeneration only touches
   tours that actually changed.
 - **Never overwrites your edits** — hand-written content inside
-  `<!-- autodocs:keep -->` blocks survives every regeneration untouched.
+  `<!-- docsolace:keep -->` blocks survives every regeneration untouched.
 - **Ships a reviewable PR, never merges** — output lands in `docs/`, staged
   and pushed as a pull request for a human to merge.
 - **Publishes as a real docs site** — a bundled [Docusaurus](https://docusaurus.io/)
@@ -65,30 +65,30 @@ section walks through installing it.
 Inside Claude Code:
 
 ```
-/plugin marketplace add esandeepchoudary/autodocs
-/plugin install autodocs@autodocs-marketplace
+/plugin marketplace add esandeepchoudary/docsolace
+/plugin install docsolace@docsolace-marketplace
 /reload-plugins
 ```
 
 Then, in the project you want tutorials for:
 
 ```
-/autodocs:document
+/docsolace:document
 ```
 
 The first run bootstraps the project — asks for your app's local base URL,
-writes a starter `autodocs.config.yaml`, creates an empty `tours/`. Once
+writes a starter `docsolace.config.yaml`, creates an empty `tours/`. Once
 you've built something worth documenting:
 
 ```
-/autodocs:document propose <slug> "<description>"
+/docsolace:document propose <slug> "<description>"
 ```
 
 drafts a tour by actually driving your app, then — by default — carries it
 all the way through to an opened docs PR. That's the whole loop.
 
 See ["Contents"](#contents) above for reference material on everything else:
-every mode `/autodocs:document` supports, configuring auth, edge cases
+every mode `/docsolace:document` supports, configuring auth, edge cases
 (uploads, async content, non-password logins, voice input), mapping a whole
 app at once, and publishing a docs site. If `/plugin` doesn't behave as
 expected, jump to ["Troubleshooting"](./TROUBLESHOOTING.md).
@@ -108,22 +108,22 @@ expected, jump to ["Troubleshooting"](./TROUBLESHOOTING.md).
 ## Install the plugin
 
 This repo doubles as a private Claude Code plugin marketplace with one
-plugin in it (`autodocs`). You don't need to clone it into the project you
+plugin in it (`docsolace`). You don't need to clone it into the project you
 want to document — just point Claude Code at it once, from anywhere.
 
 Inside Claude Code:
 
 ```
-/plugin marketplace add esandeepchoudary/autodocs
+/plugin marketplace add esandeepchoudary/docsolace
 ```
 
 (GitHub shorthand — works as long as you can reach this repo. Working from a
-local clone instead? Use the path: `/plugin marketplace add /path/to/autodocs`.)
+local clone instead? Use the path: `/plugin marketplace add /path/to/docsolace`.)
 
 Then install the plugin from that marketplace:
 
 ```
-/plugin install autodocs@autodocs-marketplace
+/plugin install docsolace@docsolace-marketplace
 ```
 
 Activate it in your current session:
@@ -144,36 +144,36 @@ Verify it took:
 /plugin list
 ```
 
-should show `autodocs@autodocs-marketplace` enabled.
+should show `docsolace@docsolace-marketplace` enabled.
 
 ## Use it in your project
 
 Open Claude Code in whatever project you want tutorials for and run
-`/autodocs:document` — plugin skills are namespaced by the plugin's name, so
+`/docsolace:document` — plugin skills are namespaced by the plugin's name, so
 this is the full command (plain `/document` may also resolve if it's
-unambiguous, but `/autodocs:document` always works). **The first time**, it
-notices there's no `autodocs.config.yaml` yet, asks for your app's local base
-URL, and bootstraps the project: a real, annotated `autodocs.config.yaml`
+unambiguous, but `/docsolace:document` always works). **The first time**, it
+notices there's no `docsolace.config.yaml` yet, asks for your app's local base
+URL, and bootstraps the project: a real, annotated `docsolace.config.yaml`
 (every optional section — `auth`, `defaultMask`, `seeds`, etc. — included as
 commented-out examples right in the file), an empty `tours/` directory with
 a short "what's next" `tours/README.md`, a `.env.example`, and — worth
 calling out since it's easy to get wrong by hand — your project's
-`.gitignore` gets `.autodocs/artifacts/` and `.env` added automatically, so
+`.gitignore` gets `.docsolace/artifacts/` and `.env` added automatically, so
 the session cookies and credentials those can hold never end up committed.
 Then it tells you there's nothing to generate until a tour exists. From
 there:
 
 | Command | What it does |
 |---|---|
-| `/autodocs:document` | Run the full pipeline over every tour, ship a docs PR |
-| `/autodocs:document <tour-id>` | Same, but just that one tour |
-| `/autodocs:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
-| `/autodocs:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
-| `/autodocs:document prune` | Just the archival check above, on its own — no crawl required for the common case |
-| `/autodocs:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded (via the `product-scribe` subagent), then ship |
-| `/autodocs:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
-| `/autodocs:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
-| `/autodocs:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
+| `/docsolace:document` | Run the full pipeline over every tour, ship a docs PR |
+| `/docsolace:document <tour-id>` | Same, but just that one tour |
+| `/docsolace:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
+| `/docsolace:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
+| `/docsolace:document prune` | Just the archival check above, on its own — no crawl required for the common case |
+| `/docsolace:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded (via the `product-scribe` subagent), then ship |
+| `/docsolace:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
+| `/docsolace:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
+| `/docsolace:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
 
 Every mode above except `validate` and `status` (both read-only reports, no
 browser, no PR) runs autonomously by default: draft or capture → generate →
@@ -188,7 +188,7 @@ every-step behavior instead; append `--no-style` to skip design-skill
 detection for that run. See `tours/dashboard-export.yaml` in *this* repo for
 a worked `propose` example, start to finish (this repo also happens to be
 its own best demo project — it's both the plugin source and a working
-AutoDocs project), and
+DocSolace project), and
 ["Mapping a whole app automatically"](./ADVANCED.md#mapping-a-whole-app-automatically)
 in "Advanced topics" for how `map` actually works. Playwright MCP (bundled in the
 plugin) is for `tour-scout`'s interactive authoring only; the automated
@@ -214,12 +214,12 @@ anything — opening or updating the PR is the end of its job.
 
 A second `SessionStart` hook gives Claude standing instructions for every
 session in a project where the plugin is installed. Before
-`autodocs.config.yaml` exists, that's just a one-line reminder that
-`/autodocs:document` will bootstrap things. Once the project is set up, it's
+`docsolace.config.yaml` exists, that's just a one-line reminder that
+`/docsolace:document` will bootstrap things. Once the project is set up, it's
 a bit more: whenever Claude finishes a user-facing feature or flow, it's
 instructed to ask you whether it's worth a tutorial — suggesting
-`/autodocs:document propose <slug> "<description>"` for something new, or
-`/autodocs:document <tour-id>` to resync a flow an existing confirmed tour
+`/docsolace:document propose <slug> "<description>"` for something new, or
+`/docsolace:document <tour-id>` to resync a flow an existing confirmed tour
 already covers. Running the suggested command is still your call — but once
 you run it, it no longer stops to wait on you at every step: it carries the
 draft through to an opened PR by default (see "It ships a docs PR for you"
@@ -231,12 +231,12 @@ above), unless it hits one of that section's hard stops. See
 Tours describe individual UI flows; a separate, smaller set of pages
 describes the product as a whole so a fresh reader lands somewhere that
 actually explains what they're looking at instead of an alphabetical list of
-tutorials. `/autodocs:document product` (re)generates up to seven pages —
+tutorials. `/docsolace:document product` (re)generates up to seven pages —
 `docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md`,
 `docs/configuration.md`, `docs/troubleshooting.md`, `docs/changelog.md`,
 `docs/decisions.md` — via
 the `product-scribe` subagent, grounded strictly in files already in your
-repo: `README.md`, `package.json`, `.env.example`, `autodocs.config.yaml`,
+repo: `README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`,
 `CHANGELOG.md` (if present), any `docs/adr/*.md` files, any extra globs you
 list under
 `product.sources`, and the confirmed tour inventory (id/title/intent) — never
@@ -255,7 +255,7 @@ Decision Record" convention) — `product-scribe` never infers or guesses
 *why* something was built a certain way, even when the reasoning seems
 obvious from the code.
 
-This isn't a separate chore — the normal no-argument `/autodocs:document` run
+This isn't a separate chore — the normal no-argument `/docsolace:document` run
 keeps these pages in sync automatically too, the same drift-gated way it
 already does for tours (see "How it works" below), so `/document product` is
 mainly for regenerating them on their own without touching any tour. See
@@ -264,14 +264,14 @@ mainly for regenerating them on their own without touching any tour. See
 
 ## How it works
 
-Four stages, run in order — this is what `/autodocs:document` orchestrates
+Four stages, run in order — this is what `/docsolace:document` orchestrates
 end to end (the same stages are also runnable directly as `npm run`
 scripts; see
 ["Running it without Claude Code"](./ADVANCED.md#running-it-without-claude-code) under "Advanced topics"):
 
 1. **Capture** (`npm run capture`) — a **tour** is a YAML file describing one
    feature walk: which pages to visit, what to click, and where to take
-   screenshots. AutoDocs reads a tour and actually drives a headless browser
+   screenshots. DocSolace reads a tour and actually drives a headless browser
    through it against your running app — no fixtures, no mocked-up
    walkthrough, the real thing. Every screenshot is taken at every viewport
    size you've configured (desktop + mobile by default), and every
@@ -287,7 +287,7 @@ scripts; see
    flagged, write the tutorial prose. This step is **grounded**: it
    describes only what's actually in the accessibility snapshot from step 1,
    never anything invented or guessed, however plausible-sounding. Any text
-   you hand-write inside a page's `<!-- autodocs:keep --> ... <!-- /autodocs:keep -->`
+   you hand-write inside a page's `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->`
    block (a **keep-region**) is preserved untouched across every future
    regeneration — it's yours, not the tool's.
 4. **Publish** — the generated Markdown lives in `docs/`, viewable as-is or
@@ -306,7 +306,7 @@ accessibility snapshot.
 
 Everything above is enough to get a first tour shipped. For more:
 
-- **[CONFIGURATION.md](./CONFIGURATION.md)** — `autodocs.config.yaml`,
+- **[CONFIGURATION.md](./CONFIGURATION.md)** — `docsolace.config.yaml`,
   `tours/*.yaml`, page layout and design-skill styling, product pages and
   sidebar sections.
 - **[PUBLISHING.md](./PUBLISHING.md)** — building and deploying the bundled

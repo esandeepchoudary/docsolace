@@ -1,7 +1,7 @@
 name: Update docs
 
 # PARKED as a nice-to-have, not part of the core solo-developer workflow:
-# AutoDocs is built for one person driving `/document` themselves (locally,
+# DocSolace is built for one person driving `/document` themselves (locally,
 # or via the tutorial-need routine in CLAUDE.md) — a team-scale "regenerate
 # automatically on every merge" pipeline isn't the primary use case, and this
 # job is heavier than it looks (spins up the real app + a real browser + an
@@ -47,10 +47,10 @@ jobs:
       - name: Restore drift state
         uses: actions/cache@v4
         with:
-          path: .autodocs/artifacts/state.json
-          key: autodocs-state-${{ github.run_id }}
+          path: .docsolace/artifacts/state.json
+          key: docsolace-state-${{ github.run_id }}
           restore-keys: |
-            autodocs-state-
+            docsolace-state-
 
       - name: Capture all tours
         run: |
@@ -107,7 +107,7 @@ jobs:
             every tour `npm run drift` reports as dirty. Use
             plugin/agents/doc-scribe.md as the spec for the subagent step
             (dispatch it via the Task tool once per dirty tour). Captures
-            already exist under .autodocs/artifacts/ — don't recapture.
+            already exist under .docsolace/artifacts/ — don't recapture.
             When done, summarize which tours were regenerated and why.
           claude_args: |
             {
@@ -129,6 +129,6 @@ jobs:
             pipeline (drift gate → doc-scribe subagent → generate-docs).
 
             Review before merging, same as any other change to `docs/`.
-          branch: autodocs/update-docs
+          branch: docsolace/update-docs
           delete-branch: true
           add-paths: docs/**

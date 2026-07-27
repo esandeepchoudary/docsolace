@@ -26,13 +26,13 @@ function writeSkill(root, relDir, { name, description }) {
 
 describe('discoverDesignSkills', () => {
   it('returns an empty list when neither project nor home has any skills', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    const homeDir = makeTmpDir('autodocs-design-test-home-');
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    const homeDir = makeTmpDir('docsolace-design-test-home-');
     expect(discoverDesignSkills({ projectDir, homeDir })).toEqual([]);
   });
 
   it('finds a project-level design skill under .claude/skills', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
+    const projectDir = makeTmpDir('docsolace-design-test-');
     writeSkill(projectDir, '.claude/skills/acme-brand', {
       name: 'acme-brand',
       description: 'Full brand styling rules: colors, fonts, logo, and visual identity.',
@@ -43,7 +43,7 @@ describe('discoverDesignSkills', () => {
   });
 
   it('finds a project-level design skill nested under an installed plugin', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
+    const projectDir = makeTmpDir('docsolace-design-test-');
     writeSkill(projectDir, '.claude/plugins/cache/some-marketplace/brand-plugin/1.0.0/skills/brand-kit', {
       name: 'brand-kit',
       description: 'Design system tokens: color palette and typography.',
@@ -54,7 +54,7 @@ describe('discoverDesignSkills', () => {
   });
 
   it('scores out a skill whose name/description has no design-relevant keywords', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
+    const projectDir = makeTmpDir('docsolace-design-test-');
     writeSkill(projectDir, '.claude/skills/deploy-helper', {
       name: 'deploy-helper',
       description: 'Deploys the app to production and runs smoke tests.',
@@ -63,8 +63,8 @@ describe('discoverDesignSkills', () => {
   });
 
   it('ranks a project-scoped candidate above a user-scoped one regardless of keyword score', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    const homeDir = makeTmpDir('autodocs-design-test-home-');
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    const homeDir = makeTmpDir('docsolace-design-test-home-');
     writeSkill(projectDir, '.claude/skills/project-brand', {
       name: 'project-brand',
       description: 'brand',
@@ -86,16 +86,16 @@ describe('discoverDesignSkills', () => {
 });
 
 describe('loadDocStyle', () => {
-  it('returns {} when .autodocs/doc-style.json does not exist', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
+  it('returns {} when .docsolace/doc-style.json does not exist', () => {
+    const projectDir = makeTmpDir('docsolace-design-test-');
     expect(loadDocStyle(projectDir)).toEqual({});
   });
 
   it('loads a valid style file', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({
         skill: 'acme-brand',
         page: { stepsHeading: 'Walkthrough', viewportLabels: { mobile: 'On your phone' }, figures: true },
@@ -108,101 +108,101 @@ describe('loadDocStyle', () => {
   });
 
   it('throws on invalid JSON', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
-    fs.writeFileSync(path.join(projectDir, '.autodocs', 'doc-style.json'), '{not json');
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.docsolace', 'doc-style.json'), '{not json');
     expect(() => loadDocStyle(projectDir)).toThrow(/not valid JSON/);
   });
 
   it('rejects a stepsHeading containing markdown/HTML metacharacters', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { stepsHeading: '<script>alert(1)</script>' } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/metacharacters/);
   });
 
   it('rejects an over-long label', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { stepsHeading: 'x'.repeat(61) } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/60 characters or fewer/);
   });
 
   it('rejects a viewportLabels key that is not lowercase-kebab', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { viewportLabels: { 'Not_Valid!': 'x' } } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/lowercase letters, digits, and hyphens/);
   });
 
   it('rejects a newline embedded in a label', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { stepsHeading: 'line one\nline two' } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/metacharacters/);
   });
 
   it('rejects page.figures when not a boolean', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { figures: 'yes' } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/"page.figures" must be a boolean/);
   });
 
   it('accepts a valid 6-digit hex page.highlightColor', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { highlightColor: '#FF3B30' } }),
     );
     expect(loadDocStyle(projectDir).page.highlightColor).toBe('#FF3B30');
   });
 
   it('accepts a valid 3-digit hex page.highlightColor', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
-    fs.writeFileSync(path.join(projectDir, '.autodocs', 'doc-style.json'), JSON.stringify({ page: { highlightColor: '#f00' } }));
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.docsolace', 'doc-style.json'), JSON.stringify({ page: { highlightColor: '#f00' } }));
     expect(loadDocStyle(projectDir).page.highlightColor).toBe('#f00');
   });
 
   it('rejects a page.highlightColor that is not a hex color', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
-    fs.writeFileSync(path.join(projectDir, '.autodocs', 'doc-style.json'), JSON.stringify({ page: { highlightColor: 'red' } }));
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.docsolace', 'doc-style.json'), JSON.stringify({ page: { highlightColor: 'red' } }));
     expect(() => loadDocStyle(projectDir)).toThrow(/"page.highlightColor" must be a 3- or 6-digit hex color/);
   });
 
   it('rejects a page.highlightColor attempting CSS injection', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ page: { highlightColor: 'red; } body { display:none } /*' } }),
     );
     expect(() => loadDocStyle(projectDir)).toThrow(/"page.highlightColor" must be a 3- or 6-digit hex color/);
   });
 
   it('never surfaces the "site" section', () => {
-    const projectDir = makeTmpDir('autodocs-design-test-');
-    fs.mkdirSync(path.join(projectDir, '.autodocs'), { recursive: true });
+    const projectDir = makeTmpDir('docsolace-design-test-');
+    fs.mkdirSync(path.join(projectDir, '.docsolace'), { recursive: true });
     fs.writeFileSync(
-      path.join(projectDir, '.autodocs', 'doc-style.json'),
+      path.join(projectDir, '.docsolace', 'doc-style.json'),
       JSON.stringify({ skill: 'acme-brand', site: { primaryColor: '#123456' } }),
     );
     expect(loadDocStyle(projectDir).site).toBeUndefined();

@@ -133,7 +133,7 @@ describe('loadManifest / saveManifestEntry', () => {
   });
 
   function tmpManifestPath() {
-    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-manifest-test-'));
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-manifest-test-'));
     tmpDirs.push(dir);
     return path.join(dir, 'manifest.json');
   }

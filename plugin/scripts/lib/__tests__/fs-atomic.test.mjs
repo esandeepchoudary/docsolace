@@ -9,7 +9,7 @@ import { readJsonFile, withFileLock, writeFileAtomic } from '../fs-atomic.mjs';
 const tmpDirs = [];
 
 function tmpPath(fileName) {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-fs-atomic-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-fs-atomic-test-'));
   tmpDirs.push(dir);
   return path.join(dir, fileName);
 }

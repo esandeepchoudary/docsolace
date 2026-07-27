@@ -62,7 +62,7 @@ export function renderDraftTour({ id, title, intent, codePaths, steps, auth, voi
     preconditionLines.length > 0
       ? `preconditions:\n${preconditionLines.join('\n')}\n`
       : `# TODO: add preconditions (auth/seed/voice) here if this flow requires being signed\n` +
-        `# in or needs microphone input — see the auth/seeds entries in autodocs.config.yaml.\n`;
+        `# in or needs microphone input — see the auth/seeds entries in docsolace.config.yaml.\n`;
 
   // Suggested, never live — same "suggest, don't auto-fill" discipline as
   // preconditions/mask above. Only ever set alongside `auth` (see tour-

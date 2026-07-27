@@ -1,6 +1,6 @@
 // Resolves what capture.mjs should do for a tour's preconditions.seed
 // before running its steps. A seed is a named fixture declared in
-// autodocs.config.yaml's `seeds` map, optionally backed by a `command` that
+// docsolace.config.yaml's `seeds` map, optionally backed by a `command` that
 // (re)seeds the app's data before capture.
 //
 // A tour only ever *names* a seed id — per CLAUDE.md, tour YAML is
@@ -41,7 +41,7 @@ export function resolveSeed(config, seedId, { allowSeedCommands = false } = {}) 
       command: seed.command,
       message:
         `Seed "${seedId}" declares a command but allowSeedCommands is off — skipping it, capturing ` +
-        `against whatever data is already there. Set "allowSeedCommands: true" in autodocs.config.yaml, ` +
+        `against whatever data is already there. Set "allowSeedCommands: true" in docsolace.config.yaml, ` +
         `or pass --allow-seed-commands, to actually run it.`,
     };
   }

@@ -7,7 +7,7 @@ import { loadState, recordCaptureResult, saveTourState } from '../state.mjs';
 const tmpDirs = [];
 
 function tmpStatePath() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-state-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-state-test-'));
   tmpDirs.push(dir);
   return path.join(dir, 'nested', 'state.json');
 }

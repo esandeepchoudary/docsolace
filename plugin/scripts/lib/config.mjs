@@ -32,12 +32,12 @@ const SCRIPTED_AUTH_FIELDS = [
 // capture.mjs's ensureAuthState, mid-tour — catch it upfront instead.
 function assertValidAuthProfile(configPath, profileId, profile) {
   if (!profile || typeof profile !== 'object' || Array.isArray(profile)) {
-    throw new Error(`autodocs config at "${configPath}": auth profile "${profileId}" must be an object`);
+    throw new Error(`docsolace config at "${configPath}": auth profile "${profileId}" must be an object`);
   }
   if (profile.storageStatePath !== undefined) {
     if (typeof profile.storageStatePath !== 'string' || !profile.storageStatePath) {
       throw new Error(
-        `autodocs config at "${configPath}": auth profile "${profileId}"'s "storageStatePath" must be a non-empty string`,
+        `docsolace config at "${configPath}": auth profile "${profileId}"'s "storageStatePath" must be a non-empty string`,
       );
     }
     return;
@@ -45,7 +45,7 @@ function assertValidAuthProfile(configPath, profileId, profile) {
   const missing = SCRIPTED_AUTH_FIELDS.filter((field) => typeof profile[field] !== 'string' || !profile[field]);
   if (missing.length > 0) {
     throw new Error(
-      `autodocs config at "${configPath}": auth profile "${profileId}" must have either "storageStatePath" ` +
+      `docsolace config at "${configPath}": auth profile "${profileId}" must have either "storageStatePath" ` +
         `(reuse a saved session) or all of ${SCRIPTED_AUTH_FIELDS.join(', ')} (scripted login) — missing: ${missing.join(', ')}`,
     );
   }
@@ -59,9 +59,9 @@ export function loadConfig(configPath) {
   } catch (err) {
     // js-yaml throws its own YAMLException for a syntactically broken or
     // fully empty/whitespace-only file — rewrap so every config-loading
-    // failure follows this file's `autodocs config at "<path>": ...`
+    // failure follows this file's `docsolace config at "<path>": ...`
     // convention instead of a bare, path-less parser message.
-    throw new Error(`autodocs config at "${configPath}" is not valid YAML (${err.message})`);
+    throw new Error(`docsolace config at "${configPath}" is not valid YAML (${err.message})`);
   }
   // A `null` document (e.g. a file containing just "null"/"~") or a
   // scalar/array document (valid YAML, just not a mapping) parses without
@@ -70,28 +70,28 @@ export function loadConfig(configPath) {
   // message they're meant to give. tours.mjs's loadTour has the parallel
   // guard for the same reason.
   if (!config || typeof config !== 'object' || Array.isArray(config)) {
-    throw new Error(`autodocs config at "${configPath}" is empty or not a valid YAML object`);
+    throw new Error(`docsolace config at "${configPath}" is empty or not a valid YAML object`);
   }
   if (!config.baseUrl) {
-    throw new Error(`autodocs config at "${configPath}" is missing required "baseUrl"`);
+    throw new Error(`docsolace config at "${configPath}" is missing required "baseUrl"`);
   }
   if (!config.outputDir) {
-    throw new Error(`autodocs config at "${configPath}" is missing required "outputDir"`);
+    throw new Error(`docsolace config at "${configPath}" is missing required "outputDir"`);
   }
   if (!config.viewports || Object.keys(config.viewports).length === 0) {
-    throw new Error(`autodocs config at "${configPath}" needs at least one entry under "viewports"`);
+    throw new Error(`docsolace config at "${configPath}" needs at least one entry under "viewports"`);
   }
   for (const [name, size] of Object.entries(config.viewports)) {
     if (!VIEWPORT_NAME_RE.test(name)) {
       throw new Error(
-        `autodocs config at "${configPath}": viewport "${name}" is invalid — must be a lowercase kebab-case ` +
+        `docsolace config at "${configPath}": viewport "${name}" is invalid — must be a lowercase kebab-case ` +
           `name (letters, digits, hyphens only, no leading/trailing hyphen), since it's used to build file ` +
           `names and rendered into generated docs`,
       );
     }
     if (!size || typeof size.width !== 'number' || typeof size.height !== 'number') {
       throw new Error(
-        `autodocs config at "${configPath}": viewport "${name}" needs a numeric "width" and "height"`,
+        `docsolace config at "${configPath}": viewport "${name}" needs a numeric "width" and "height"`,
       );
     }
   }
@@ -102,14 +102,14 @@ export function loadConfig(configPath) {
       config.pixelDiffThreshold > 1)
   ) {
     throw new Error(
-      `autodocs config at "${configPath}": "pixelDiffThreshold" must be a number between 0 and 1`,
+      `docsolace config at "${configPath}": "pixelDiffThreshold" must be a number between 0 and 1`,
     );
   }
   if (config.defaultMask !== undefined && !Array.isArray(config.defaultMask)) {
-    throw new Error(`autodocs config at "${configPath}": "defaultMask" must be a list of selectors`);
+    throw new Error(`docsolace config at "${configPath}": "defaultMask" must be a list of selectors`);
   }
   if (config.launchArgs !== undefined && !Array.isArray(config.launchArgs)) {
-    throw new Error(`autodocs config at "${configPath}": "launchArgs" must be a list of strings`);
+    throw new Error(`docsolace config at "${configPath}": "launchArgs" must be a list of strings`);
   }
   if (config.auth !== undefined) {
     for (const [profileId, profile] of Object.entries(config.auth)) {
@@ -118,19 +118,19 @@ export function loadConfig(configPath) {
   }
   if (config.seeds !== undefined) {
     if (typeof config.seeds !== 'object' || config.seeds === null || Array.isArray(config.seeds)) {
-      throw new Error(`autodocs config at "${configPath}": "seeds" must be a map of seed id to definition`);
+      throw new Error(`docsolace config at "${configPath}": "seeds" must be a map of seed id to definition`);
     }
     for (const [seedId, seed] of Object.entries(config.seeds)) {
       if (!seed || typeof seed !== 'object' || Array.isArray(seed)) {
-        throw new Error(`autodocs config at "${configPath}": seed "${seedId}" must be an object`);
+        throw new Error(`docsolace config at "${configPath}": seed "${seedId}" must be an object`);
       }
       if (seed.command !== undefined && (typeof seed.command !== 'string' || !seed.command.trim())) {
-        throw new Error(`autodocs config at "${configPath}": seed "${seedId}"'s "command" must be a non-empty string`);
+        throw new Error(`docsolace config at "${configPath}": seed "${seedId}"'s "command" must be a non-empty string`);
       }
     }
   }
   if (config.allowSeedCommands !== undefined && typeof config.allowSeedCommands !== 'boolean') {
-    throw new Error(`autodocs config at "${configPath}": "allowSeedCommands" must be a boolean`);
+    throw new Error(`docsolace config at "${configPath}": "allowSeedCommands" must be a boolean`);
   }
   if (config.crawl !== undefined) {
     assertValidCrawlConfig(configPath, config.crawl);
@@ -163,7 +163,7 @@ export function loadConfig(configPath) {
 // confinement are what actually close that one, not this function.
 function assertSafeSourceGlob(configPath, pattern) {
   if (typeof pattern !== 'string' || !pattern) {
-    throw new Error(`autodocs config at "${configPath}": "product.sources" entries must be non-empty strings`);
+    throw new Error(`docsolace config at "${configPath}": "product.sources" entries must be non-empty strings`);
   }
   if (
     path.isAbsolute(pattern) ||
@@ -173,7 +173,7 @@ function assertSafeSourceGlob(configPath, pattern) {
     pattern.includes('}')
   ) {
     throw new Error(
-      `autodocs config at "${configPath}": "product.sources" entry "${pattern}" is invalid — must be a ` +
+      `docsolace config at "${configPath}": "product.sources" entry "${pattern}" is invalid — must be a ` +
         `project-relative glob (no absolute path, no ".." segment, no "{...}" brace expansion).`,
     );
   }
@@ -182,29 +182,29 @@ function assertSafeSourceGlob(configPath, pattern) {
 // Controls generate-product-docs.mjs — which product-level pages to generate
 // (default: all of lib/product.mjs's PRODUCT_PAGES) and what extra files
 // ground them beyond the standing README/package.json/.env.example/
-// autodocs.config.yaml set (see lib/product.mjs's collectProductSources).
+// docsolace.config.yaml set (see lib/product.mjs's collectProductSources).
 function assertValidProductConfig(configPath, product) {
   if (!product || typeof product !== 'object' || Array.isArray(product)) {
-    throw new Error(`autodocs config at "${configPath}": "product" must be an object`);
+    throw new Error(`docsolace config at "${configPath}": "product" must be an object`);
   }
   if (product.name !== undefined && (typeof product.name !== 'string' || !product.name.trim())) {
-    throw new Error(`autodocs config at "${configPath}": "product.name" must be a non-empty string`);
+    throw new Error(`docsolace config at "${configPath}": "product.name" must be a non-empty string`);
   }
   if (product.pages !== undefined) {
     if (!Array.isArray(product.pages) || product.pages.length === 0) {
-      throw new Error(`autodocs config at "${configPath}": "product.pages" must be a non-empty list`);
+      throw new Error(`docsolace config at "${configPath}": "product.pages" must be a non-empty list`);
     }
     const unknown = product.pages.filter((p) => !PRODUCT_PAGE_IDS.includes(p));
     if (unknown.length > 0) {
       throw new Error(
-        `autodocs config at "${configPath}": "product.pages" names unknown page(s) ${unknown.join(', ')} — ` +
+        `docsolace config at "${configPath}": "product.pages" names unknown page(s) ${unknown.join(', ')} — ` +
           `must be a subset of ${PRODUCT_PAGE_IDS.join(', ')}`,
       );
     }
   }
   if (product.sources !== undefined) {
     if (!Array.isArray(product.sources)) {
-      throw new Error(`autodocs config at "${configPath}": "product.sources" must be a list of globs`);
+      throw new Error(`docsolace config at "${configPath}": "product.sources" must be a list of globs`);
     }
     for (const pattern of product.sources) {
       assertSafeSourceGlob(configPath, pattern);
@@ -218,25 +218,25 @@ function assertValidProductConfig(configPath, product) {
 // authenticated app can trigger real side effects if left on by accident.
 function assertValidCrawlConfig(configPath, crawl) {
   if (!crawl || typeof crawl !== 'object' || Array.isArray(crawl)) {
-    throw new Error(`autodocs config at "${configPath}": "crawl" must be an object`);
+    throw new Error(`docsolace config at "${configPath}": "crawl" must be an object`);
   }
   for (const field of ['maxPages', 'maxDepth']) {
     if (crawl[field] !== undefined && (typeof crawl[field] !== 'number' || crawl[field] <= 0)) {
-      throw new Error(`autodocs config at "${configPath}": "crawl.${field}" must be a positive number`);
+      throw new Error(`docsolace config at "${configPath}": "crawl.${field}" must be a positive number`);
     }
   }
   for (const field of ['startPaths', 'excludePaths']) {
     if (crawl[field] !== undefined) {
       if (!Array.isArray(crawl[field]) || crawl[field].some((p) => typeof p !== 'string' || !p.startsWith('/'))) {
         throw new Error(
-          `autodocs config at "${configPath}": "crawl.${field}" must be a list of site-relative paths ` +
+          `docsolace config at "${configPath}": "crawl.${field}" must be a list of site-relative paths ` +
             `starting with "/"`,
         );
       }
     }
   }
   if (crawl.allowInteractive !== undefined && typeof crawl.allowInteractive !== 'boolean') {
-    throw new Error(`autodocs config at "${configPath}": "crawl.allowInteractive" must be a boolean`);
+    throw new Error(`docsolace config at "${configPath}": "crawl.allowInteractive" must be a boolean`);
   }
 }
 
@@ -248,22 +248,22 @@ function assertValidCrawlConfig(configPath, crawl) {
 // so this is caught here instead of failing quietly downstream).
 function assertValidDocsConfig(configPath, docs, viewports) {
   if (!docs || typeof docs !== 'object' || Array.isArray(docs)) {
-    throw new Error(`autodocs config at "${configPath}": "docs" must be an object`);
+    throw new Error(`docsolace config at "${configPath}": "docs" must be an object`);
   }
   if (docs.primaryViewport !== undefined) {
     if (typeof docs.primaryViewport !== 'string' || !docs.primaryViewport) {
-      throw new Error(`autodocs config at "${configPath}": "docs.primaryViewport" must be a non-empty string`);
+      throw new Error(`docsolace config at "${configPath}": "docs.primaryViewport" must be a non-empty string`);
     }
     const knownViewports = Object.keys(viewports ?? {});
     if (!knownViewports.includes(docs.primaryViewport)) {
       throw new Error(
-        `autodocs config at "${configPath}": "docs.primaryViewport" ("${docs.primaryViewport}") must name ` +
+        `docsolace config at "${configPath}": "docs.primaryViewport" ("${docs.primaryViewport}") must name ` +
           `one of the configured "viewports" (${knownViewports.join(', ') || 'none configured'})`,
       );
     }
   }
   if (docs.collapseOtherViewports !== undefined && typeof docs.collapseOtherViewports !== 'boolean') {
-    throw new Error(`autodocs config at "${configPath}": "docs.collapseOtherViewports" must be a boolean`);
+    throw new Error(`docsolace config at "${configPath}": "docs.collapseOtherViewports" must be a boolean`);
   }
   // Opt-in: when true, generate-docs.mjs/generate-product-docs.mjs stamp
   // each page's frontmatter with a "last_verified" date + short commit SHA
@@ -274,7 +274,7 @@ function assertValidDocsConfig(configPath, docs, viewports) {
   // project that never sets it (the default) sees zero output change and
   // zero page churn from this feature.
   if (docs.stampVerified !== undefined && typeof docs.stampVerified !== 'boolean') {
-    throw new Error(`autodocs config at "${configPath}": "docs.stampVerified" must be a boolean`);
+    throw new Error(`docsolace config at "${configPath}": "docs.stampVerified" must be a boolean`);
   }
   if (docs.sections !== undefined) {
     assertValidDocsSections(configPath, docs.sections);
@@ -290,7 +290,7 @@ function assertValidDocsConfig(configPath, docs, viewports) {
 // joined into a docs/<id>.md link.
 function assertValidDocsSections(configPath, sections) {
   if (!Array.isArray(sections)) {
-    throw new Error(`autodocs config at "${configPath}": "docs.sections" must be a list`);
+    throw new Error(`docsolace config at "${configPath}": "docs.sections" must be a list`);
   }
   // A tour id listed twice (whether in one section's own list or across two
   // different sections) isn't just redundant — lib/product.mjs's
@@ -298,31 +298,31 @@ function assertValidDocsSections(configPath, sections) {
   // same tour in two sidebar categories at once and double-count it while
   // computing every later tour's sidebar_position, silently shifting their
   // order too. Confirmed by reproducing it directly: a tour named in two
-  // sections showed up twice in docs/_sidebar.autodocs.json. Caught here,
+  // sections showed up twice in docs/_sidebar.docsolace.json. Caught here,
   // once, for both shapes, rather than trying to dedupe downstream in two
   // different functions that would need to agree on how.
   const seenTourIds = new Map(); // tourId -> "docs.sections[i]" it was first seen in
   for (const [index, section] of sections.entries()) {
     if (!section || typeof section !== 'object' || Array.isArray(section)) {
-      throw new Error(`autodocs config at "${configPath}": "docs.sections[${index}]" must be an object`);
+      throw new Error(`docsolace config at "${configPath}": "docs.sections[${index}]" must be an object`);
     }
     assertSafeLabel(section.label, `docs.sections[${index}].label`);
     if (!Array.isArray(section.tours) || section.tours.length === 0) {
       throw new Error(
-        `autodocs config at "${configPath}": "docs.sections[${index}].tours" must be a non-empty list of tour ids`,
+        `docsolace config at "${configPath}": "docs.sections[${index}].tours" must be a non-empty list of tour ids`,
       );
     }
     for (const tourId of section.tours) {
       if (typeof tourId !== 'string' || !SLUG_RE.test(tourId)) {
         throw new Error(
-          `autodocs config at "${configPath}": "docs.sections[${index}].tours" entry "${JSON.stringify(tourId)}" ` +
+          `docsolace config at "${configPath}": "docs.sections[${index}].tours" entry "${JSON.stringify(tourId)}" ` +
             `is invalid — must be a lowercase kebab-case tour id`,
         );
       }
       const firstSeenAt = seenTourIds.get(tourId);
       if (firstSeenAt !== undefined) {
         throw new Error(
-          `autodocs config at "${configPath}": tour "${tourId}" appears in both "${firstSeenAt}" and ` +
+          `docsolace config at "${configPath}": tour "${tourId}" appears in both "${firstSeenAt}" and ` +
             `"docs.sections[${index}]" — a tour can belong to only one section.`,
         );
       }

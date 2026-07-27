@@ -3,14 +3,14 @@ import {themes as prismThemes} from 'prism-react-renderer';
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'AutoDocs',
+  title: 'DocSolace',
   // Docusaurus falls back to this as the page's meta/og description on any
   // page that doesn't set its own frontmatter `description` (every
   // generated tutorial does; this landing page and a couple of others
   // don't) — themeConfig.metadata's "description" entry is overridden by
   // this default, so the SEO-relevant text needs to live here instead.
   tagline:
-    "Tutorials generated from AutoDocs' own running app, kept in sync automatically — a Claude Code plugin that drives a real browser with Playwright and writes grounded docs as the app changes.",
+    "Tutorials generated from DocSolace's own running app, kept in sync automatically — a Claude Code plugin that drives a real browser with Playwright and writes grounded docs as the app changes.",
   favicon: 'img/favicon.ico',
 
   future: {
@@ -22,10 +22,10 @@ const config = {
   // URL Docusaurus emits are only correct once this is real, not the
   // scaffold's example.com placeholder.
   url: 'https://esandeepchoudary.github.io',
-  baseUrl: '/autodocs/',
+  baseUrl: '/docsolace/',
 
   organizationName: 'esandeepchoudary',
-  projectName: 'autodocs',
+  projectName: 'docsolace',
 
   onBrokenLinks: 'throw',
 
@@ -39,18 +39,18 @@ const config = {
       innerHTML: JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'SoftwareApplication',
-        name: 'AutoDocs',
+        name: 'DocSolace',
         applicationCategory: 'DeveloperApplication',
         operatingSystem: 'Cross-platform',
         description:
           'Claude Code plugin that drives your running web app with Playwright, takes screenshots, and writes tutorial-style Markdown docs that stay in sync as the app changes.',
-        url: 'https://esandeepchoudary.github.io/autodocs/',
+        url: 'https://esandeepchoudary.github.io/docsolace/',
         offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
       }),
     },
   ],
 
-  // generate-docs.mjs writes plain CommonMark with `<!-- autodocs:keep -->`
+  // generate-docs.mjs writes plain CommonMark with `<!-- docsolace:keep -->`
   // HTML comments — MDX (the default) parses `<!-- -->` as JSX and chokes on
   // it, so every doc is treated as plain Markdown instead.
   markdown: {
@@ -72,7 +72,7 @@ const config = {
         docs: {
           path: '../docs',
           sidebarPath: './sidebars.js',
-          editUrl: 'https://github.com/esandeepchoudary/autodocs/tree/main/docs/',
+          editUrl: 'https://github.com/esandeepchoudary/docsolace/tree/main/docs/',
         },
         blog: false,
         theme: {
@@ -131,7 +131,7 @@ const config = {
         respectPrefersColorScheme: true,
       },
       navbar: {
-        title: 'AutoDocs',
+        title: 'DocSolace',
         items: [
           {
             type: 'docSidebar',
@@ -140,7 +140,7 @@ const config = {
             label: 'Tutorials',
           },
           {
-            href: 'https://github.com/esandeepchoudary/autodocs',
+            href: 'https://github.com/esandeepchoudary/docsolace',
             label: 'GitHub',
             position: 'right',
           },
@@ -149,7 +149,7 @@ const config = {
       footer: {
         style: 'dark',
         links: [],
-        copyright: `Generated tutorials — kept in sync by AutoDocs.`,
+        copyright: `Generated tutorials — kept in sync by DocSolace.`,
       },
       prism: {
         theme: prismThemes.github,

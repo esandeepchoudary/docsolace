@@ -8,7 +8,7 @@ import { loadConfig } from '../config.mjs';
 const tmpFiles = [];
 
 function writeTmpYaml(contents) {
-  const filePath = path.join(os.tmpdir(), `autodocs-bootstrap-test-${Date.now()}-${Math.random()}.yaml`);
+  const filePath = path.join(os.tmpdir(), `docsolace-bootstrap-test-${Date.now()}-${Math.random()}.yaml`);
   fs.writeFileSync(filePath, contents);
   tmpFiles.push(filePath);
   return filePath;
@@ -25,7 +25,7 @@ describe('renderAnnotatedConfig', () => {
     const config = loadConfig(filePath);
 
     expect(config.baseUrl).toBe('http://localhost:5173');
-    expect(config.outputDir).toBe('.autodocs/artifacts');
+    expect(config.outputDir).toBe('.docsolace/artifacts');
     expect(config.viewports.desktop).toEqual({ width: 1280, height: 800 });
     expect(config.viewports.mobile).toEqual({ width: 390, height: 844 });
     // Everything optional stays commented out, so it's absent, not invalid.
@@ -37,8 +37,8 @@ describe('renderAnnotatedConfig', () => {
   it('includes commented example stanzas for both auth shapes, masks, seeds, and docs layout', () => {
     const yaml = renderAnnotatedConfig('http://localhost:3000');
     expect(yaml).toContain('# auth:');
-    expect(yaml).toContain('storageStatePath: .autodocs/artifacts/.auth/oauth-user.manual.json');
-    expect(yaml).toContain('usernameEnv: AUTODOCS_STANDARD_USER_USERNAME');
+    expect(yaml).toContain('storageStatePath: .docsolace/artifacts/.auth/oauth-user.manual.json');
+    expect(yaml).toContain('usernameEnv: DOCSOLACE_STANDARD_USER_USERNAME');
     expect(yaml).toContain('# defaultMask:');
     expect(yaml).toContain('# seeds:');
     expect(yaml).toContain('# allowSeedCommands: false');
@@ -86,34 +86,34 @@ describe('renderAnnotatedConfig', () => {
 
 describe('ensureGitignoreEntries', () => {
   it('adds a header and the entries to an empty file', () => {
-    const result = ensureGitignoreEntries('', ['.autodocs/artifacts/', '.env']);
-    expect(result).toBe('# AutoDocs (added automatically by /autodocs:document)\n.autodocs/artifacts/\n.env\n');
+    const result = ensureGitignoreEntries('', ['.docsolace/artifacts/', '.env']);
+    expect(result).toBe('# DocSolace (added automatically by /docsolace:document)\n.docsolace/artifacts/\n.env\n');
   });
 
   it('appends after existing content, separated by a blank line', () => {
     const result = ensureGitignoreEntries('node_modules/\n', ['.env']);
     expect(result).toBe(
-      'node_modules/\n\n# AutoDocs (added automatically by /autodocs:document)\n.env\n',
+      'node_modules/\n\n# DocSolace (added automatically by /docsolace:document)\n.env\n',
     );
   });
 
   it('is idempotent — a second call with the same entries changes nothing', () => {
-    const first = ensureGitignoreEntries('node_modules/\n', ['.autodocs/artifacts/', '.env']);
-    const second = ensureGitignoreEntries(first, ['.autodocs/artifacts/', '.env']);
+    const first = ensureGitignoreEntries('node_modules/\n', ['.docsolace/artifacts/', '.env']);
+    const second = ensureGitignoreEntries(first, ['.docsolace/artifacts/', '.env']);
     expect(second).toBe(first);
   });
 
   it('only adds entries that are actually missing, without duplicating the header', () => {
     const withEnvAlready = 'node_modules/\n.env\n';
-    const result = ensureGitignoreEntries(withEnvAlready, ['.autodocs/artifacts/', '.env']);
-    expect(result).toBe('node_modules/\n.env\n\n# AutoDocs (added automatically by /autodocs:document)\n.autodocs/artifacts/\n');
+    const result = ensureGitignoreEntries(withEnvAlready, ['.docsolace/artifacts/', '.env']);
+    expect(result).toBe('node_modules/\n.env\n\n# DocSolace (added automatically by /docsolace:document)\n.docsolace/artifacts/\n');
     // Only one header line even though this is effectively a second pass.
-    expect(result.match(/# AutoDocs/g)).toHaveLength(1);
+    expect(result.match(/# DocSolace/g)).toHaveLength(1);
   });
 
   it('does nothing when every entry is already present', () => {
-    const already = '# AutoDocs (added automatically by /autodocs:document)\n.autodocs/artifacts/\n.env\n';
-    expect(ensureGitignoreEntries(already, ['.autodocs/artifacts/', '.env'])).toBe(already);
+    const already = '# DocSolace (added automatically by /docsolace:document)\n.docsolace/artifacts/\n.env\n';
+    expect(ensureGitignoreEntries(already, ['.docsolace/artifacts/', '.env'])).toBe(already);
   });
 
   it("includes .playwright-mcp/ — init-project.mjs's real GITIGNORE_ENTRIES list", () => {
@@ -122,9 +122,9 @@ describe('ensureGitignoreEntries', () => {
     // tour-scout's Playwright MCP driving drops a .playwright-mcp/ scratch
     // dir (page snapshots, console logs) into the project root the first
     // time /document propose runs; a freshly bootstrapped project must
-    // gitignore it, same as .autodocs/artifacts/ and .env, or it can get
+    // gitignore it, same as .docsolace/artifacts/ and .env, or it can get
     // committed by accident.
-    const realEntries = ['.autodocs/artifacts/', '.env', '.playwright-mcp/'];
+    const realEntries = ['.docsolace/artifacts/', '.env', '.playwright-mcp/'];
     const result = ensureGitignoreEntries('', realEntries);
     expect(result).toContain('.playwright-mcp/');
     for (const entry of realEntries) {

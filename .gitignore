@@ -1,6 +1,6 @@
 node_modules/
 .claude/settings.local.json
-.autodocs/artifacts/
+.docsolace/artifacts/
 .playwright-mcp/
 *.log
 .env

@@ -1,6 +1,7 @@
 ---
 sidebar_position: 11
 sidebar_label: "Dashboard overview"
+description: "Show a new user what the main dashboard displays and how to read it."
 ---
 
 # Dashboard overview
@@ -13,7 +14,7 @@ Show a new user what the main dashboard displays and how to read it.
 
    ![Full dashboard after login](images/dashboard-overview/dashboard-full@desktop.png)
 
-   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <details class="docsolace-viewport docsolace-viewport--mobile">
    <summary>Mobile view</summary>
 
    ![Full dashboard after login (mobile)](images/dashboard-overview/dashboard-full@mobile.png)
@@ -26,7 +27,7 @@ Show a new user what the main dashboard displays and how to read it.
 
    ![Filter panel expanded](images/dashboard-overview/dashboard-filters@desktop.png)
 
-   <details class="autodocs-viewport autodocs-viewport--mobile">
+   <details class="docsolace-viewport docsolace-viewport--mobile">
    <summary>Mobile view</summary>
 
    ![Filter panel expanded (mobile)](images/dashboard-overview/dashboard-filters@mobile.png)
@@ -35,6 +36,6 @@ Show a new user what the main dashboard displays and how to read it.
 
    Clicking "Filters" expands a panel with a Status dropdown (All, Done, Pending) above the activity table, letting you narrow the table to a single status.
 
-<!-- autodocs:keep -->
+<!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->
-<!-- /autodocs:keep -->
+<!-- /docsolace:keep -->

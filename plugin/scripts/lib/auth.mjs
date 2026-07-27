@@ -13,7 +13,7 @@ export function primaryViewport(config) {
 export async function ensureAuthState(browser, config, authProfileId) {
   const profile = config.auth?.[authProfileId];
   if (!profile) {
-    throw new Error(`Auth profile "${authProfileId}" not found in autodocs.config.yaml`);
+    throw new Error(`Auth profile "${authProfileId}" not found in docsolace.config.yaml`);
   }
 
   // Apps that can't be logged into with a scripted username/password fill —

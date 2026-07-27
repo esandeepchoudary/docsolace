@@ -4,7 +4,7 @@ description: Drafts a candidate tour for a feature that was just implemented, by
 model: sonnet
 effort: medium
 maxTurns: 20
-tools: Read, Write, mcp__plugin_autodocs_playwright__*
+tools: Read, Write, mcp__plugin_docsolace_playwright__*
 ---
 
 You draft one candidate tour spec for a feature a human just described, by
@@ -25,10 +25,10 @@ You're given, as your task:
 - the filenames of any existing fixture files under `fixtures/*` (same
   reason — already listed by the caller, may be empty)
 - the app's base URL and the likely route to start from (from
-  `autodocs.config.yaml` and the description; ask if genuinely ambiguous
+  `docsolace.config.yaml` and the description; ask if genuinely ambiguous
   rather than guessing at a route)
 - optionally, a route's **affordances from `/document map`'s site map**
-  (`.autodocs/artifacts/site-map.json` — button/form/link text a crawler
+  (`.docsolace/artifacts/site-map.json` — button/form/link text a crawler
   observed on that route). This is only ever a *hint* for where to look
   first — it never substitutes for actually navigating and taking your own
   accessibility snapshot in step 2 below; the crawler may have missed

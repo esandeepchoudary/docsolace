@@ -1,9 +1,9 @@
 // Assembles the product-level documentation layer (docs/overview.md,
-// docs/getting-started.md, docs/concepts.md, plus docs/_sidebar.autodocs.json)
+// docs/getting-started.md, docs/concepts.md, plus docs/_sidebar.docsolace.json)
 // from lib/product.mjs's helpers, gated by the same drift-hash shape
 // generate-docs.mjs uses for tour pages. Prose comes from whichever the
 // `product-scribe` subagent wrote to
-// .autodocs/artifacts/prose/_product.json (see plugin/agents/
+// .docsolace/artifacts/prose/_product.json (see plugin/agents/
 // product-scribe.md) — there's no hardcoded fallback the way
 // generate-docs.mjs has for the two demo tours, since a project's product
 // pages have no equivalent "runnable without a subagent" demo content.
@@ -52,12 +52,12 @@ function loadAllTours() {
 
 function main() {
   const { force, pages: requestedPages } = parseArgs(process.argv.slice(2));
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const tours = loadAllTours();
 
   const enabledPageIds = config.product?.pages ?? PRODUCT_PAGE_IDS;
   // enabledPages (config-driven) is distinct from pagesToGenerate
-  // (additionally --page-scoped for this run): docs/_sidebar.autodocs.json
+  // (additionally --page-scoped for this run): docs/_sidebar.docsolace.json
   // is one shared file covering every product page, so a --page-scoped run
   // must still list every *enabled* page in it — narrowing it to just the
   // pages this one invocation happened to touch would silently drop the
@@ -76,7 +76,7 @@ function main() {
   }
 
   if (pagesToGenerate.length === 0) {
-    console.log('No product pages enabled — check autodocs.config.yaml\'s "product.pages" or the --page flag.');
+    console.log('No product pages enabled — check docsolace.config.yaml\'s "product.pages" or the --page flag.');
     return;
   }
 
@@ -210,7 +210,7 @@ function main() {
     tours,
   });
 
-  writeFileAtomic(path.join('docs', '_sidebar.autodocs.json'), `${JSON.stringify(sidebarStructure, null, 2)}\n`);
+  writeFileAtomic(path.join('docs', '_sidebar.docsolace.json'), `${JSON.stringify(sidebarStructure, null, 2)}\n`);
 
   // Only advance the top-level inputsHash/renderHash when every page this
   // run touched actually succeeded. If any page refused (hand-edited outside
@@ -244,12 +244,12 @@ function main() {
   if (skippedNoGrounding.length > 0) {
     console.log(`Skipped (product-scribe found no grounding): ${skippedNoGrounding.join(', ')}`);
   }
-  console.log('Wrote docs/_sidebar.autodocs.json');
+  console.log('Wrote docs/_sidebar.docsolace.json');
 
   if (refusals.length > 0) {
     console.error(
       `${refusals.join(', ')} ${refusals.length === 1 ? 'was' : 'were'} edited outside its ` +
-        `<!-- autodocs:keep --> region since the last generation. Move the edit into the keep-region, or ` +
+        `<!-- docsolace:keep --> region since the last generation. Move the edit into the keep-region, or ` +
         `re-run with --force to overwrite it.`,
     );
     process.exit(1);

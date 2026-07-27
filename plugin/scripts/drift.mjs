@@ -22,7 +22,7 @@ import {
 } from './lib/product.mjs';
 
 function main() {
-  const config = loadConfig('autodocs.config.yaml');
+  const config = loadConfig('docsolace.config.yaml');
   const statePath = path.join(config.outputDir, 'state.json');
   const state = loadState(statePath);
 
@@ -30,11 +30,11 @@ function main() {
   const manifest = loadManifest(manifestPath);
 
   // Same guard validate.mjs already has — without it, a missing tours/
-  // (e.g. this is run before /autodocs:document has ever bootstrapped the
+  // (e.g. this is run before /docsolace:document has ever bootstrapped the
   // project) surfaces as a raw ENOENT from readdirSync instead of a
   // friendly, actionable message.
   if (!fs.existsSync('tours')) {
-    console.log('No tours/ directory yet — run /autodocs:document once to bootstrap this project.');
+    console.log('No tours/ directory yet — run /docsolace:document once to bootstrap this project.');
     return;
   }
 

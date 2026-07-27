@@ -11,7 +11,7 @@ steps:
     path: /dashboard
   - capture: dashboard-full
     description: "Full dashboard after login"
-    # .timestamp/.user-avatar are masked globally via autodocs.config.yaml's
+    # .timestamp/.user-avatar are masked globally via docsolace.config.yaml's
     # defaultMask — no need to repeat them here.
   - action: click
     selector: "role=button[name='Filters']"

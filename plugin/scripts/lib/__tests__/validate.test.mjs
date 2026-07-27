@@ -7,7 +7,7 @@ import { validateProduct, validateProject, validateTour } from '../validate.mjs'
 const tmpDirs = [];
 
 function makeTmpDir() {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'autodocs-validate-test-'));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-validate-test-'));
   tmpDirs.push(dir);
   return dir;
 }
