@@ -371,6 +371,28 @@ many candidate features at once instead of one you were told about.
    review, flip `status: confirmed`, then `/document validate` and the normal
    pipeline.
 
+   **Also note the product pages weren't touched.** This whole mode is
+   tours-only — it never dispatches `product-scribe` or runs
+   `generate-product-docs.mjs`, even though every tour this run drafted or
+   archived changed the tour inventory that `_product`'s dirty-check is
+   partly hashed against (see "Document the product itself" and
+   `lib/product.mjs`'s `computeProductInputsHash`). So the PR this step
+   shipped can leave `docs/overview.md`'s tour index stale, and — on a
+   project with no product pages generated yet — leaves
+   `docs/_sidebar.docsolace.json` missing entirely (only
+   `generate-product-docs.mjs` writes it), so the newly shipped tour pages
+   have no sidebar structure and the site has no front door. Surface this
+   mechanically, not as a guess: run
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
+   ```
+   (nonzero exit here is expected whenever anything is dirty — not a
+   failure) and quote its `_product` line verbatim, same as the per-tour
+   `[changed: ...]` file list Step 2 above already carries into a report.
+   If it says `dirty`, tell the user to follow up with `/document product`
+   (or a plain `/document`) to bring the product pages back in sync; if
+   `clean`, say so and skip the rest of this note.
+
 ## Prune orphaned tours
 
 Parses as `prune [--review]`. This is "Map the whole app" step 5 on its own,
@@ -422,6 +444,17 @@ yourself. No browser is launched unless a previous `/document map` run left
 4. Report what was found — which were auto-archived (autonomous mode), which
    need human review (`route-unreachable` only, either mode) — and, in
    autonomous mode, the branch/PR that shipped if anything did.
+
+   **If anything was auto-archived**, the same product-staleness note as
+   "Map the whole app" step 9 applies — archiving flips a tour's `status`,
+   which is part of what `_product`'s dirty-check hashes over the tour
+   inventory, and this mode never touches the product pages either. Run
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
+   ```
+   and quote its `_product` line; if dirty, point the user at
+   `/document product` (or a plain `/document`). Skip this note when
+   nothing was archived this run.
 
 ## Document the product itself
 
