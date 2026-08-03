@@ -317,6 +317,24 @@ describe('skills/document/SKILL.md', () => {
     expect(body).toContain('--review');
   });
 
+  it('map and prune report when they leave the product pages stale, since neither ever regenerates them', () => {
+    // map/prune only ever change the tour inventory (draft/archive), which
+    // is part of what _product's dirty-check hashes — but neither mode
+    // dispatches product-scribe or runs generate-product-docs.mjs itself
+    // (that's the no-slug-run-only fold-in below). Regression guard: without
+    // this, a map/prune PR could ship with a silently stale overview tour
+    // index or a missing docs/_sidebar.docsolace.json on a fresh project.
+    const mapSection = body.slice(body.indexOf('## Map the whole app'), body.indexOf('## Prune orphaned tours'));
+    expect(mapSection).toContain('_product');
+    expect(mapSection).toContain('node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"');
+    expect(mapSection).toContain('/document product');
+
+    const pruneSection = body.slice(body.indexOf('## Prune orphaned tours'), body.indexOf('## Document the product itself'));
+    expect(pruneSection).toContain('_product');
+    expect(pruneSection).toContain('node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"');
+    expect(pruneSection).toContain('/document product');
+  });
+
   it('has a product mode that dispatches product-scribe and assembles via generate-product-docs.mjs', () => {
     expect(frontmatter['argument-hint']).toContain('product');
     expect(body).toContain('## Document the product itself');
