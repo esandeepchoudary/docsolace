@@ -258,9 +258,9 @@ Decision Record" convention) — `product-scribe` never infers or guesses
 obvious from the code.
 
 This isn't a separate chore — the normal no-argument `/docsolace:document` run
-keeps these pages in sync automatically too, the same drift-gated way it
-already does for tours (see "How it works" below), so `/document product` is
-mainly for regenerating them on their own without touching any tour. See
+regenerates these pages too, on the same drift-gated pass it already runs for
+tours (see "How it works" below), so `/document product` is mainly for
+regenerating them on their own without touching any tour. See
 ["Configuring tours and auth"](./CONFIGURATION.md) for `product.pages`/`product.sources`, and
 `docs.sections` for grouping tours in the generated sidebar.
 

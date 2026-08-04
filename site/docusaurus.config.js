@@ -10,7 +10,7 @@ const config = {
   // don't) — themeConfig.metadata's "description" entry is overridden by
   // this default, so the SEO-relevant text needs to live here instead.
   tagline:
-    "Tutorials generated from DocSolace's own running app, kept in sync automatically — a Claude Code plugin that drives a real browser with Playwright and writes grounded docs as the app changes.",
+    "Docs generated from your app's real running UI — grounded in what the browser actually saw, and flagged the moment a screen drifts. You stay in the loop: every run ships as a reviewable PR, never auto-merged.",
   favicon: 'img/favicon.ico',
 
   future: {

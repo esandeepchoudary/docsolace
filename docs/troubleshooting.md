@@ -3,6 +3,7 @@ sidebar_position: 5
 sidebar_label: "Troubleshooting"
 title: "Troubleshooting"
 description: "If /plugin isn't recognized, the Claude Code install is out of date — check with claude --version, upgrade, and restart. If the plugin's installed but…"
+last_verified: "2026-08-04 (370b5a3)"
 ---
 
 # Troubleshooting

@@ -76,6 +76,21 @@ allowSeedCommands: false
 docs:
   primaryViewport: desktop
   collapseOtherViewports: true
+  # Groups the three confirmed tours under one sidebar category instead of
+  # a flat, alphabetical list — order here is the reading order (natural
+  # learning path: sign in, see the dashboard, then export from it), not
+  # alphabetical. Product pages always pin above every section regardless.
+  sections:
+    - label: Tutorials
+      tours:
+        - login
+        - dashboard-overview
+        - dashboard-export
+  # Stamps each generated page with a real "last verified" date + short
+  # commit SHA, both in frontmatter and as a visible line under the title
+  # (see lib/docgen.mjs's renderTourPage) — off by default project-wide, on
+  # here so this repo's own dogfood docs actually show it.
+  stampVerified: true
 
 # Extra grounding for product-scribe (see lib/product.mjs's DEFAULT_SOURCES,
 # which already covers README.md/package.json/.env.example/this file/

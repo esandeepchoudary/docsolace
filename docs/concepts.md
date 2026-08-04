@@ -3,6 +3,7 @@ sidebar_position: 3
 sidebar_label: "Concepts"
 title: "Concepts"
 description: "A tour is a YAML file under tours/ describing one feature walk: which pages to visit, what to click, and where to take screenshots. Each tour has an id, title,…"
+last_verified: "2026-08-04 (370b5a3)"
 ---
 
 # Concepts

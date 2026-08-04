@@ -223,11 +223,12 @@ function main() {
   const sidebarPositions = computeTourSidebarPositions({ sections: config.docs?.sections, tours: allTours });
   const generatedAt = new Date().toISOString();
   const generatedAtCommit = resolveShortHeadCommit();
+  const lastVerified = docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined;
   const frontmatter = buildFrontmatter({
     sidebarPosition: sidebarPositions.get(tour.id),
     sidebarLabel: tour.title,
     description: deriveMetaDescription(tour.intent ?? ''),
-    lastVerified: docsConfig.stampVerified ? `${generatedAt.slice(0, 10)} (${generatedAtCommit})` : undefined,
+    lastVerified,
   });
 
   const newMarkdown = renderTourPage({
@@ -238,6 +239,7 @@ function main() {
     frontmatter,
     prerequisites: resolveTourLinks(tour.prerequisites, allTours),
     seeAlso: resolveTourLinks(tour.see_also, allTours),
+    lastVerified,
   });
 
   const docPath = path.join('docs', `${tour.id}.md`);

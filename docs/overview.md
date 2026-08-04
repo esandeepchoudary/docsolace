@@ -3,6 +3,7 @@ sidebar_position: 1
 sidebar_label: "Overview"
 title: "Overview"
 description: "DocSolace is a Claude Code plugin that drives a running web app with Playwright, takes screenshots, and writes tutorial-style Markdown documentation that stays…"
+last_verified: "2026-08-04 (370b5a3)"
 ---
 
 # Overview
