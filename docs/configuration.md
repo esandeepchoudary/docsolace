@@ -3,6 +3,7 @@ sidebar_position: 4
 sidebar_label: "Configuration"
 title: "Configuration"
 description: "The project's .env.example documents two variables that map to the usernameEnv/passwordEnv fields of an auth profile in docsolace.config.yaml:…"
+last_verified: "2026-08-04 (370b5a3)"
 ---
 
 # Configuration

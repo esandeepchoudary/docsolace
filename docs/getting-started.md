@@ -3,6 +3,7 @@ sidebar_position: 2
 sidebar_label: "Getting started"
 title: "Getting started"
 description: "Claude Code, installed and logged in per its own docs (or the pipeline can be run directly with plain Node scripts instead, skipping Claude Code entirely).…"
+last_verified: "2026-08-04 (370b5a3)"
 ---
 
 # Getting started

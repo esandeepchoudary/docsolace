@@ -6,10 +6,15 @@
     "configuration",
     "troubleshooting"
   ],
-  "sections": [],
-  "unsectionedTours": [
-    "dashboard-export",
-    "dashboard-overview",
-    "login"
-  ]
+  "sections": [
+    {
+      "label": "Tutorials",
+      "tours": [
+        "login",
+        "dashboard-overview",
+        "dashboard-export"
+      ]
+    }
+  ],
+  "unsectionedTours": []
 }
