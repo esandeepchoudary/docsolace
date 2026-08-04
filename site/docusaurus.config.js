@@ -126,6 +126,10 @@ const config = {
           content:
             'documentation generator, docs as code, claude code plugin, playwright, headless browser, screenshot testing, docusaurus, technical documentation',
         },
+        {
+          name: 'google-site-verification',
+          content: 'm3nQPyVi5nM03PaC8iTUJK73i-N4Wsv_ELtji9sVN8w',
+        },
       ],
       colorMode: {
         respectPrefersColorScheme: true,
