@@ -139,6 +139,11 @@ and read its `route`:
 - `{kind: "pipeline"}` (no arguments) — run
   `node "${CLAUDE_PLUGIN_DATA}/scripts/triage.mjs"` with no flags and read
   `resync`/`uncovered`:
+  - `skippedTours` non-empty: before anything else, tell the user which
+    tour file(s) failed to load and why (the `error`), and run
+    `validate.mjs` — a malformed tour is a hard stop for the normal
+    pipeline anyway, and `uncovered` may be unreliable for the files it
+    owns. Don't offer to draft a duplicate tour for those files.
   - `uncovered` non-empty (UI files changed that no confirmed tour's
     `code_paths` covers): tell the user in one line which files, and that
     this looks like a feature with no tutorial yet. Ask once: "Document

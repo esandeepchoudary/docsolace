@@ -7,9 +7,9 @@
 // answers "did anything change that a tour already covers, or that no tour
 // covers", the same mechanical posture as drift.mjs's resolveChangedCodePaths.
 import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { resolveCodePathFiles } from './drift.mjs';
-import fs from 'node:fs';
 import { SLUG_RE, loadTour } from './tours.mjs';
 
 // Source files that plausibly render UI. Extensions that are unambiguously
@@ -19,18 +19,25 @@ const UI_EXTENSIONS = new Set([
   '.jsx', '.tsx', '.vue', '.svelte', '.astro', '.html',
   '.css', '.scss', '.sass', '.less', '.erb', '.ejs', '.hbs', '.njk',
 ]);
-const AMBIGUOUS_EXTENSIONS = new Set(['.js', '.mjs', '.ts', '.php']);
+const AMBIGUOUS_EXTENSIONS = new Set(['.js', '.mjs', '.ts']);
+// Generic script files count when they sit under a frontend-ish directory
+// (`src/` covers flat CRA/Vite/Vue layouts) and no backend-ish directory.
 const UI_DIRS = new Set([
-  'components', 'component', 'pages', 'views', 'screens', 'ui', 'frontend', 'client',
-  'web', 'public', 'templates', 'layouts', 'app',
+  'src', 'components', 'component', 'pages', 'views', 'screens', 'ui', 'frontend', 'client',
+  'web', 'templates', 'layouts',
 ]);
+const BACKEND_DIRS = new Set([
+  'server', 'api', 'lib', 'routes', 'controllers', 'models', 'middleware', 'services', 'db',
+  'migrations', 'bin', 'cli', 'backend', 'utils', 'helpers',
+]);
+// .php is mostly backend (Laravel `app/`), so only genuine template dirs count.
+const PHP_UI_DIRS = new Set(['views', 'templates', 'layouts', 'pages', 'components']);
 
 // Directories that are never UI source, at any depth (monorepos nest them).
-const IGNORED_ANYWHERE = new Set([
-  'node_modules', 'dist', 'build', '.next', 'fixtures', 'test', 'tests', '__tests__',
-]);
-// Directories that only count as non-UI at the repo root.
-const IGNORED_ROOT = new Set(['.docsolace', 'tours', 'docs', 'site', 'scripts', '.github']);
+const IGNORED_ANYWHERE = new Set(['node_modules', 'dist', '.next', 'fixtures', 'test', 'tests', '__tests__']);
+// Directories that only count as non-UI at the repo root (a nested `build/`
+// or `scripts/` can legitimately be a UI feature name).
+const IGNORED_ROOT = new Set(['.docsolace', 'tours', 'docs', 'site', 'scripts', '.github', 'build']);
 
 const TEST_FILE_RE = /(?:\.|-)(?:test|spec|stories)\.[a-z]+$/;
 const CONFIG_FILE_RE = /(?:^|\/)[^/]*\.config\.[a-z]+$/;
@@ -44,6 +51,8 @@ export function isUiFile(file) {
   if (TEST_FILE_RE.test(normalized) || CONFIG_FILE_RE.test(normalized)) return false;
   const ext = path.extname(normalized).toLowerCase();
   if (UI_EXTENSIONS.has(ext)) return true;
+  if (dirs.some((d) => BACKEND_DIRS.has(d))) return false;
+  if (ext === '.php') return dirs.some((d) => PHP_UI_DIRS.has(d));
   return AMBIGUOUS_EXTENSIONS.has(ext) && dirs.some((d) => UI_DIRS.has(d));
 }
 
@@ -116,7 +125,12 @@ export function routeArguments(argString, { knownModes, tourIds }) {
     .trim();
   if (text === '') return { kind: 'pipeline' };
   const [first, ...rest] = text.split(/\s+/);
-  if (knownModes.includes(first) && (first === 'propose' || rest.every((w) => w.startsWith('--')))) {
+  // After a mode word, only flags, a flag's value, or an existing tour id may
+  // follow (`map --depth 2`, `validate login`) — anything else is prose.
+  const modeArgsOnly = rest.every(
+    (w, i) => w.startsWith('--') || (i > 0 && rest[i - 1].startsWith('--')) || tourIds.includes(w),
+  );
+  if (knownModes.includes(first) && (first === 'propose' || modeArgsOnly)) {
     return { kind: 'mode', mode: first };
   }
   if (tourIds.includes(text)) return { kind: 'tour', tourId: text };
@@ -124,7 +138,7 @@ export function routeArguments(argString, { knownModes, tourIds }) {
 }
 
 function git(args, cwd) {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+  return execFileSync('git', ['-c', 'core.quotepath=false', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
 }
 
 function lines(output) {
@@ -155,13 +169,32 @@ export function listChangedFiles(cwd = process.cwd()) {
   return [...files].sort();
 }
 
+// A tour that fails to load still owns its code_paths. Pull them out with a
+// forgiving line scan (never a YAML parse, which is what failed) so a typo in
+// one tour doesn't turn its files into a bogus "uncovered feature".
+export function extractCodePathsLeniently(text) {
+  const out = [];
+  let inBlock = false;
+  for (const line of String(text).split('\n')) {
+    if (/^code_paths\s*:/.test(line)) {
+      inBlock = true;
+      continue;
+    }
+    if (!inBlock) continue;
+    const item = line.match(/^\s+-\s+["']?([^"'#]+?)["']?\s*(?:#.*)?$/);
+    if (item) out.push(item[1]);
+    else if (/^\S/.test(line)) break;
+  }
+  return out;
+}
+
 export const KNOWN_MODES = ['propose', 'map', 'prune', 'product', 'validate', 'status', 'init-site'];
 
 export function parseTriageArgs(argv) {
   const args = {};
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--description') args.description = argv[++i];
-    if (argv[i] === '--args') args.args = argv[++i];
+    else if (argv[i] === '--args') args.args = argv[++i];
   }
   return args;
 }
@@ -171,13 +204,18 @@ export function parseTriageArgs(argv) {
 // simply doesn't count as coverage.
 export function buildTriageReport({ cwd = process.cwd(), rawArgs, description }) {
   const toursDir = path.join(cwd, 'tours');
-  const tourIds = fs.existsSync(toursDir)
-    ? fs
-        .readdirSync(toursDir)
-        .filter((f) => f.endsWith('.yaml'))
-        .map((f) => f.replace(/\.yaml$/, ''))
-        .filter((id) => SLUG_RE.test(id))
-    : [];
+  const allFiles = fs.existsSync(toursDir) ? fs.readdirSync(toursDir).filter((f) => f.endsWith('.yaml')) : [];
+  const tourIds = [];
+  const skippedTours = [];
+  const lenientTours = [];
+  for (const file of allFiles) {
+    const id = file.replace(/\.yaml$/, '');
+    if (!SLUG_RE.test(id)) {
+      skippedTours.push({ tourId: id, error: 'filename is not a lowercase kebab-case slug' });
+      continue;
+    }
+    tourIds.push(id);
+  }
 
   const out = {};
   if (rawArgs !== undefined) out.route = routeArguments(rawArgs, { knownModes: KNOWN_MODES, tourIds });
@@ -185,20 +223,28 @@ export function buildTriageReport({ cwd = process.cwd(), rawArgs, description })
 
   if (rawArgs === undefined || out.route.kind === 'pipeline') {
     const tours = [];
-    const skippedTours = [];
     for (const id of tourIds) {
       try {
         tours.push(loadTour(toursDir, id));
       } catch (err) {
         skippedTours.push({ tourId: id, error: err.message });
+        let text = '';
+        try {
+          text = fs.readFileSync(path.join(toursDir, `${id}.yaml`), 'utf8');
+        } catch {
+          // unreadable — contributes no coverage
+        }
+        const status = text.match(/^status\s*:\s*["']?(\w+)/m)?.[1] ?? 'confirmed';
+        lenientTours.push({ id, status, code_paths: extractCodePathsLeniently(text) });
       }
     }
     const changedFiles = listChangedFiles(cwd);
     out.changedFiles = changedFiles;
-    Object.assign(out, classifyChangedFiles({ changedFiles, tours, cwd }));
+    Object.assign(out, classifyChangedFiles({ changedFiles, tours: [...tours, ...lenientTours], cwd }));
     if (skippedTours.length > 0) {
       out.skippedTours = skippedTours;
-      out.note = 'Some tours failed to load and were ignored here — run validate.mjs to see why.';
+      out.note =
+        'Some tours failed to load strictly (their code_paths were still counted as coverage) — run validate.mjs to see why.';
     }
   }
   return out;

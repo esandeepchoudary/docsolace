@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import {
   buildTriageReport,
   classifyChangedFiles,
+  extractCodePathsLeniently,
   isUiFile,
   listChangedFiles,
   parseTriageArgs,
@@ -73,6 +74,31 @@ describe('isUiFile — backend and nesting (review findings)', () => {
     expect(isUiFile('packages/x/dist/a.jsx')).toBe(false);
     expect(isUiFile('src/__tests__/Foo.jsx')).toBe(false);
     expect(isUiFile('apps/web/node_modules/y/z.jsx')).toBe(false);
+  });
+});
+
+describe('isUiFile — round 2', () => {
+  it('counts flat src/ layouts (CRA, Vite, Vue)', () => {
+    expect(isUiFile('src/App.js')).toBe(true);
+    expect(isUiFile('src/BillingPage.js')).toBe(true);
+    expect(isUiFile('src/main.ts')).toBe(true);
+  });
+
+  it('still rejects backend directories nested under src', () => {
+    expect(isUiFile('src/server/index.js')).toBe(false);
+    expect(isUiFile('src/api/client.ts')).toBe(false);
+    expect(isUiFile('src/lib/format.js')).toBe(false);
+  });
+
+  it('does not treat Laravel app/ PHP or vendored public/ scripts as UI', () => {
+    expect(isUiFile('app/Http/Controllers/UserController.php')).toBe(false);
+    expect(isUiFile('public/vendor/chart.min.js')).toBe(false);
+    expect(isUiFile('resources/views/billing.php')).toBe(true);
+  });
+
+  it('only ignores build/ at the repo root', () => {
+    expect(isUiFile('build/out.jsx')).toBe(false);
+    expect(isUiFile('src/build/Wizard.jsx')).toBe(true);
   });
 });
 
@@ -177,6 +203,11 @@ describe('routeArguments', () => {
     }
   });
 
+  it('lets flags carry values and modes take a tour id', () => {
+    expect(routeArguments('map --depth 2', ctx)).toEqual({ kind: 'mode', mode: 'map' });
+    expect(routeArguments('status login', ctx)).toEqual({ kind: 'mode', mode: 'status' });
+  });
+
   it('still routes propose with arguments to the propose mode', () => {
     expect(routeArguments('propose export "the export button"', ctx)).toEqual({ kind: 'mode', mode: 'propose' });
   });
@@ -264,6 +295,10 @@ describe('parseTriageArgs', () => {
     expect(parseTriageArgs(['--args', '--review'])).toEqual({ args: '--review' });
   });
 
+  it('does not re-test a consumed value as a flag', () => {
+    expect(parseTriageArgs(['--description', '--args'])).toEqual({ description: '--args' });
+  });
+
   it('returns {} when no flags are given', () => {
     expect(parseTriageArgs([])).toEqual({});
   });
@@ -303,19 +338,56 @@ describe('buildTriageReport', () => {
     expect(report.uncovered).toEqual(['src/Billing.jsx']);
   });
 
-  it('does not fail on a malformed tour or a non-slug filename; reports it instead', () => {
+  it('does not fail on a malformed tour or non-slug filename; reports both', () => {
     const dir = project();
     write(dir, 'tours/broken.yaml', 'id: [unclosed\n');
     write(dir, 'tours/My_Tour.yaml', 'id: x\n');
     write(dir, 'src/Login.jsx', 'changed');
     const report = buildTriageReport({ cwd: dir });
-    expect(report.skippedTours.map((t) => t.tourId)).toEqual(['broken']);
+    expect(report.skippedTours.map((t) => t.tourId).sort()).toEqual(['My_Tour', 'broken']);
+    expect(report.skippedTours.find((t) => t.tourId === 'My_Tour').error).toContain('kebab-case');
     expect(report.note).toContain('validate.mjs');
     expect(report.resync.map((r) => r.tourId)).toEqual(['login']);
+  });
+
+  it('still counts a malformed tour\'s code_paths as coverage (no bogus "uncovered")', () => {
+    const dir = project();
+    write(dir, 'src/Billing.jsx');
+    write(dir, 'tours/billing.yaml', 'id: billing\ncode_paths:\n  - src/Billing.jsx\nsteps: [unclosed\n');
+    write(dir, 'src/Billing.jsx', 'changed');
+    const report = buildTriageReport({ cwd: dir });
+    expect(report.skippedTours.map((t) => t.tourId)).toEqual(['billing']);
+    expect(report.uncovered).toEqual([]);
+    expect(report.resync).toEqual([{ tourId: 'billing', files: ['src/Billing.jsx'] }]);
   });
 
   it('works with no tours/ directory', () => {
     const dir = mkTmpDir();
     expect(buildTriageReport({ cwd: dir })).toMatchObject({ changedFiles: [], resync: [], uncovered: [] });
+  });
+});
+
+describe('extractCodePathsLeniently', () => {
+  it('reads list items under code_paths and stops at the next key', () => {
+    const text = 'id: x\ncode_paths:\n  - src/A.jsx\n  - "src/B.jsx" # note\nsteps:\n  - capture: y\n';
+    expect(extractCodePathsLeniently(text)).toEqual(['src/A.jsx', 'src/B.jsx']);
+  });
+
+  it('returns [] when there is no code_paths block', () => {
+    expect(extractCodePathsLeniently('id: x\n')).toEqual([]);
+  });
+});
+
+describe('listChangedFiles — non-ASCII names', () => {
+  it('returns unquoted paths for non-ASCII filenames', () => {
+    const dir = mkTmpDir();
+    git(dir, 'init', '-q', '-b', 'main');
+    git(dir, 'config', 'user.email', 't@example.com');
+    git(dir, 'config', 'user.name', 't');
+    write(dir, 'a.js');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-q', '-m', 'init');
+    write(dir, 'src/página.jsx');
+    expect(listChangedFiles(dir)).toEqual(['src/página.jsx']);
   });
 });
