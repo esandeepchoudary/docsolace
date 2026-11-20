@@ -1,0 +1,173 @@
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
+import {
+  classifyChangedFiles,
+  isUiFile,
+  listChangedFiles,
+  routeArguments,
+  slugifyDescription,
+} from '../triage.mjs';
+import { SLUG_RE } from '../tours.mjs';
+
+const tmpDirs = [];
+
+function mkTmpDir() {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-triage-test-'));
+  tmpDirs.push(dir);
+  return dir;
+}
+
+function write(dir, rel, content = 'x') {
+  const full = path.join(dir, rel);
+  fs.mkdirSync(path.dirname(full), { recursive: true });
+  fs.writeFileSync(full, content);
+}
+
+function git(dir, ...args) {
+  return execFileSync('git', args, { cwd: dir, encoding: 'utf8' });
+}
+
+afterEach(() => {
+  while (tmpDirs.length) fs.rmSync(tmpDirs.pop(), { recursive: true, force: true });
+});
+
+describe('isUiFile', () => {
+  it('accepts frontend source files', () => {
+    expect(isUiFile('src/pages/Billing.jsx')).toBe(true);
+    expect(isUiFile('app/views/index.erb')).toBe(true);
+    expect(isUiFile('src/styles/app.css')).toBe(true);
+  });
+
+  it('rejects tests, configs, docs, tours, and non-UI files', () => {
+    expect(isUiFile('src/pages/Billing.test.jsx')).toBe(false);
+    expect(isUiFile('src/__tests__/a.js')).toBe(false);
+    expect(isUiFile('vite.config.js')).toBe(false);
+    expect(isUiFile('README.md')).toBe(false);
+    expect(isUiFile('package-lock.json')).toBe(false);
+    expect(isUiFile('tours/login.yaml')).toBe(false);
+    expect(isUiFile('docs/login.md')).toBe(false);
+    expect(isUiFile('node_modules/x/index.js')).toBe(false);
+    expect(isUiFile('logo.png')).toBe(false);
+  });
+});
+
+describe('classifyChangedFiles', () => {
+  it('maps changed files to the confirmed tours whose code_paths own them', () => {
+    const dir = mkTmpDir();
+    write(dir, 'src/pages/Login.jsx');
+    write(dir, 'src/pages/Billing.jsx');
+    const tours = [{ id: 'login', status: 'confirmed', code_paths: ['src/pages/Login.jsx'] }];
+
+    const result = classifyChangedFiles({
+      changedFiles: ['src/pages/Login.jsx', 'src/pages/Billing.jsx'],
+      tours,
+      cwd: dir,
+    });
+
+    expect(result.resync).toEqual([{ tourId: 'login', files: ['src/pages/Login.jsx'] }]);
+    expect(result.uncovered).toEqual(['src/pages/Billing.jsx']);
+  });
+
+  it('supports glob code_paths', () => {
+    const dir = mkTmpDir();
+    write(dir, 'src/pages/Dash/Chart.jsx');
+    const tours = [{ id: 'dash', code_paths: ['src/pages/Dash/**'] }];
+    const result = classifyChangedFiles({ changedFiles: ['src/pages/Dash/Chart.jsx'], tours, cwd: dir });
+    expect(result.resync.map((r) => r.tourId)).toEqual(['dash']);
+    expect(result.uncovered).toEqual([]);
+  });
+
+  it('ignores proposed/archived tours as coverage', () => {
+    const dir = mkTmpDir();
+    write(dir, 'src/Old.jsx');
+    const tours = [{ id: 'old', status: 'archived', code_paths: ['src/Old.jsx'] }];
+    const result = classifyChangedFiles({ changedFiles: ['src/Old.jsx'], tours, cwd: dir });
+    expect(result.resync).toEqual([]);
+    expect(result.uncovered).toEqual(['src/Old.jsx']);
+  });
+
+  it('never reports non-UI files as uncovered', () => {
+    const dir = mkTmpDir();
+    const result = classifyChangedFiles({ changedFiles: ['README.md', 'package.json'], tours: [], cwd: dir });
+    expect(result).toEqual({ resync: [], uncovered: [] });
+  });
+});
+
+describe('slugifyDescription', () => {
+  it('derives a valid kebab-case slug, dropping filler words', () => {
+    expect(slugifyDescription('the new Export CSV button on the dashboard')).toBe('export-csv-button-dashboard');
+  });
+
+  it('always satisfies SLUG_RE and stays short', () => {
+    const slug = slugifyDescription('A very long description '.repeat(10));
+    expect(slug).toMatch(SLUG_RE);
+    expect(slug.length).toBeLessThanOrEqual(40);
+  });
+
+  it('de-duplicates against existing ids', () => {
+    expect(slugifyDescription('billing page', ['billing-page'])).toBe('billing-page-2');
+    expect(slugifyDescription('billing page', ['billing-page', 'billing-page-2'])).toBe('billing-page-3');
+  });
+
+  it('falls back to "feature" for empty or symbol-only input', () => {
+    expect(slugifyDescription('')).toBe('feature');
+    expect(slugifyDescription('!!!')).toBe('feature');
+  });
+
+  it('neutralizes path-traversal-looking input', () => {
+    expect(slugifyDescription('../../etc/passwd')).toMatch(SLUG_RE);
+  });
+});
+
+describe('routeArguments', () => {
+  const ctx = { knownModes: ['propose', 'map', 'status'], tourIds: ['login', 'billing-page'] };
+
+  it('routes empty args (and bare flags) to the pipeline', () => {
+    expect(routeArguments('', ctx)).toEqual({ kind: 'pipeline' });
+    expect(routeArguments('--review', ctx)).toEqual({ kind: 'pipeline' });
+    expect(routeArguments(undefined, ctx)).toEqual({ kind: 'pipeline' });
+  });
+
+  it('routes a known mode word', () => {
+    expect(routeArguments('map --interactive', ctx)).toEqual({ kind: 'mode', mode: 'map' });
+    expect(routeArguments('status', ctx)).toEqual({ kind: 'mode', mode: 'status' });
+  });
+
+  it('routes an existing tour id', () => {
+    expect(routeArguments('login --no-style', ctx)).toEqual({ kind: 'tour', tourId: 'login' });
+  });
+
+  it('treats anything else as a free-text feature description', () => {
+    expect(routeArguments('the new billing page --review', ctx)).toEqual({
+      kind: 'describe',
+      description: 'the new billing page',
+    });
+  });
+});
+
+describe('listChangedFiles', () => {
+  it('returns [] outside a git repo', () => {
+    expect(listChangedFiles(mkTmpDir())).toEqual([]);
+  });
+
+  it('includes branch commits, uncommitted edits, and untracked files', () => {
+    const dir = mkTmpDir();
+    git(dir, 'init', '-q', '-b', 'main');
+    git(dir, 'config', 'user.email', 't@example.com');
+    git(dir, 'config', 'user.name', 't');
+    write(dir, 'a.js');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-q', '-m', 'init');
+    git(dir, 'checkout', '-q', '-b', 'feat/x');
+    write(dir, 'b.js');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-q', '-m', 'b');
+    write(dir, 'a.js', 'changed');
+    write(dir, 'c.js');
+
+    expect(listChangedFiles(dir)).toEqual(['a.js', 'b.js', 'c.js']);
+  });
+});

@@ -69,31 +69,31 @@ Inside Claude Code:
 ```
 /plugin marketplace add esandeepchoudary/docsolace
 /plugin install docsolace@docsolace-marketplace
-/reload-plugins
 ```
 
-Then, in the project you want tutorials for:
+Restart Claude Code (or run `/reload-plugins`), open the project you want
+tutorials for, and build something. Then:
 
 ```
 /docsolace:document
 ```
 
-The first run bootstraps the project — asks for your app's local base URL,
-writes a starter `docsolace.config.yaml`, creates an empty `tours/`. Once
-you've built something worth documenting:
+That's the whole interface. The first run asks for your app's local base URL
+and sets the project up. After that, one command does the right thing:
 
-```
-/docsolace:document propose <slug> "<description>"
-```
+- **No arguments** — checks what you changed. If a tutorial already covers it,
+  it re-captures and updates that tutorial. If you changed UI no tutorial
+  covers, it asks you once to describe it in a few words and drafts one.
+- **Plain words** — `/docsolace:document the new billing page` drafts a
+  tutorial for that feature without you picking a slug or a mode.
 
-drafts a tour by actually driving your app, then — by default — carries it
-all the way through to an opened docs PR. That's the whole loop.
+Either way it ends with an opened docs PR for you to review — never merged
+automatically.
 
-See ["Contents"](#contents) above for reference material on everything else:
-every mode `/docsolace:document` supports, configuring auth, edge cases
-(uploads, async content, non-password logins, voice input), mapping a whole
-app at once, and publishing a docs site. If `/plugin` doesn't behave as
-expected, jump to ["Troubleshooting"](./TROUBLESHOOTING.md).
+Everything else (every mode, auth, edge cases, mapping a whole app,
+publishing a docs site) is reference material: see ["Contents"](#contents)
+above. If `/plugin` doesn't behave as expected, jump to
+["Troubleshooting"](./TROUBLESHOOTING.md).
 
 ## Prerequisites
 
@@ -165,19 +165,21 @@ the session cookies and credentials those can hold never end up committed.
 Then it tells you there's nothing to generate until a tour exists. From
 there:
 
+The three things you'll actually type:
+
 | Command | What it does |
 |---|---|
-| `/docsolace:document` | Run the full pipeline over every tour, ship a docs PR |
-| `/docsolace:document <tour-id>` | Same, but just that one tour |
-| `/docsolace:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
-| `/docsolace:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
-| `/docsolace:document prune` | Just the archival check above, on its own — no crawl required for the common case |
-| `/docsolace:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded (via the `product-scribe` subagent), then ship |
-| `/docsolace:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
-| `/docsolace:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
-| `/docsolace:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
+| `/docsolace:document` | Work out what changed; resync covered tutorials, offer to draft one for uncovered UI, ship a docs PR |
+| `/docsolace:document <what you built, in plain words>` | Draft and ship a tutorial for that feature (the slug is derived for you) |
+| `/docsolace:document <tour-id>` | Re-capture and update just that tutorial |
 
-Every mode above except `validate` and `status` (both read-only reports, no
+Maintenance modes (`map`, `prune`, `product`, `validate`, `status`,
+`init-site`, and the explicit `propose <slug> "<description>"` form) still
+exist but you shouldn't need them day to day — `validate` and `prune` already
+run automatically as the first step of every normal run. They're listed in
+["All commands"](./ADVANCED.md#all-document-commands) under "Advanced topics".
+
+Every mode (including the ones in "All commands") except `validate` and `status` (both read-only reports, no
 browser, no PR) runs autonomously by default: draft or capture → generate →
 open a docs PR, without stopping for review at each step — that PR (never
 auto-merged) is the review point. A short list of hard
@@ -185,7 +187,7 @@ stops still halts a run and asks rather than pushing through: `tour-scout`
 couldn't ground the feature, a voice/microphone flow (always reported
 `unverified`), a `validate` error, an auth session that needs a real human at
 a headed browser, or a hand-edited docs page outside its keep-region. Append
-`--review` to any mode above to fall back to the original stop-and-ask-at-
+`--review` to any mode to fall back to the original stop-and-ask-at-
 every-step behavior instead; append `--no-style` to skip design-skill
 detection for that run. See `tours/dashboard-export.yaml` in *this* repo for
 a worked `propose` example, start to finish (this repo also happens to be
@@ -212,20 +214,15 @@ they document. From `main`/`master` it creates a fresh `docs/<slug>` branch
 instead; it never commits generated docs straight to `main`. It never merges
 anything — opening or updating the PR is the end of its job.
 
-### It nudges you when a feature looks worth documenting
+### It reminds you, once, when tutorials may be stale
 
-A second `SessionStart` hook gives Claude standing instructions for every
-session in a project where the plugin is installed. Before
-`docsolace.config.yaml` exists, that's just a one-line reminder that
-`/docsolace:document` will bootstrap things. Once the project is set up, it's
-a bit more: whenever Claude finishes a user-facing feature or flow, it's
-instructed to ask you whether it's worth a tutorial — suggesting
-`/docsolace:document propose <slug> "<description>"` for something new, or
-`/docsolace:document <tour-id>` to resync a flow an existing confirmed tour
-already covers. Running the suggested command is still your call — but once
-you run it, it no longer stops to wait on you at every step: it carries the
-draft through to an opened PR by default (see "It ships a docs PR for you"
-above), unless it hits one of that section's hard stops. See
+A second `SessionStart` hook gives Claude one standing instruction: if it
+changed user-facing UI files during the session, end the reply with a single
+line telling you to run `/docsolace:document`. That's all — no questions, no
+mode names, and nothing at all for backend-only, test, or config changes.
+Running the command is still your call; the decision about *which* tutorial to
+draft or resync is made by the command itself (`plugin/scripts/triage.mjs`
+maps changed files to the tours whose `code_paths` own them). See
 `plugin/scripts/lib/session-guidance.mjs` for the exact wording.
 
 ### It also documents the product itself

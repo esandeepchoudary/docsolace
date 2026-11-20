@@ -25,25 +25,28 @@ describe('buildSessionGuidance', () => {
     expect(guidance.toLowerCase()).toContain('bootstrap');
     // Must not leak the full tutorial-need guidance before there's even a
     // config/tours to suggest documenting anything against.
-    expect(guidance).not.toContain('/document propose');
+    expect(guidance).not.toContain('propose');
     expect(guidance).not.toContain('tour-scout');
   });
 
-  it('gives the full tutorial-need guidance once docsolace.config.yaml exists', () => {
+  it('gives a one-line reminder instruction once docsolace.config.yaml exists', () => {
     const projectDir = makeTmpProjectDir();
     fs.writeFileSync(path.join(projectDir, 'docsolace.config.yaml'), 'baseUrl: http://localhost:3000\n');
 
     const guidance = buildSessionGuidance(projectDir);
 
-    expect(guidance).toContain('/document propose <slug>');
-    expect(guidance).toContain('tour-scout');
-    expect(guidance.toLowerCase()).toContain("don't silently decide");
-    // The tour-need suggestion itself is still a suggestion — but once the
-    // human runs it, it now carries through to an opened PR by default
-    // instead of stopping for a manual status: confirmed flip.
-    expect(guidance).toContain('--review');
-    expect(guidance.toLowerCase()).toContain('never auto-merged');
-    expect(guidance.toLowerCase()).toContain('hard stop');
+    expect(guidance).toContain('run /document');
+    expect(guidance.toLowerCase()).toContain('stay completely silent otherwise');
+    // No mode names, slugs, or flags leak into every session's context.
+    expect(guidance).not.toContain('propose');
+    expect(guidance).not.toContain('tour-scout');
+    expect(guidance).not.toContain('--review');
+  });
+
+  it('stays short', () => {
+    const projectDir = makeTmpProjectDir();
+    fs.writeFileSync(path.join(projectDir, 'docsolace.config.yaml'), '');
+    expect(buildSessionGuidance(projectDir).length).toBeLessThan(500);
   });
 
   it('does not treat a directory named docsolace.config.yaml as initiated indicators are file-based only', () => {
@@ -52,6 +55,6 @@ describe('buildSessionGuidance', () => {
     const projectDir = makeTmpProjectDir();
     fs.writeFileSync(path.join(projectDir, 'docsolace.config.yaml'), '');
 
-    expect(buildSessionGuidance(projectDir)).toContain('/document propose <slug>');
+    expect(buildSessionGuidance(projectDir)).toContain('run /document');
   });
 });
