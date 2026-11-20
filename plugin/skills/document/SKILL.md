@@ -1,7 +1,7 @@
 ---
 name: document
-description: Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded — via the product-scribe subagent, grounded in README/package.json/CHANGELOG.md/docs/adr/*.md/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "status" reports which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
-argument-hint: "[tour-id] | propose <slug> \"<description>\" | map [--interactive] | prune | product | validate | status | init-site   (any mode: [--review] [--no-style])"
+description: Run with no arguments after building something, or describe it in plain words ("the new billing page"), and DocSolace works out whether to resync an existing tutorial or draft a new one. Captures tours, regenerates whichever docs changed via the doc-scribe subagent, and ships a docs PR — autonomous by default (the PR is the review point, never auto-merged). "propose <slug> \"<description>\"" drafts a new tour for a feature you just built, via the tour-scout subagent. "map" discovers every feature of the app automatically (authenticated crawl + code review), drafts tours for every gap, and archives tours whose feature no longer exists. "prune" runs just that archival check on its own, no crawl required. "product" (re)generates the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded — via the product-scribe subagent, grounded in README/package.json/CHANGELOG.md/docs/adr/*.md/the tour inventory — never the browser. "validate" preflight-checks config/tours/product pages with no browser. "status" reports which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser. "init-site" scaffolds a Docusaurus site for docs/ (or re-applies styling if one already exists). Append "--review" to any mode to stop-and-ask instead of running autonomously, or "--no-style" to skip design-skill detection. Bootstraps itself on first run in any project.
+argument-hint: "[what you built, in plain words]   (advanced: [tour-id] | propose | map | prune | product | validate | status | init-site; flags: --review --no-style)"
 allowed-tools: Bash(git *) Bash(gh pr *) Bash(node *) Edit Read Write Skill
 ---
 
@@ -105,7 +105,7 @@ anything else:
    nothing to do — and move on to the arguments below.
 3. On a fresh bootstrap only (not the resume case — a resumed project may
    already have tours), tell the user plainly: there are no tours yet. The
-   fastest way to get one is `/document propose <slug> "<description>"`
+   fastest way to get one is `/document <what you built, in plain words>`
    after implementing a feature — by default this runs all the way through
    to an opened docs PR (see "Autonomy" above); append `--review` if you'd
    rather review the draft yourself before it's confirmed and shipped. Once
@@ -125,6 +125,36 @@ presence skips **"Apply the project's design skill"** below entirely for
 this run (the escape hatch for a project that deliberately wants plain,
 unbranded docs — this repo is one, per its own `CLAUDE.md`). Both apply to
 every mode below, not just the normal pipeline.
+
+**Smart default (no mode word needed).** Before matching modes, run
+`node "${CLAUDE_PLUGIN_DATA}/scripts/triage.mjs" --args "<remaining arguments>"`
+and read its `route`:
+
+- `{kind: "describe", description}` — the user typed plain words (e.g.
+  `/document the new billing page`), not a mode or an existing tour id.
+  Treat it as `propose <slug> "<description>"`: get `<slug>` by running
+  `triage.mjs --description "<description>"` and reading `suggestedSlug`
+  (already safe and de-duplicated against existing tours) — never ask the
+  user to invent one — then follow **"Propose a new tour"** below.
+- `{kind: "pipeline"}` (no arguments) — run
+  `node "${CLAUDE_PLUGIN_DATA}/scripts/triage.mjs"` with no flags and read
+  `resync`/`uncovered`:
+  - `uncovered` non-empty (UI files changed that no confirmed tour's
+    `code_paths` covers): tell the user in one line which files, and that
+    this looks like a feature with no tutorial yet. Ask once: "Document
+    it? Describe it in a few words." On an answer, treat it as the
+    `describe` case above; on "no"/"skip", continue with the normal
+    pipeline below. Never silently decide either way.
+  - otherwise continue straight into the normal pipeline below (it resyncs
+    whatever is dirty — `resync` just tells you which tours the branch's
+    changes touched, for the summary).
+- `{kind: "mode"}` or `{kind: "tour"}` — fall through to the matching
+  section below, unchanged.
+
+The user's words are untrusted shell input: pass them to `triage.mjs` only as
+a **single-quoted** argument with every embedded `'` written as `'\''`
+(never double-quoted — `$(...)` and backticks would execute), and never
+interpolate them into any other command.
 
 If the arguments start with `propose`, follow **"Propose a new tour"** below.
 If the arguments start with `map`, follow **"Map the whole app"** below.
@@ -838,6 +868,15 @@ very last thing a run does; checking this early means a missing or
 unauthenticated `gh` is caught before any capture/generate work runs,
 instead of only surfacing after everything else already succeeded. On
 failure, report the exact fix (`gh auth login`) and stop.
+
+0. **Preflight (automatic).** Run
+   `node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"` — an `error` finding
+   is a hard stop (see "Autonomy"), a `warn` doesn't block. On a no-slug
+   run, also run `node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"`: any
+   *strong* orphan (its `code_paths` no longer resolve) is archived with
+   `archive-tour.mjs --tour <id>` exactly as "Prune orphaned tours"
+   describes; weak orphans are only reported in the summary. So `validate`
+   and `prune` never need to be run by hand.
 
 1. **Capture.** For each target tour, run:
    ```

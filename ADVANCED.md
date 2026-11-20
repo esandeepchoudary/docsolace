@@ -11,6 +11,30 @@ content, CAPTCHA, a non-password login, a third-party integration, seed
 data, voice input, mapping a whole app at once, running the pipeline without
 Claude Code at all, or wiring up CI.
 
+## All `/document` commands
+
+Day to day you only need `/docsolace:document` (optionally followed by
+plain words describing what you built, or a tour id). These are the
+explicit modes underneath, for when you want direct control:
+
+| Command | What it does |
+|---|---|
+| `/docsolace:document` | Run the full pipeline over every tour, ship a docs PR |
+| `/docsolace:document <tour-id>` | Same, but just that one tour |
+| `/docsolace:document propose <slug> "<description>"` | Draft a new tour for a feature you just built (via the `tour-scout` subagent), then ship it |
+| `/docsolace:document map` | Discover every feature automatically (authenticated crawl + code review), draft and ship a tour for every gap, and archive any existing tour whose feature looks removed |
+| `/docsolace:document prune` | Just the archival check above, on its own — no crawl required for the common case |
+| `/docsolace:document product` | (Re)generate the product-level pages — overview/getting-started/concepts plus configuration/troubleshooting/changelog/decisions where grounded (via the `product-scribe` subagent), then ship |
+| `/docsolace:document validate` | Preflight-check config/tours/product pages, no browser — rarely needed by hand, mostly for CI |
+| `/docsolace:document status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated — read-only, no browser |
+| `/docsolace:document init-site` | Scaffold a Docusaurus site for `docs/` (re-running it on an existing site re-applies styling instead of refusing) |
+
+Plus `/docsolace:document <what you built, in plain words>` — anything that
+isn't one of the mode words above or an existing tour id is treated as a
+feature description, and a slug is derived from it (de-duplicated against
+existing tours) instead of you inventing one. The explicit
+`propose <slug> "<description>"` form still works if you want to pick the slug.
+
 ## Uploading a file
 
 If a flow requires uploading a file — a CSV importer, an image, a sample

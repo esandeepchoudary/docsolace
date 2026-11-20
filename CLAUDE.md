@@ -85,16 +85,28 @@ other brand. Do not apply any brand styling here even if a parent-directory
 
 ### Tutorial-need check
 - When you finish implementing a new user-facing feature or flow (in a
-  project with this plugin installed), before wrapping up: ask the user
-  whether it's worth a tutorial. Don't silently decide either way.
-- If yes, run `/document propose <slug> "<description>"` — this dispatches
-  the `tour-scout` subagent, which actually drives the app via Playwright MCP
-  and drafts `tours/<slug>.yaml` grounded in what it really finds (`status:
-  proposed`, `maturity: draft`). Don't hand-write the tour yourself; that
-  exploration is tour-scout's job, same "never invent UI" discipline as
-  doc-scribe.
-- **By default this now carries all the way through**: once tour-scout's
-  draft is in hand, `/document propose` itself validates it, flips `status`
+  project with this plugin installed), the `SessionStart` hook's standing
+  instruction is deliberately tiny: if UI files changed this session, end the
+  reply with one line telling the user to run `/document`. Don't ask
+  questions, don't explain modes, and stay silent for backend-only changes.
+- `/document` with no arguments runs `plugin/scripts/triage.mjs` first
+  (`lib/triage.mjs`: changed files → tours whose `code_paths` own them
+  (resync) vs. UI files no confirmed tour covers (uncovered)). Uncovered UI
+  prompts one question — "describe it in a few words" — and the answer is
+  treated as `propose`. `/document <plain words>` skips straight to that: any
+  argument that isn't a mode word or an existing tour id is a feature
+  description, and `triage.mjs --description` derives a safe, de-duplicated
+  slug from it. Nobody invents a slug by hand; the explicit
+  `propose <slug> "<description>"` form still works.
+- `propose` dispatches the `tour-scout` subagent, which actually drives the
+  app via Playwright MCP and drafts `tours/<slug>.yaml` grounded in what it
+  really finds (`status: proposed`, `maturity: draft`). Don't hand-write the
+  tour yourself; that exploration is tour-scout's job, same "never invent UI"
+  discipline as doc-scribe.
+- `validate` and (on a no-slug run) `prune` run automatically as step 0 of
+  every normal pipeline run, so neither needs to be run by hand.
+- **By default this carries all the way through**: once tour-scout's
+  draft is in hand, `propose` itself validates it, flips `status`
   to `confirmed` and `maturity` to `stable`, runs capture/generate, and opens
   a docs PR — all without stopping to ask, unless it hits one of the hard
   stops in `plugin/skills/document/SKILL.md`'s "Autonomy" section (tour-scout
