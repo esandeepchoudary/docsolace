@@ -4,9 +4,11 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  buildTriageReport,
   classifyChangedFiles,
   isUiFile,
   listChangedFiles,
+  parseTriageArgs,
   routeArguments,
   slugifyDescription,
 } from '../triage.mjs';
@@ -51,6 +53,26 @@ describe('isUiFile', () => {
     expect(isUiFile('docs/login.md')).toBe(false);
     expect(isUiFile('node_modules/x/index.js')).toBe(false);
     expect(isUiFile('logo.png')).toBe(false);
+  });
+});
+
+describe('isUiFile — backend and nesting (review findings)', () => {
+  it('does not treat generic script files outside UI directories as UI', () => {
+    expect(isUiFile('server/routes/users.js')).toBe(false);
+    expect(isUiFile('lib/db.ts')).toBe(false);
+    expect(isUiFile('packages/api/src/x.ts')).toBe(false);
+    expect(isUiFile('plugin/scripts/lib/triage.mjs')).toBe(false);
+  });
+
+  it('counts generic script files under a UI directory', () => {
+    expect(isUiFile('src/components/Chart.js')).toBe(true);
+    expect(isUiFile('packages/web/src/pages/Home.ts')).toBe(true);
+  });
+
+  it('applies ignores at any depth', () => {
+    expect(isUiFile('packages/x/dist/a.jsx')).toBe(false);
+    expect(isUiFile('src/__tests__/Foo.jsx')).toBe(false);
+    expect(isUiFile('apps/web/node_modules/y/z.jsx')).toBe(false);
   });
 });
 
@@ -112,6 +134,16 @@ describe('slugifyDescription', () => {
     expect(slugifyDescription('billing page', ['billing-page', 'billing-page-2'])).toBe('billing-page-3');
   });
 
+  it('strips diacritics instead of emitting garbage slugs', () => {
+    expect(slugifyDescription('página de facturación')).toBe('pagina-de-facturacion');
+  });
+
+  it('truncates on a word boundary, not mid-word', () => {
+    const slug = slugifyDescription('configuration management dashboard overview screen');
+    expect(slug).toBe('configuration-management-dashboard');
+    expect(slug.length).toBeLessThanOrEqual(40);
+  });
+
   it('falls back to "feature" for empty or symbol-only input', () => {
     expect(slugifyDescription('')).toBe('feature');
     expect(slugifyDescription('!!!')).toBe('feature');
@@ -134,6 +166,19 @@ describe('routeArguments', () => {
   it('routes a known mode word', () => {
     expect(routeArguments('map --interactive', ctx)).toEqual({ kind: 'mode', mode: 'map' });
     expect(routeArguments('status', ctx)).toEqual({ kind: 'mode', mode: 'status' });
+  });
+
+  it('does not treat a description that merely starts with a mode word as that mode', () => {
+    for (const text of ['product listing page', 'map view of orders', 'status badge', 'validate form']) {
+      expect(routeArguments(text, { knownModes: [...ctx.knownModes, 'product', 'validate'], tourIds: [] })).toEqual({
+        kind: 'describe',
+        description: text,
+      });
+    }
+  });
+
+  it('still routes propose with arguments to the propose mode', () => {
+    expect(routeArguments('propose export "the export button"', ctx)).toEqual({ kind: 'mode', mode: 'propose' });
   });
 
   it('routes an existing tour id', () => {
@@ -169,5 +214,108 @@ describe('listChangedFiles', () => {
     write(dir, 'c.js');
 
     expect(listChangedFiles(dir)).toEqual(['a.js', 'b.js', 'c.js']);
+  });
+});
+
+describe('listChangedFiles — deletions and subdirectories', () => {
+  function initRepo(dir) {
+    git(dir, 'init', '-q', '-b', 'main');
+    git(dir, 'config', 'user.email', 't@example.com');
+    git(dir, 'config', 'user.name', 't');
+  }
+
+  it('omits deleted files', () => {
+    const dir = mkTmpDir();
+    initRepo(dir);
+    write(dir, 'src/OldBilling.jsx');
+    write(dir, 'src/Keep.jsx');
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-q', '-m', 'init');
+    fs.rmSync(path.join(dir, 'src/OldBilling.jsx'));
+    write(dir, 'src/Keep.jsx', 'changed');
+    expect(listChangedFiles(dir)).toEqual(['src/Keep.jsx']);
+  });
+
+  it('returns paths relative to cwd when the project is a repo subdirectory', () => {
+    const repo = mkTmpDir();
+    initRepo(repo);
+    write(repo, 'apps/web/src/Login.jsx');
+    write(repo, 'other/x.jsx');
+    git(repo, 'add', '.');
+    git(repo, 'commit', '-q', '-m', 'init');
+    write(repo, 'apps/web/src/Login.jsx', 'changed');
+    write(repo, 'apps/web/src/New.jsx');
+    write(repo, 'other/x.jsx', 'changed');
+
+    expect(listChangedFiles(path.join(repo, 'apps/web'))).toEqual(['src/Login.jsx', 'src/New.jsx']);
+  });
+});
+
+describe('parseTriageArgs', () => {
+  it('parses --args and --description values', () => {
+    expect(parseTriageArgs(['--args', 'the billing page', '--description', 'x'])).toEqual({
+      args: 'the billing page',
+      description: 'x',
+    });
+  });
+
+  it('keeps an empty --args value and a value that starts with --', () => {
+    expect(parseTriageArgs(['--args', ''])).toEqual({ args: '' });
+    expect(parseTriageArgs(['--args', '--review'])).toEqual({ args: '--review' });
+  });
+
+  it('returns {} when no flags are given', () => {
+    expect(parseTriageArgs([])).toEqual({});
+  });
+});
+
+describe('buildTriageReport', () => {
+  function project() {
+    const dir = mkTmpDir();
+    git(dir, 'init', '-q', '-b', 'main');
+    git(dir, 'config', 'user.email', 't@example.com');
+    git(dir, 'config', 'user.name', 't');
+    write(dir, 'src/Login.jsx');
+    write(
+      dir,
+      'tours/login.yaml',
+      "id: login\ntitle: Login\ncode_paths:\n  - src/Login.jsx\nsteps:\n  - capture: full\n    description: x\n",
+    );
+    git(dir, 'add', '.');
+    git(dir, 'commit', '-q', '-m', 'init');
+    return dir;
+  }
+
+  it('routes args and derives a slug', () => {
+    const dir = project();
+    const report = buildTriageReport({ cwd: dir, rawArgs: 'the login page', description: 'the login page' });
+    expect(report.route).toEqual({ kind: 'describe', description: 'the login page' });
+    expect(report.suggestedSlug).toBe('login-page');
+    expect(report.changedFiles).toBeUndefined();
+  });
+
+  it('classifies changes on a bare run', () => {
+    const dir = project();
+    write(dir, 'src/Login.jsx', 'changed');
+    write(dir, 'src/Billing.jsx');
+    const report = buildTriageReport({ cwd: dir });
+    expect(report.resync).toEqual([{ tourId: 'login', files: ['src/Login.jsx'] }]);
+    expect(report.uncovered).toEqual(['src/Billing.jsx']);
+  });
+
+  it('does not fail on a malformed tour or a non-slug filename; reports it instead', () => {
+    const dir = project();
+    write(dir, 'tours/broken.yaml', 'id: [unclosed\n');
+    write(dir, 'tours/My_Tour.yaml', 'id: x\n');
+    write(dir, 'src/Login.jsx', 'changed');
+    const report = buildTriageReport({ cwd: dir });
+    expect(report.skippedTours.map((t) => t.tourId)).toEqual(['broken']);
+    expect(report.note).toContain('validate.mjs');
+    expect(report.resync.map((r) => r.tourId)).toEqual(['login']);
+  });
+
+  it('works with no tours/ directory', () => {
+    const dir = mkTmpDir();
+    expect(buildTriageReport({ cwd: dir })).toMatchObject({ changedFiles: [], resync: [], uncovered: [] });
   });
 });
