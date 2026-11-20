@@ -872,10 +872,15 @@ failure, report the exact fix (`gh auth login`) and stop.
 0. **Preflight (automatic).** Run
    `node "${CLAUDE_PLUGIN_DATA}/scripts/validate.mjs"` — an `error` finding
    is a hard stop (see "Autonomy"), a `warn` doesn't block. On a no-slug
-   run, also run `node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"`: any
-   *strong* orphan (its `code_paths` no longer resolve) is archived with
-   `archive-tour.mjs --tour <id>` exactly as "Prune orphaned tours"
-   describes; weak orphans are only reported in the summary. So `validate`
+   run, also run `node "${CLAUDE_PLUGIN_DATA}/scripts/prune.mjs"`. In
+   autonomous mode, any *strong* orphan (its `code_paths` no longer resolve)
+   is archived with `archive-tour.mjs --tour <id>` exactly as "Prune orphaned
+   tours" describes. In `--review` mode, **never archive here** — only
+   report orphans in the summary and point at `/document prune`, since
+   archival moves docs and flips status as a side effect of an ordinary
+   resync (and a checkout that merely lacks the files, e.g. an old branch,
+   looks identical to a removed feature). Weak orphans are only ever
+   reported. So `validate`
    and `prune` never need to be run by hand.
 
 1. **Capture.** For each target tour, run:

@@ -9,28 +9,42 @@
 import { execFileSync } from 'node:child_process';
 import path from 'node:path';
 import { resolveCodePathFiles } from './drift.mjs';
-import { SLUG_RE } from './tours.mjs';
+import fs from 'node:fs';
+import { SLUG_RE, loadTour } from './tours.mjs';
 
-// Source files that plausibly render UI. Anything else (config, lockfiles,
-// markdown, images, test files) never counts toward "uncovered".
+// Source files that plausibly render UI. Extensions that are unambiguously
+// frontend count anywhere; generic script extensions (.js/.ts/.mjs/.php) also
+// power backends and tooling, so they only count under a UI-ish directory.
 const UI_EXTENSIONS = new Set([
-  '.js', '.jsx', '.mjs', '.ts', '.tsx', '.vue', '.svelte', '.astro', '.html',
-  '.css', '.scss', '.sass', '.less', '.erb', '.ejs', '.hbs', '.njk', '.php',
+  '.jsx', '.tsx', '.vue', '.svelte', '.astro', '.html',
+  '.css', '.scss', '.sass', '.less', '.erb', '.ejs', '.hbs', '.njk',
+]);
+const AMBIGUOUS_EXTENSIONS = new Set(['.js', '.mjs', '.ts', '.php']);
+const UI_DIRS = new Set([
+  'components', 'component', 'pages', 'views', 'screens', 'ui', 'frontend', 'client',
+  'web', 'public', 'templates', 'layouts', 'app',
 ]);
 
-const IGNORED_PREFIXES = [
-  'node_modules/', 'dist/', 'build/', '.next/', '.docsolace/', 'tours/', 'docs/', 'site/',
-  'fixtures/', 'scripts/', '.github/', 'test/', 'tests/', '__tests__/',
-];
+// Directories that are never UI source, at any depth (monorepos nest them).
+const IGNORED_ANYWHERE = new Set([
+  'node_modules', 'dist', 'build', '.next', 'fixtures', 'test', 'tests', '__tests__',
+]);
+// Directories that only count as non-UI at the repo root.
+const IGNORED_ROOT = new Set(['.docsolace', 'tours', 'docs', 'site', 'scripts', '.github']);
 
-const TEST_FILE_RE = /(?:\.|-)(?:test|spec|stories)\.[a-z]+$|(?:^|\/)__tests__\//;
+const TEST_FILE_RE = /(?:\.|-)(?:test|spec|stories)\.[a-z]+$/;
 const CONFIG_FILE_RE = /(?:^|\/)[^/]*\.config\.[a-z]+$/;
 
 export function isUiFile(file) {
   const normalized = file.replace(/\\/g, '/');
-  if (IGNORED_PREFIXES.some((p) => normalized.startsWith(p))) return false;
+  const segments = normalized.split('/');
+  const dirs = segments.slice(0, -1);
+  if (IGNORED_ROOT.has(segments[0]) && segments.length > 1) return false;
+  if (dirs.some((d) => IGNORED_ANYWHERE.has(d))) return false;
   if (TEST_FILE_RE.test(normalized) || CONFIG_FILE_RE.test(normalized)) return false;
-  return UI_EXTENSIONS.has(path.extname(normalized).toLowerCase());
+  const ext = path.extname(normalized).toLowerCase();
+  if (UI_EXTENSIONS.has(ext)) return true;
+  return AMBIGUOUS_EXTENSIONS.has(ext) && dirs.some((d) => UI_DIRS.has(d));
 }
 
 // Splits changed files into: tours whose code_paths contain at least one of
@@ -44,7 +58,7 @@ export function classifyChangedFiles({ changedFiles, tours, cwd = process.cwd() 
 
   for (const tour of tours) {
     if ((tour.status ?? 'confirmed') !== 'confirmed') continue;
-    const owned = new Set(resolveCodePathFiles(tour.code_paths ?? [], cwd));
+    const owned = new Set(resolveCodePathFiles(tour.code_paths ?? [], cwd).map((f) => f.replace(/\\/g, '/')));
     const hits = changed.filter((f) => owned.has(f));
     if (hits.length > 0) {
       resync.push({ tourId: tour.id, files: hits });
@@ -63,12 +77,21 @@ const MAX_SLUG_LENGTH = 40;
 
 export function slugifyDescription(description, existingIds = []) {
   const words = String(description ?? '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .split(' ')
     .filter(Boolean);
   const meaningful = words.filter((w) => !STOPWORDS.has(w));
-  let slug = (meaningful.length > 0 ? meaningful : words).join('-').slice(0, MAX_SLUG_LENGTH).replace(/-+$/, '');
+  // Truncate on a word boundary, not mid-word.
+  let slug = '';
+  for (const word of meaningful.length > 0 ? meaningful : words) {
+    const next = slug ? `${slug}-${word}` : word;
+    if (next.length > MAX_SLUG_LENGTH) break;
+    slug = next;
+  }
+  if (!slug) slug = (meaningful[0] ?? words[0] ?? '').slice(0, MAX_SLUG_LENGTH);
   if (!slug) slug = 'feature';
 
   const taken = new Set(existingIds);
@@ -83,14 +106,19 @@ export function slugifyDescription(description, existingIds = []) {
 
 // Decides how a bare argument string should be routed. `knownModes` are the
 // literal first words the skill already handles; `tourIds` are existing
-// tours. Anything left over is a free-text feature description.
+// tours. A mode word only counts as a mode when nothing but flags follows it
+// (`map --interactive`), or it is `propose` (which takes a slug and a
+// description). Otherwise "product listing page" or "map view of orders" is a
+// feature description that merely starts with a mode-shaped word.
 export function routeArguments(argString, { knownModes, tourIds }) {
   const text = String(argString ?? '')
     .replace(/--(?:review|no-style)\b/g, '')
     .trim();
   if (text === '') return { kind: 'pipeline' };
-  const first = text.split(/\s+/)[0];
-  if (knownModes.includes(first)) return { kind: 'mode', mode: first };
+  const [first, ...rest] = text.split(/\s+/);
+  if (knownModes.includes(first) && (first === 'propose' || rest.every((w) => w.startsWith('--')))) {
+    return { kind: 'mode', mode: first };
+  }
   if (tourIds.includes(text)) return { kind: 'tour', tourId: text };
   return { kind: 'describe', description: text };
 }
@@ -118,11 +146,60 @@ export function listChangedFiles(cwd = process.cwd()) {
         // try next candidate
       }
     }
-    if (base) lines(git(['diff', '--name-only', `${base}...HEAD`], cwd)).forEach((f) => files.add(f));
-    lines(git(['diff', '--name-only', 'HEAD'], cwd)).forEach((f) => files.add(f));
+    if (base) lines(git(['diff', '--name-only', '--relative', '--diff-filter=d', `${base}...HEAD`], cwd)).forEach((f) => files.add(f));
+    lines(git(['diff', '--name-only', '--relative', '--diff-filter=d', 'HEAD'], cwd)).forEach((f) => files.add(f));
     lines(git(['ls-files', '--others', '--exclude-standard'], cwd)).forEach((f) => files.add(f));
   } catch {
     return [];
   }
   return [...files].sort();
+}
+
+export const KNOWN_MODES = ['propose', 'map', 'prune', 'product', 'validate', 'status', 'init-site'];
+
+export function parseTriageArgs(argv) {
+  const args = {};
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--description') args.description = argv[++i];
+    if (argv[i] === '--args') args.args = argv[++i];
+  }
+  return args;
+}
+
+// Everything triage.mjs prints, as data. A malformed tour never blocks the
+// run (validate.mjs is what reports it): it's listed under `skippedTours` and
+// simply doesn't count as coverage.
+export function buildTriageReport({ cwd = process.cwd(), rawArgs, description }) {
+  const toursDir = path.join(cwd, 'tours');
+  const tourIds = fs.existsSync(toursDir)
+    ? fs
+        .readdirSync(toursDir)
+        .filter((f) => f.endsWith('.yaml'))
+        .map((f) => f.replace(/\.yaml$/, ''))
+        .filter((id) => SLUG_RE.test(id))
+    : [];
+
+  const out = {};
+  if (rawArgs !== undefined) out.route = routeArguments(rawArgs, { knownModes: KNOWN_MODES, tourIds });
+  if (description !== undefined) out.suggestedSlug = slugifyDescription(description, tourIds);
+
+  if (rawArgs === undefined || out.route.kind === 'pipeline') {
+    const tours = [];
+    const skippedTours = [];
+    for (const id of tourIds) {
+      try {
+        tours.push(loadTour(toursDir, id));
+      } catch (err) {
+        skippedTours.push({ tourId: id, error: err.message });
+      }
+    }
+    const changedFiles = listChangedFiles(cwd);
+    out.changedFiles = changedFiles;
+    Object.assign(out, classifyChangedFiles({ changedFiles, tours, cwd }));
+    if (skippedTours.length > 0) {
+      out.skippedTours = skippedTours;
+      out.note = 'Some tours failed to load and were ignored here — run validate.mjs to see why.';
+    }
+  }
+  return out;
 }
