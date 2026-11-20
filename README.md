@@ -12,55 +12,10 @@ app changes — screenshot-driven, docs-as-code, built for solo developers.
 [![Tests](https://github.com/esandeepchoudary/docsolace/actions/workflows/test.yml/badge.svg)](https://github.com/esandeepchoudary/docsolace/actions/workflows/test.yml)
 [![Docs site](https://img.shields.io/badge/docs-live%20site-DF3274)](https://esandeepchoudary.github.io/docsolace/)
 
-DocSolace writes and maintains your app's tutorials for you, by actually
-using it. Instead of a human clicking through the app, taking screenshots,
-and writing "here's how the dashboard works" — which goes stale the moment
-the UI changes — DocSolace drives a real headless browser against your
-*running* app, takes the screenshots itself, and writes grounded,
-tutorial-style docs from what it actually saw. It's built for **solo
-developers**: one person runs it themselves when a feature's worth
-documenting, not a team pipeline that fires on every merge.
-
-It ships as a **Claude Code plugin** — that's the primary way to use it, and
-what the rest of this README leads with. New to Claude Code? It's
-Anthropic's command-line coding agent — see
-[the docs](https://docs.claude.com/en/docs/claude-code) if you want the full
-picture, but you don't need to have used it before to follow along; the next
-section walks through installing it.
-
-## What it does
-
-- **Drives your real app, headlessly** — Playwright clicks through a
-  declarative YAML "tour" against your actual running app; no fixtures, no
-  hand-authored mockups.
-- **Captures screenshots and a11y snapshots together** — every screenshot is
-  paired with an accessibility snapshot, which becomes the grounding for the
-  prose so nothing gets invented.
-- **Skips what hasn't changed** — a drift check compares screenshots and
-  source `code_paths` against the last run, so regeneration only touches
-  tours that actually changed.
-- **Never overwrites your edits** — hand-written content inside
-  `<!-- docsolace:keep -->` blocks survives every regeneration untouched.
-- **Ships a reviewable PR, never merges** — output lands in `docs/`, staged
-  and pushed as a pull request for a human to merge.
-- **Publishes as a real docs site** — a bundled [Docusaurus](https://docusaurus.io/)
-  scaffold serves `docs/` directly, with built-in search.
-
-## Contents
-
-- [Quickstart](#quickstart)
-- [Prerequisites](#prerequisites)
-- [Install the plugin](#install-the-plugin)
-- [Use it in your project](#use-it-in-your-project)
-- [How it works](#how-it-works)
-- [Configuring tours and auth](./CONFIGURATION.md)
-- [Publishing a docs site](./PUBLISHING.md)
-- [Troubleshooting](./TROUBLESHOOTING.md)
-- [Advanced topics](./ADVANCED.md) — uploads, forms, async waits, CAPTCHA,
-  non-password logins, third-party integrations, seed data, voice input,
-  mapping a whole app automatically, running without Claude Code, CI
-- [Contributing](./CONTRIBUTING.md) — project layout, status, developing on
-  the plugin itself
+DocSolace is a Claude Code plugin for solo developers. It drives your
+*running* web app in a headless browser, takes the screenshots itself, and
+writes tutorial-style Markdown from what it actually saw. Docs stay in sync
+because it only regenerates what changed.
 
 ## Quickstart
 
@@ -71,253 +26,152 @@ Inside Claude Code:
 /plugin install docsolace@docsolace-marketplace
 ```
 
-Restart Claude Code (or run `/reload-plugins`), open the project you want
-tutorials for, and build something. Then:
+Restart Claude Code (or run `/reload-plugins`), open your project, start your
+app, and run:
 
 ```
 /docsolace:document
 ```
 
-That's the whole interface. The first run asks for your app's local base URL
-and sets the project up. After that, one command does the right thing:
+The first run asks for your app's base URL and sets the project up. After
+that, the same command does the right thing:
 
-- **No arguments** — checks what you changed. If a tutorial already covers it,
-  it re-captures and updates that tutorial. If you changed UI no tutorial
-  covers, it asks you once to describe it in a few words and drafts one.
+- **No arguments** — checks what you changed. If a tutorial covers it, that
+  tutorial is re-captured and updated. If UI changed that no tutorial
+  covers, it asks once for a short description and drafts one.
 - **Plain words** — `/docsolace:document the new billing page` drafts a
-  tutorial for that feature without you picking a slug or a mode.
+  tutorial for that feature. No slug or mode needed.
+- **A tour id** — `/docsolace:document login` updates just that tutorial.
 
-Either way it ends with an opened docs PR for you to review — never merged
-automatically.
+Each run ends with an opened docs PR for you to review. It never merges.
 
-Everything else (every mode, auth, edge cases, mapping a whole app,
-publishing a docs site) is reference material: see ["Contents"](#contents)
-above. If `/plugin` doesn't behave as expected, jump to
-["Troubleshooting"](./TROUBLESHOOTING.md).
+## What it does
+
+- **Drives your real app** — Playwright follows a YAML "tour" against the
+  running app. No fixtures or mockups.
+- **Grounds prose in what's on screen** — each screenshot is paired with an
+  accessibility snapshot; nothing absent from it gets described.
+- **Skips what hasn't changed** — a drift check compares screenshots and
+  source `code_paths` against the last run.
+- **Keeps your edits** — text inside `<!-- docsolace:keep -->` blocks
+  survives every regeneration.
+- **Publishes a docs site** — a bundled [Docusaurus](https://docusaurus.io/)
+  scaffold serves `docs/`, with search.
 
 ## Prerequisites
 
-- **Claude Code** — install/log in per [its docs](https://docs.claude.com/en/docs/claude-code)
-  if you haven't already. Would rather skip it entirely? The underlying
-  pipeline is plain Node scripts you can run from a terminal instead — see
-  ["Running it without Claude Code"](./ADVANCED.md#running-it-without-claude-code) under "Advanced topics".
-- **Node.js 22+** and npm (built and tested against Node 22.21.1; nothing
-  here relies on anything newer). Once the plugin is installed, it installs
-  its *own* runtime dependencies (Playwright, js-yaml, etc.) into its own
-  data directory on first use — never into your project's `node_modules`.
-- **git**.
+- **Claude Code** ([install](https://docs.claude.com/en/docs/claude-code)).
+  Prefer no Claude Code? The pipeline is plain Node scripts — see
+  ["Running it without Claude Code"](./ADVANCED.md#running-it-without-claude-code).
+- **Node.js 22+** and npm. The plugin installs its own dependencies
+  (Playwright, js-yaml, etc.) into its own data directory on first use,
+  never into your project.
+- **git**, and the **GitHub CLI** (`gh`) for opening PRs.
 
 ## Install the plugin
 
-This repo doubles as a private Claude Code plugin marketplace with one
-plugin in it (`docsolace`). You don't need to clone it into the project you
-want to document — just point Claude Code at it once, from anywhere.
-
-Inside Claude Code:
+This repo is also a Claude Code plugin marketplace with one plugin in it. You
+don't need to clone it into your project.
 
 ```
 /plugin marketplace add esandeepchoudary/docsolace
-```
-
-(GitHub shorthand — works as long as you can reach this repo. Working from a
-local clone instead? Use the path: `/plugin marketplace add /path/to/docsolace`.)
-
-Then install the plugin from that marketplace:
-
-```
 /plugin install docsolace@docsolace-marketplace
-```
-
-Activate it in your current session:
-
-```
 /reload-plugins
 ```
 
-(or just restart Claude Code). The first time a session starts with the
-plugin active, a `SessionStart` hook installs the plugin's own runtime
-dependencies (Playwright, js-yaml, etc.) and the Playwright browser into a
-private data directory — this can take a minute the first time (browser
-download), and is instant on every session after.
+Working from a local clone? Use its path: `/plugin marketplace add /path/to/docsolace`.
 
-Verify it took:
-
-```
-/plugin list
-```
-
-should show `docsolace@docsolace-marketplace` enabled.
+The first session with the plugin active installs its dependencies and the
+Playwright browser (a minute or so, once). Check it with `/plugin list`.
+Updates arrive when the plugin's version changes: `/plugin update`, then
+restart.
 
 ## Use it in your project
 
-Open Claude Code in whatever project you want tutorials for and run
-`/docsolace:document` — plugin skills are namespaced by the plugin's name, so
-this is the full command (plain `/document` may also resolve if it's
-unambiguous, but `/docsolace:document` always works). **The first time**, it
-notices there's no `docsolace.config.yaml` yet, asks for your app's local base
-URL, and bootstraps the project: a real, annotated `docsolace.config.yaml`
-(every optional section — `auth`, `defaultMask`, `seeds`, etc. — included as
-commented-out examples right in the file), an empty `tours/` directory with
-a short "what's next" `tours/README.md`, a `.env.example`, and — worth
-calling out since it's easy to get wrong by hand — your project's
-`.gitignore` gets `.docsolace/artifacts/` and `.env` added automatically, so
-the session cookies and credentials those can hold never end up committed.
-Then it tells you there's nothing to generate until a tour exists. From
-there:
+Run `/docsolace:document` in the project you want tutorials for. On the first
+run it creates:
 
-The three things you'll actually type:
+- `docsolace.config.yaml` — annotated, with every optional section as a
+  commented example
+- `tours/` — empty, with a short `README.md`
+- `.env.example`, and `.gitignore` entries for `.docsolace/artifacts/` and
+  `.env` so session cookies and credentials can't be committed
+
+Day to day you only need these:
 
 | Command | What it does |
 |---|---|
-| `/docsolace:document` | Work out what changed; resync covered tutorials, offer to draft one for uncovered UI, ship a docs PR |
-| `/docsolace:document <what you built, in plain words>` | Draft and ship a tutorial for that feature (the slug is derived for you) |
-| `/docsolace:document <tour-id>` | Re-capture and update just that tutorial |
+| `/docsolace:document` | Work out what changed, resync covered tutorials, offer to draft one for uncovered UI, open a docs PR |
+| `/docsolace:document <what you built>` | Draft and ship a tutorial for that feature |
+| `/docsolace:document <tour-id>` | Re-capture and update one tutorial |
 
-Maintenance modes (`map`, `prune`, `product`, `validate`, `status`,
-`init-site`, and the explicit `propose <slug> "<description>"` form) still
-exist but you shouldn't need them day to day — `validate` and `prune` already
-run automatically as the first step of every normal run. They're listed in
-["All commands"](./ADVANCED.md#all-document-commands) under "Advanced topics".
+`validate` and `prune` run automatically at the start of each normal run.
+The maintenance modes (`map`, `prune`, `product`, `validate`, `status`,
+`init-site`, and explicit `propose <slug> "<description>"`) are in
+["All commands"](./ADVANCED.md#all-document-commands). Add `--review` to any
+mode to stop and ask at each step instead of running autonomously, or
+`--no-style` to skip design-skill detection.
 
-Every mode (including the ones in "All commands") except `validate` and `status` (both read-only reports, no
-browser, no PR) runs autonomously by default: draft or capture → generate →
-open a docs PR, without stopping for review at each step — that PR (never
-auto-merged) is the review point. A short list of hard
-stops still halts a run and asks rather than pushing through: `tour-scout`
-couldn't ground the feature, a voice/microphone flow (always reported
-`unverified`), a `validate` error, an auth session that needs a real human at
-a headed browser, or a hand-edited docs page outside its keep-region. Append
-`--review` to any mode to fall back to the original stop-and-ask-at-
-every-step behavior instead; append `--no-style` to skip design-skill
-detection for that run. See `tours/dashboard-export.yaml` in *this* repo for
-a worked `propose` example, start to finish (this repo also happens to be
-its own best demo project — it's both the plugin source and a working
-DocSolace project), and
-["Mapping a whole app automatically"](./ADVANCED.md#mapping-a-whole-app-automatically)
-in "Advanced topics" for how `map` actually works. Playwright MCP (bundled in the
-plugin) is for `tour-scout`'s interactive authoring only; the automated
-pipeline (capture/drift/generate/crawl) drives Playwright directly and never
-goes through MCP.
+A run stops and asks only at a few hard stops: the feature couldn't be
+grounded in the app, a voice flow (always reported unverified), a `validate`
+error, an auth session that needs a human at a headed browser, or a
+hand-edited docs page outside its keep-region. See `tours/dashboard-export.yaml`
+in this repo for a worked example.
 
 ### It ships a docs PR for you
 
-Once a run has something to commit, it opens (or updates) a PR itself: it
-runs `verify-docs` first — every image reference and internal link/anchor
-under the *whole* `docs/` tree has to resolve, not just this run's own pages,
-since a rename or archive can break a link on a page the run never touched —
-and stops instead of pushing if anything's actually broken. Then it runs
-`review-diffs` and folds that report into the commit/PR body (the only place
-a screenshot change is visible before it's pushed), stages just `docs/` and
-`tours/*.yaml`, and commits **onto whatever branch you're already on** if
-it's a `feat/*` or `fix/*` branch — docs land in the same PR as the feature
-they document. From `main`/`master` it creates a fresh `docs/<slug>` branch
-instead; it never commits generated docs straight to `main`. It never merges
-anything — opening or updating the PR is the end of its job.
+Once a run has something to commit, it:
 
-### It reminds you, once, when tutorials may be stale
+1. runs `verify-docs` — every image reference and internal link under all of
+   `docs/` must resolve, or it stops;
+2. runs `review-diffs` and puts that report in the PR body (the only place a
+   screenshot change is visible before push);
+3. stages only `docs/` and `tours/*.yaml`;
+4. commits onto your current branch if it's `feat/*` or `fix/*`, otherwise
+   onto a new `docs/<slug>` branch — never straight to `main`;
+5. pushes and opens (or updates) the PR. It never merges.
 
-A second `SessionStart` hook gives Claude one standing instruction: if it
-changed user-facing UI files during the session, end the reply with a single
-line telling you to run `/docsolace:document`. That's all — no questions, no
-mode names, and nothing at all for backend-only, test, or config changes.
-Running the command is still your call; the decision about *which* tutorial to
-draft or resync is made by the command itself (`plugin/scripts/triage.mjs`
-maps changed files to the tours whose `code_paths` own them). See
-`plugin/scripts/lib/session-guidance.mjs` for the exact wording.
+A second `SessionStart` hook has Claude end a reply with one line, "run
+`/docsolace:document`", only when it changed UI files that session. Nothing
+for backend, test, or config changes. Wording is in
+`plugin/scripts/lib/session-guidance.mjs`.
 
 ### It also documents the product itself
 
-Tours describe individual UI flows; a separate, smaller set of pages
-describes the product as a whole so a fresh reader lands somewhere that
-actually explains what they're looking at instead of an alphabetical list of
-tutorials. `/docsolace:document product` (re)generates up to seven pages —
-`docs/overview.md`, `docs/getting-started.md`, `docs/concepts.md`,
-`docs/configuration.md`, `docs/troubleshooting.md`, `docs/changelog.md`,
-`docs/decisions.md` — via
-the `product-scribe` subagent, grounded strictly in files already in your
-repo: `README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`,
-`CHANGELOG.md` (if present), any `docs/adr/*.md` files, any extra globs you
-list under
-`product.sources`, and the confirmed tour inventory (id/title/intent) — never
-the running app, and never `.env`, key/credential files, or anything under a
-`.auth/` directory, even if a glob would otherwise match them. If a page has
-nothing real to ground it in (e.g. no `README.md` at all, no troubleshooting
-section, no changelog, no `docs/adr/` directory), it's skipped and reported
-rather than padded with
-invented content — the last four pages are exactly this by default on a
-project that doesn't have their grounding, no config needed to turn them
-off. With no `CHANGELOG.md`, the changelog page falls back to your repo's own
-git tags (newest first) as a bare version history instead of being skipped.
-`decisions` is narrower still: it only ever surfaces a decision a human
-actually wrote down in a `docs/adr/*.md` file (the well-known "Architecture
-Decision Record" convention) — `product-scribe` never infers or guesses
-*why* something was built a certain way, even when the reasoning seems
-obvious from the code.
-
-This isn't a separate chore — the normal no-argument `/docsolace:document` run
-regenerates these pages too, on the same drift-gated pass it already runs for
-tours (see "How it works" below), so `/document product` is mainly for
-regenerating them on their own without touching any tour. See
-["Configuring tours and auth"](./CONFIGURATION.md) for `product.pages`/`product.sources`, and
-`docs.sections` for grouping tours in the generated sidebar.
+Alongside tour pages, `/docsolace:document product` (and the normal
+no-argument run) writes up to seven product-level pages: `overview`,
+`getting-started`, `concepts`, `configuration`, `troubleshooting`,
+`changelog`, `decisions`. They're grounded only in repo files — `README.md`,
+`package.json`, `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md`, any
+`docs/adr/*.md`, extra `product.sources` globs, and the tour inventory —
+never the running app, and never `.env`, key files, or `.auth/`. A page with
+nothing to ground it is skipped and reported, not padded. `decisions` only
+surfaces reasoning a human wrote in an ADR. Details: [CONFIGURATION.md](./CONFIGURATION.md).
 
 ## How it works
 
-Four stages, run in order — this is what `/docsolace:document` orchestrates
-end to end (the same stages are also runnable directly as `npm run`
-scripts; see
-["Running it without Claude Code"](./ADVANCED.md#running-it-without-claude-code) under "Advanced topics"):
+1. **Capture** — a **tour** is a YAML file: pages to visit, what to click,
+   where to screenshot. DocSolace drives a headless browser through it at
+   every configured viewport (desktop and mobile by default), saving an
+   accessibility snapshot with each screenshot.
+2. **Drift check** — if a tour's screenshots and source code are unchanged,
+   skip it. This keeps the expensive step cheap.
+3. **Generate** — for changed tours, a subagent writes prose from the
+   accessibility snapshot only. Your `<!-- docsolace:keep -->` regions are
+   preserved.
+4. **Publish** — Markdown lands in `docs/`, viewable as-is or through the
+   Docusaurus site ([PUBLISHING.md](./PUBLISHING.md)).
 
-1. **Capture** (`npm run capture`) — a **tour** is a YAML file describing one
-   feature walk: which pages to visit, what to click, and where to take
-   screenshots. DocSolace reads a tour and actually drives a headless browser
-   through it against your running app — no fixtures, no mocked-up
-   walkthrough, the real thing. Every screenshot is taken at every viewport
-   size you've configured (desktop + mobile by default), and every
-   screenshot comes with an accessibility snapshot of the page at that
-   moment — a structured description of what's really on screen, which
-   becomes the "ground truth" for step 3.
-2. **Drift check** (`npm run drift`) — comparing this capture against the
-   last one, has anything actually changed? If a tour's screenshots and
-   underlying source code are both unchanged, there's nothing to
-   regenerate — skip it. This is what keeps the pipeline cheap: the
-   expensive step (3) only runs for tours that actually changed.
-3. **Generate** (`npm run generate-docs`) — for anything the drift check
-   flagged, write the tutorial prose. This step is **grounded**: it
-   describes only what's actually in the accessibility snapshot from step 1,
-   never anything invented or guessed, however plausible-sounding. Any text
-   you hand-write inside a page's `<!-- docsolace:keep --> ... <!-- /docsolace:keep -->`
-   block (a **keep-region**) is preserved untouched across every future
-   regeneration — it's yours, not the tool's.
-4. **Publish** — the generated Markdown lives in `docs/`, viewable as-is or
-   served through the bundled Docusaurus site (see
-   ["Publishing a docs site"](./PUBLISHING.md)).
+Product pages follow the same shape without step 1: their ground truth is
+the repo, not a browser.
 
-Alongside tours, the same capture → drift → generate shape maintains the
-product-level pages — overview/getting-started/concepts plus configuration/
-troubleshooting/changelog/decisions where grounded (see "It also documents
-the product itself" above) — except step 1 (capture) doesn't apply
-to them at all: there's no browser involved, their "ground truth" is the
-repo's own README/package.json/config/tour inventory instead of an
-accessibility snapshot.
+## More
 
-## Where to go next
-
-Everything above is enough to get a first tour shipped. For more:
-
-- **[CONFIGURATION.md](./CONFIGURATION.md)** — `docsolace.config.yaml`,
-  `tours/*.yaml`, page layout and design-skill styling, product pages and
-  sidebar sections.
-- **[PUBLISHING.md](./PUBLISHING.md)** — building and deploying the bundled
-  Docusaurus site (GitHub Pages, Netlify/Vercel).
-- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** — common issues, and
-  keeping the plugin updated.
-- **[ADVANCED.md](./ADVANCED.md)** — uploads, forms, async waits, CAPTCHA,
-  non-password logins, third-party integrations, seed data, voice input,
-  mapping a whole app automatically, running without Claude Code, CI.
-- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — project layout, project status,
-  developing on the plugin itself, and pointers to `CLAUDE.md`/the
-  implementation brief for going deeper.
+- **[CONFIGURATION.md](./CONFIGURATION.md)** — config, tours, styling, product pages, sidebar sections
+- **[PUBLISHING.md](./PUBLISHING.md)** — building and deploying the docs site
+- **[TROUBLESHOOTING.md](./TROUBLESHOOTING.md)** — common issues, updating the plugin
+- **[ADVANCED.md](./ADVANCED.md)** — all commands, uploads, forms, async waits, CAPTCHA, non-password logins, integrations, seeds, voice, mapping a whole app, CI
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** — project layout and developing on the plugin
 
 ## License
 
