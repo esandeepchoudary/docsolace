@@ -3,6 +3,7 @@ import Link from '@docusaurus/Link';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import useBaseUrl from '@docusaurus/useBaseUrl';
 import Layout from '@theme/Layout';
+import CodeBlock from '@theme/CodeBlock';
 
 import Heading from '@theme/Heading';
 import styles from './index.module.css';
@@ -17,8 +18,8 @@ function HomepageHeader() {
         </Heading>
         <p className="hero__subtitle">{siteConfig.tagline}</p>
         <div className={styles.buttons}>
-          <Link className="button button--secondary button--lg" to="/docs/overview">
-            Browse the docs
+          <Link className="button button--secondary button--lg" to="/docs/getting-started">
+            Get started
           </Link>
           <Link className="button button--primary button--lg" to="/docs/dashboard-overview">
             See a generated page
@@ -26,6 +27,43 @@ function HomepageHeader() {
         </div>
       </div>
     </header>
+  );
+}
+
+// Mirrors the README's quickstart. Hand-authored site copy, same rule as the
+// proof section below: it may only describe what /document actually does.
+const QUICKSTART = `/plugin marketplace add esandeepchoudary/docsolace
+/plugin install docsolace@docsolace-marketplace
+
+# restart Claude Code, open your project, start your app, then:
+/docsolace:document`;
+
+function GetStarted() {
+  return (
+    <section className={styles.getStarted}>
+      <div className="container">
+        <Heading as="h2">One command</Heading>
+        <CodeBlock language="text">{QUICKSTART}</CodeBlock>
+        <ul>
+          <li>
+            <strong>No arguments</strong> — checks what you changed, updates the tutorials that
+            cover it, and offers to draft one for UI no tutorial covers yet.
+          </li>
+          <li>
+            <strong>Plain words</strong> — <code>/docsolace:document the new billing page</code>{' '}
+            drafts a tutorial for that feature.
+          </li>
+          <li>
+            <strong>A tour id</strong> — <code>/docsolace:document login</code> updates just that
+            tutorial.
+          </li>
+        </ul>
+        <p>
+          Every run ends with a docs pull request for you to review — it never merges.{' '}
+          <Link to="/docs/getting-started">Full setup guide</Link>
+        </p>
+      </div>
+    </section>
   );
 }
 
@@ -98,6 +136,7 @@ export default function Home() {
     <Layout title={siteConfig.title} description={siteConfig.tagline}>
       <HomepageHeader />
       <main>
+        <GetStarted />
         <ProofSection />
         <HowItWorks />
       </main>
