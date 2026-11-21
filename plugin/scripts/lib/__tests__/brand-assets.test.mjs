@@ -29,6 +29,8 @@ describe('isSafeSvg', () => {
     ['external href', '<svg><image href="https://evil.example/x.png"/></svg>'],
     ['external xlink', '<svg><use xlink:href="//evil.example/a.svg#b"/></svg>'],
     ['external url()', '<svg><rect fill="url(https://evil.example/x)"/></svg>'],
+    ['namespaced script', '<svg xmlns="http://www.w3.org/2000/svg" xmlns:s="http://www.w3.org/2000/svg"><s:script>alert(1)</s:script></svg>'],
+    ['prefixed foreignObject', '<svg><x:foreignObject/></svg>'],
     ['entity', '<!DOCTYPE svg [<!ENTITY x "y">]><svg/>'],
     ['css import', '<svg><style>@import "x.css";</style></svg>'],
   ])('rejects %s', (_n, svg) => {

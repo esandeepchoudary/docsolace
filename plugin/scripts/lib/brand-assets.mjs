@@ -18,10 +18,11 @@ export function sniffImage(buf) {
 }
 
 const SVG_DENY = [
-  /<\s*script/i,
+  // Optional namespace prefix: <svg:script> and <x:script xmlns:x="...svg"> are scripts too.
+  /<\s*(?:[\w.-]+:)?script/i,
   /\son[a-z]+\s*=/i,
-  /<\s*foreignObject/i,
-  /<\s*(iframe|object|embed|audio|video|animate|set)\b/i,
+  /<\s*(?:[\w.-]+:)?foreignObject/i,
+  /<\s*(?:[\w.-]+:)?(iframe|object|embed|audio|video|animate|set)\b/i,
   /javascript:/i,
   /<!\s*(ENTITY|DOCTYPE)/i,
   /(?:xlink:)?href\s*=\s*["']\s*(?!#)[^"']/i, // only same-document #refs

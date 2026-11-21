@@ -6,7 +6,7 @@
 // Values written here are already constrained by lib/app-theme.mjs
 // (filename pattern, plain-text alt), and are additionally checked here.
 const SAFE_PATH = /^img\/app-(favicon|logo)\.(png|jpe?g|webp|ico|svg)$/;
-const SAFE_ALT = /^[A-Za-z0-9 .,&'-]{1,60}$/;
+const SAFE_ALT = /^[A-Za-z0-9 .,&-]{1,60}$/; // no quote characters: it lands in a JS string
 
 function findBlock(text, key) {
   const m = new RegExp(`(^|[\\s,{])${key}\\s*:\\s*\\{`, 'm').exec(text);

@@ -156,7 +156,7 @@ function cleanColors(c) {
 
 // Alt text for a logo: plain words only (it's written into a JS config file).
 export function sanitizeAlt(input) {
-  const alt = String(input ?? '').replace(/[^A-Za-z0-9 .,&'-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  const alt = String(input ?? '').replace(/[^A-Za-z0-9 .,&-]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
   return alt || null;
 }
 

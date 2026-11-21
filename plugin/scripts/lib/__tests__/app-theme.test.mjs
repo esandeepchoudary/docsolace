@@ -194,6 +194,8 @@ describe('asset references in the theme file', () => {
     const t = validateTheme({ assets: { favicon: 'app-favicon.png', logo: { file: 'app-logo.svg', alt: 'Acme <b>Co</b>' } } });
     expect(t.assets.favicon).toBe('app-favicon.png');
     expect(t.assets.logo).toEqual({ file: 'app-logo.svg', alt: 'Acme bCob' });
+    // An apostrophe would break the single-quoted string it is written into.
+    expect(validateTheme({ assets: { logo: { file: 'app-logo.png', alt: "Bob's Pizza" } } }).assets.logo.alt).toBe('Bobs Pizza');
     expect(validateTheme({ assets: { favicon: '../../etc/passwd', logo: { file: 'app-logo.png/../x', alt: 'x' } } }).assets).toBeUndefined();
     expect(validateTheme({ assets: { favicon: 'app-logo.png' } }).assets).toBeUndefined();
   });

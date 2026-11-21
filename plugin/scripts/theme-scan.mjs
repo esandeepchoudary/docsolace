@@ -15,7 +15,7 @@ import path from 'node:path';
 import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { fetchBrandAsset } from './lib/brand-assets.mjs';
-import { writeFileAtomic } from './lib/fs-atomic.mjs';
+import { readJsonFile, writeFileAtomic } from './lib/fs-atomic.mjs';
 import { extractThemeFromPage, mergeSchemes, sanitizeAlt, validateTheme } from './lib/app-theme.mjs';
 import { scanSourceTheme } from './lib/source-theme.mjs';
 import { SLUG_RE, loadTour } from './lib/tours.mjs';
@@ -57,23 +57,27 @@ async function readScheme(browser, url, colorScheme) {
 }
 
 async function saveAssets(raw, baseUrl, notes) {
+  // Fetch first; only replace what was successfully re-fetched, so a transient
+  // failure never deletes the previously committed asset.
+  const favicon = raw.assets?.favicon ? await fetchBrandAsset(raw.assets.favicon, baseUrl) : null;
+  const logo = raw.assets?.logo?.src ? await fetchBrandAsset(raw.assets.logo.src, baseUrl) : null;
+  if (favicon && !favicon.data) notes.push(`favicon skipped: ${favicon.skipped}`);
+  if (logo && !logo.data) notes.push(`logo skipped: ${logo.skipped}`);
   fs.mkdirSync(ASSET_DIR, { recursive: true });
-  for (const f of fs.readdirSync(ASSET_DIR)) if (/^app-(favicon|logo)\./.test(f)) fs.rmSync(path.join(ASSET_DIR, f));
+  const clear = (prefix) => {
+    for (const f of fs.readdirSync(ASSET_DIR)) if (f.startsWith(`${prefix}.`)) fs.rmSync(path.join(ASSET_DIR, f));
+  };
   const assets = {};
-  if (raw.assets?.favicon) {
-    const r = await fetchBrandAsset(raw.assets.favicon, baseUrl);
-    if (r.data) {
-      assets.favicon = `app-favicon.${r.ext}`;
-      fs.writeFileSync(path.join(ASSET_DIR, assets.favicon), r.data);
-    } else notes.push(`favicon skipped: ${r.skipped}`);
+  if (favicon?.data) {
+    clear('app-favicon');
+    assets.favicon = `app-favicon.${favicon.ext}`;
+    fs.writeFileSync(path.join(ASSET_DIR, assets.favicon), favicon.data);
   }
-  if (raw.assets?.logo?.src) {
-    const r = await fetchBrandAsset(raw.assets.logo.src, baseUrl);
-    if (r.data) {
-      const file = `app-logo.${r.ext}`;
-      fs.writeFileSync(path.join(ASSET_DIR, file), r.data);
-      assets.logo = { file, alt: sanitizeAlt(raw.assets.logo.alt) ?? 'Logo' };
-    } else notes.push(`logo skipped: ${r.skipped}`);
+  if (logo?.data) {
+    clear('app-logo');
+    const file = `app-logo.${logo.ext}`;
+    fs.writeFileSync(path.join(ASSET_DIR, file), logo.data);
+    assets.logo = { file, alt: sanitizeAlt(raw.assets.logo.alt) ?? 'Logo' };
   }
   return assets;
 }
@@ -86,6 +90,7 @@ async function main() {
   const notes = [];
 
   let theme;
+  let fellBack = false;
   let confidence = 'live app';
   let browser;
   try {
@@ -98,6 +103,7 @@ async function main() {
     if (Object.keys(assets).length > 0) theme.assets = assets;
   } catch (err) {
     notes.push(`couldn't load ${url} (${err.message.split('\n')[0]})`);
+    fellBack = true;
     const { theme: raw, files } = scanSourceTheme(process.cwd());
     theme = validateTheme(raw);
     confidence = `source CSS (${files.slice(0, 5).join(', ') || 'none found'}) — lower confidence, the app wasn't running`;
@@ -109,6 +115,16 @@ async function main() {
     throw new Error(`Couldn't read any usable colors or fonts (${notes.join('; ') || 'nothing found'}). Start the app and re-run.`);
   }
   fs.mkdirSync('.docsolace', { recursive: true });
+  // A lower-confidence CSS read must never replace a theme that came from the
+  // live app (it would drop the dark variant, assets and radius).
+  if (fellBack) {
+    const existing = readJsonFile(path.join('.docsolace', 'app-theme.json'), null);
+    if (existing?.confidence === 'live app') {
+      console.log('The app is not running, so the existing theme from the live app was kept unchanged.');
+      for (const n of notes) console.log(`  note: ${n}`);
+      return;
+    }
+  }
   const outPath = path.join('.docsolace', 'app-theme.json');
   writeFileAtomic(outPath, `${JSON.stringify({ source: pagePath, confidence, ...theme }, null, 2)}\n`);
   console.log(`Saved ${outPath} from the ${confidence}.`);
