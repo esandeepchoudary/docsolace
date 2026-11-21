@@ -24,6 +24,12 @@
   flex-wrap: wrap;
 }
 
+.getStarted {
+  padding: 3rem 0 1rem;
+  max-width: 760px;
+  margin: 0 auto;
+}
+
 .proofSection {
   padding: 3rem 0;
 }

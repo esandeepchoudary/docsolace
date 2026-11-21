@@ -2,27 +2,31 @@
 sidebar_position: 1
 sidebar_label: "Overview"
 title: "Overview"
-description: "DocSolace is a Claude Code plugin that drives a running web app with Playwright, takes screenshots, and writes tutorial-style Markdown documentation that stays…"
-last_verified: "2026-08-04 (370b5a3)"
+description: "DocSolace is a Claude Code plugin. It drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown…"
+last_verified: "2026-11-20 (7943237)"
 ---
 
 # Overview
 
 ## What it is
 
-DocSolace is a Claude Code plugin that drives a running web app with Playwright, takes screenshots, and writes tutorial-style Markdown documentation that stays in sync as the app changes. Instead of a human clicking through an app, taking screenshots, and writing prose that goes stale the moment the UI changes, DocSolace drives a real headless browser against the app's actual running instance, takes the screenshots itself, and writes grounded, tutorial-style docs from what it actually saw. It ships primarily as a Claude Code plugin, but the underlying pipeline is plain Node scripts that can also be run directly from a terminal without Claude Code at all.
+DocSolace is a Claude Code plugin. It drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown from what it actually saw. Each screenshot is paired with an accessibility snapshot, and the prose is grounded in that snapshot only, so an element that is not in the snapshot is not described.
+
+The generated Markdown lands in `docs/`. It can be read as-is or published through a bundled Docusaurus scaffold, which serves `docs/` with search.
 
 ## Who it's for
 
-It's built for solo developers: one person runs it themselves whenever a feature is worth documenting, not a team-scale pipeline that fires automatically on every merge. The bundled CI workflow (`.github/workflows/docs.yml`) exists but is deliberately parked on manual dispatch rather than treated as a required step, reflecting that same solo-developer intent.
+Solo developers documenting their own projects. The primary workflow is one person running `/docsolace:document` when a feature is worth documenting. A GitHub Actions workflow exists in the repository, but it is parked on manual trigger and is optional.
 
 ## What it does
 
-It drives a real app headlessly — Playwright clicks through a declarative YAML "tour" against the app's actual running instance, with no fixtures or hand-authored mockups. Every screenshot is captured alongside an accessibility snapshot, which becomes the grounding for the generated prose so nothing is invented. A drift check compares screenshots and source code paths against the last run, so regeneration only touches tours that actually changed. Hand-written content inside `<!-- docsolace:keep -->` blocks survives every regeneration untouched. Output lands in a docs folder as a reviewable pull request that is never auto-merged, and a bundled Docusaurus scaffold can publish that folder as a real docs site with built-in search.
+It follows a YAML tour against your real app, with no fixtures or mockups. It runs a drift check that compares screenshots and source `code_paths` against the last run, so only tutorials that changed are regenerated. Text inside `<!-- docsolace:keep -->` blocks survives every regeneration.
 
-## Beyond individual tours
+Each run ends with an opened docs pull request for you to review. It never merges.
 
-Tours describe individual UI flows. A separate, smaller set of product-level pages — overview, getting-started, concepts, configuration, troubleshooting, changelog, and decisions — describes the product as a whole, grounded strictly in the project's own README, `package.json`, `.env.example`, config file, changelog or git tags, any ADR files, and the confirmed tour inventory, never the running app.
+It also writes product-level pages (overview, getting started, concepts, configuration, troubleshooting, changelog, decisions) from repository files only, never from the running app. A page with nothing to ground it is skipped and reported.
+
+The pipeline underneath the plugin is plain Node scripts, so it can also be run without Claude Code. The repository bundles a small demo app (a login page and a dashboard) for trying this.
 
 ## Tutorials
 
