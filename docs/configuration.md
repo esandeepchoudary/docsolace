@@ -2,52 +2,59 @@
 sidebar_position: 4
 sidebar_label: "Configuration"
 title: "Configuration"
-description: ".env.example is copied to .env, which is gitignored; real credentials are never committed. The variables map to the usernameEnv and passwordEnv fields of the…"
-last_verified: "2026-11-20 (7943237)"
+description: ".env.example documents two variables, which map to the usernameEnv and passwordEnv fields of an auth profile in docsolace.config.yaml. Copy the file to .env…"
+last_verified: "2026-11-21 (dd8f119)"
 ---
 
 # Configuration
 
 ## Environment variables
 
-`.env.example` is copied to `.env`, which is gitignored; real credentials are never committed. The variables map to the `usernameEnv` and `passwordEnv` fields of the auth profiles in `docsolace.config.yaml`.
+`.env.example` documents two variables, which map to the `usernameEnv` and `passwordEnv` fields of an auth profile in `docsolace.config.yaml`. Copy the file to `.env` and fill it in; `.env` is gitignored and real credentials should never be committed.
 
-- `DOCSOLACE_STANDARD_USER_USERNAME`: the username for the `standard-user` auth profile.
-- `DOCSOLACE_STANDARD_USER_PASSWORD`: the password for the `standard-user` auth profile.
+`DOCSOLACE_STANDARD_USER_USERNAME` holds the username for the `standard-user` auth profile.
 
-## docsolace.config.yaml: capture settings
+`DOCSOLACE_STANDARD_USER_PASSWORD` holds the password for the `standard-user` auth profile.
 
-- `baseUrl`: the base URL of the app being captured.
-- `viewports`: a map of named viewports with `width` and `height`. Every capture point is shot at each one. The first entry is the primary one used for the login flow itself.
-- `outputDir`: where artifacts are written (`.docsolace/artifacts` in this repository).
-- `defaultMask`: selectors masked on every capture, in addition to a tour's own `mask` list, to keep common volatile regions out of every tour spec.
-- `pixelDiffThreshold`: a recaptured screenshot only replaces the committed one in `docs/images/` when the fraction of changed pixels exceeds this threshold, which keeps binary git churn out of history.
-- `runTrigger`: the intended cadence for the docs pipeline. It is informational, because GitHub Actions triggers are static YAML and `.github/workflows/docs.yml`'s `on:` block must be kept in sync by hand. Options are `manual-only` (the default), `merge-to-main` and `release-tag`.
+## Top-level keys in docsolace.config.yaml
 
-## docsolace.config.yaml: auth
+`baseUrl` is the address of the running app to capture.
 
-`auth` holds profiles referenced by tours' `preconditions.auth`. Storage state from a successful login is cached under `<outputDir>/.auth/<profile-id>.json` and reused across runs. A scripted profile uses `loginUrl`, `usernameSelector`, `passwordSelector`, `submitSelector`, `usernameEnv`, `passwordEnv` and `successUrlPattern`. A profile with `storageStatePath` instead reuses a pre-exported session, and the scripted fields are not used. The session is recorded with `save-auth-state.mjs`, run in your own terminal.
+`viewports` is a map of named sizes (each with `width` and `height`). Every capture point is shot at each viewport, on the same page and session. The first entry is the primary one used for the login flow itself.
 
-## docsolace.config.yaml: seeds
+`outputDir` is where artifacts are written; `.docsolace/artifacts` in this repo.
 
-`seeds` declares named fixtures referenced by tours' `preconditions.seed`. A seed has a `description` and an optional `command`. `allowSeedCommands` is `false` by default: a seed's command is config, and config is as reachable by an unreviewed change as tour YAML is, so it only runs when this is set to `true`. `--allow-seed-commands` on `capture` is a one-off override.
+`defaultMask` is a list of selectors masked on every capture, in addition to a tour's own `mask` list, to keep volatile regions such as timestamps and avatars out of every tour.
 
-## docsolace.config.yaml: docs
+`runTrigger` is the intended cadence for the docs pipeline, informational only. Options are `manual-only` (default), `merge-to-main`, and `release-tag`. GitHub Actions triggers are static YAML, so the `on:` block of `.github/workflows/docs.yml` must be kept in sync by hand.
 
-The `docs` section controls generated page layout.
+`pixelDiffThreshold` is the fraction of changed pixels that must be exceeded before a recaptured screenshot replaces the committed one in `docs/images/`. It keeps binary git churn out of history for visually insignificant re-renders.
 
-- `primaryViewport`: which viewport stays inline in every step. It must name a key under `viewports`, and defaults to the first key.
-- `collapseOtherViewports`: when `true`, every other viewport's screenshot collapses into a `<details>` block. Setting it to `false` restores a flat, all-inline layout.
-- `sections`: groups tour pages in the generated sidebar, as a list of entries with a `label` and a list of `tours`. Order is reading order. Product pages always pin above every section.
-- `stampVerified`: when `true`, stamps each generated page with a "last verified" date and short commit SHA, in frontmatter and as a visible line under the title. It is off by default.
+## auth
 
-## docsolace.config.yaml: product
+Auth profiles are referenced by tours' `preconditions.auth`. Storage state from a successful login is cached under `<outputDir>/.auth/<profile-id>.json` and reused across runs instead of logging in per capture. The profile in this repo, `standard-user`, uses `loginUrl`, `usernameSelector`, `passwordSelector`, `submitSelector`, `usernameEnv`, `passwordEnv`, and `successUrlPattern`.
 
-The `product` section feeds the product pages. `sources` lists extra grounding files or globs beyond the standing set (`README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md`, `docs/adr/*.md`). Entries must be project-relative globs, with no absolute paths or `..` segments. `name` optionally overrides the product name, which defaults to `package.json`'s name, and `pages` selects which pages to write (default: all seven). Product pages never read `.env`, key or credential files, or anything under `.auth/`.
+## seeds and allowSeedCommands
 
-## docsolace.config.yaml: crawl
+`seeds` is a map of named seed fixtures referenced by tours' `preconditions.seed`. A seed has a `description` and may declare a `command`, such as a script that resets or seeds a database, which runs before the tour. The demo seed here has no command and is treated as a no-op.
 
-Used by `/docsolace:document map`. `crawl.maxPages` (default 50) and `crawl.maxDepth` (default 4) bound the discovery crawl. `crawl.allowInteractive` (default `false`) is the second of two opt-ins needed for interactive mode, which also requires the `--interactive` flag. Set it to `true` only against a throwaway or dev environment.
+`allowSeedCommands` is off by default on purpose: a seed's command is config, and config is as reachable by an unreviewed change as tour YAML is. Set it to `true` only once you trust every declared seed command. The capture script also accepts `--allow-seed-commands` as a one-off override.
+
+## docs
+
+`docs.primaryViewport` names the viewport (a key under `viewports`) that stays inline in every step; the default is the first key. `docs.collapseOtherViewports`, when true, collapses every other viewport's screenshot into a details block; false restores the flat, all-inline layout.
+
+`docs.sections` groups tour pages in the generated sidebar. Each entry has a `label` and a `tours` list in reading order; a tour named in no section sorts into one flat group instead.
+
+`docs.stampVerified` stamps each generated page with a real last-verified date and short commit SHA, in frontmatter and as a visible line under the title. It is off by default and turned on in this repo.
+
+## product
+
+`product.name` is optional and defaults to the `name` in `package.json`. `product.pages` selects which product pages to write; the default is all seven, and pages with nothing to ground them are skipped. `product.sources` lists extra grounding files or globs beyond the standing set (`README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md`, `docs/adr/*.md`). Entries must be project-relative globs, with no absolute paths and no `..` segments. This repo lists `CONFIGURATION.md`, `PUBLISHING.md`, `TROUBLESHOOTING.md`, `ADVANCED.md`, and `CONTRIBUTING.md`. Product pages never read `.env`, key or credential files, or anything under a `.auth/` directory, whatever a glob matches.
+
+## Design-skill styling
+
+If a design or brand skill is installed, `/docsolace:document` auto-detects it and applies it to the Docusaurus site theme and to a small set of page-layout settings stored in a committed `.docsolace/doc-style.json`. This changes presentation only, never what is written. Passing `--no-style` skips detection for a run. With no design skill installed, docs are plain and unbranded.
 
 <!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->

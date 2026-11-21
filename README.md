@@ -83,8 +83,17 @@ Working from a local clone? Use its path: `/plugin marketplace add /path/to/docs
 
 The first session with the plugin active installs its dependencies and the
 Playwright browser (a minute or so, once). Check it with `/plugin list`.
-Updates arrive when the plugin's version changes: `/plugin update`, then
-restart.
+
+To update an installed copy:
+
+```
+/plugin marketplace update docsolace-marketplace
+/reload-plugins
+```
+
+Updates only land when the plugin's version number has changed (Claude Code
+caches by it). Auto-update is off by default for third-party marketplaces;
+see [TROUBLESHOOTING.md](./TROUBLESHOOTING.md#keeping-the-plugin-updated).
 
 ## Use it in your project
 
@@ -164,6 +173,24 @@ surfaces reasoning a human wrote in an ADR. Details: [CONFIGURATION.md](./CONFIG
 
 Product pages follow the same shape without step 1: their ground truth is
 the repo, not a browser.
+
+## Which models it uses
+
+Three subagents do the LLM work; everything else (capture, drift check,
+assembly, verification) is plain Node and costs no tokens. Each agent's model
+is one line in its file under `plugin/agents/`:
+
+| Agent | Job | Model |
+|---|---|---|
+| `doc-scribe` | One short paragraph per screenshot, from the accessibility snapshot | Haiku |
+| `product-scribe` | Overview, getting-started and other product pages, from repo files | Sonnet |
+| `tour-scout` | Explores the running app and drafts a tour | Sonnet |
+
+`doc-scribe` runs once per changed tour, so it's the cheap one. In a
+side-by-side check its output matched the snapshots on every claim tested.
+The other two stay on Sonnet: product pages need broader grounding, and
+`tour-scout` drives a browser. To change one, edit `model:` in that agent's
+frontmatter and bump the plugin version.
 
 ## More
 
