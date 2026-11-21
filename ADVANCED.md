@@ -269,6 +269,35 @@ actual text in the following capture, same as any AI-generated response —
 see "Waiting for async content" above for why: speech-to-text output is
 non-deterministic even when it's working correctly.
 
+## Keeping tutorials in sync automatically (local, opt-in)
+
+By default nothing runs unless you run `/docsolace:document`. If you'd rather
+have Claude resync tutorials as you work, add this to `docsolace.config.yaml`:
+
+```yaml
+autoDocument: true
+autoDocumentMinMinutes: 10   # optional; minimum gap between automatic runs
+```
+
+Then, when a Claude Code turn finishes, a `Stop` hook checks three things: a
+tour's `code_paths` changed since its docs were last generated, the app is
+answering at `baseUrl`, and this exact set of changes hasn't already been
+handled. Only then does Claude resync those tours, with no questions asked.
+
+What it deliberately does not do:
+
+- **Draft new tutorials.** Uncovered UI still only gets the one-line reminder;
+  describing a new feature stays your call.
+- **Ship from the wrong branch.** On `feat/*` or `fix/*` it opens the docs PR
+  as a manual run would (never merged). On any other branch it regenerates
+  with `--review` and stops: no commit, push or branch switch.
+- **Run twice for the same change**, run more often than
+  `autoDocumentMinMinutes`, or chain off its own continuation.
+- **Run when the app isn't up**, or break your turn on an error.
+
+It only sees changes made while Claude Code is running, which fits a laptop
+dev loop. Remove the line (or set it to `false`) to turn it off.
+
 ## Mapping a whole app automatically
 
 `/docsolace:document map` discovers what to document instead of you naming

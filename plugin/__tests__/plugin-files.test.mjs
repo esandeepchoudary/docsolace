@@ -603,3 +603,14 @@ describe('map/prune keep navigation in sync', () => {
     expect((skill.match(/--sidebar-only/g) ?? []).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe('Stop hook (auto-document)', () => {
+  const hooks = JSON.parse(fs.readFileSync(path.join(pluginRoot, 'hooks/hooks.json'), 'utf8'));
+  const command = hooks.hooks.Stop?.[0]?.hooks?.[0]?.command ?? '';
+
+  it('runs the installed-data copy, never fails the turn, and the script exists', () => {
+    expect(command).toContain('${CLAUDE_PLUGIN_DATA}/scripts/auto-document.mjs');
+    expect(command).toMatch(/\|\| true$/);
+    expect(fs.existsSync(path.join(pluginRoot, 'scripts/auto-document.mjs'))).toBe(true);
+  });
+});

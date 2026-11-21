@@ -75,6 +75,14 @@ outputDir: .docsolace/artifacts
 # once the fraction of changed pixels exceeds this threshold.
 # pixelDiffThreshold: 0.005
 #
+# Opt in to resyncing existing tutorials automatically while you develop: when
+# a Claude Code turn ends, the app at baseUrl is running, and code a tour
+# covers has changed since its docs were generated, Claude updates just those
+# tours (never drafts new ones, never asks). At most once per change, and not
+# more often than autoDocumentMinMinutes.
+# autoDocument: true
+# autoDocumentMinMinutes: 10
+#
 # Auth profiles, referenced by a tour's preconditions.auth. Two shapes:
 #
 # 1) Scripted username/password login — credentials come from env vars

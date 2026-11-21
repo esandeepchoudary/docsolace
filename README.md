@@ -152,6 +152,12 @@ A second `SessionStart` hook has Claude end a reply with one line, "run
 for backend, test, or config changes. Wording is in
 `plugin/scripts/lib/session-guidance.mjs`.
 
+Want it hands-free while you develop? Add `autoDocument: true` to
+`docsolace.config.yaml`. When a Claude Code turn ends, your app is running,
+and code a tour covers has changed, Claude resyncs just those tours — once per
+change, never drafting new ones, never merging. Details in
+[ADVANCED.md](./ADVANCED.md#keeping-tutorials-in-sync-automatically-local-opt-in).
+
 ### It also documents the product itself
 
 Alongside tour pages, `/docsolace:document product` (and the normal
