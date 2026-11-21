@@ -8,7 +8,7 @@ import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { assertSiteRelativePath, crawl, mergeSiteMaps } from './lib/crawl.mjs';
 import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
-import { writeFileAtomic } from './lib/fs-atomic.mjs';
+import { readJsonFile, writeFileAtomic } from './lib/fs-atomic.mjs';
 
 if (fs.existsSync('.env')) process.loadEnvFile('.env');
 
@@ -148,8 +148,19 @@ async function main() {
       process.exit(1);
     }
 
-    const merged = mergeSiteMaps(siteMaps);
     const outPath = path.join(config.outputDir, 'site-map.json');
+    // A --routes-file pass is the *confirmation* crawl: it visits only the
+    // routes source code listed, so it must add to the discovery crawl's map
+    // rather than replace it. A plain crawl is a fresh map (stale routes
+    // shouldn't linger forever).
+    if (args.routesFile) {
+      const previous = readJsonFile(outPath, null);
+      if (Array.isArray(previous?.pages) && previous.pages.length > 0) {
+        siteMaps.unshift(previous.pages);
+        console.log(`Merging with ${previous.pages.length} page(s) from the existing site-map.json.`);
+      }
+    }
+    const merged = mergeSiteMaps(siteMaps);
     writeFileAtomic(
       outPath,
       JSON.stringify(

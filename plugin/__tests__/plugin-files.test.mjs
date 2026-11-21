@@ -580,3 +580,12 @@ describe('agents/tour-scout.md', () => {
     expect(body).toContain('synthetic-data.mjs');
   });
 });
+
+describe('map API hints', () => {
+  it('the skill points map at api-hints.mjs and treats it as hints only', () => {
+    const skill = fs.readFileSync(path.join(pluginRoot, 'skills/document/SKILL.md'), 'utf8');
+    expect(skill).toContain('api-hints.mjs');
+    expect(skill).toMatch(/never\s+draft a tour from an endpoint alone/);
+    expect(fs.existsSync(path.join(pluginRoot, 'scripts/api-hints.mjs'))).toBe(true);
+  });
+});

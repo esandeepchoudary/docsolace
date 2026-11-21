@@ -26,7 +26,14 @@ Part of [DocSolace](./README.md).
   change"** — something on the page is genuinely non-deterministic (a
   clock, an animation, live data). Mask it — see `defaultMask` in
   `docsolace.config.yaml` or a tour's own `mask` list.
-
+- **"the prose ... is unchanged — it was written for the old captures"** —
+  the screenshots or code changed but `doc-scribe` didn't re-author this
+  tour's paragraphs, so publishing would pair new images with old text.
+  Re-run `/docsolace:document <tour-id>`; `--force` publishes the old prose
+  anyway.
+- **"is tracked by git" when saving a session** — a `storageStatePath` inside
+  a tracked file would be committed with live cookies. `git rm --cached` it
+  and add it to `.gitignore`, or choose another path.
 
 ## Keeping the plugin updated
 

@@ -1,3 +1,4 @@
+import { restrictToOwner } from './auth-guard.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import { withRetry } from './retry.mjs';
@@ -63,6 +64,7 @@ export async function ensureAuthState(browser, config, authProfileId) {
     await page.waitForURL(profile.successUrlPattern);
     await page.waitForLoadState('networkidle');
     await context.storageState({ path: statePath });
+    restrictToOwner(statePath);
   } finally {
     await context.close();
   }

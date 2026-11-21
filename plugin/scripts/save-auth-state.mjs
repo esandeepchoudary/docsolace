@@ -12,6 +12,7 @@
 // original "press Enter when you're done" prompt, which only works with a
 // real terminal attached. Run with neither available, this refuses up
 // front instead of hanging forever on a prompt nothing can ever answer.
+import { assertAuthStatePathSafe, restrictToOwner } from './lib/auth-guard.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import readline from 'node:readline';
@@ -52,6 +53,7 @@ async function main() {
         `it's where the recorded session gets saved.`,
     );
   }
+  assertAuthStatePathSafe(profile.storageStatePath);
 
   // Fall back to the profile's own successUrlPattern (already meaningful
   // for scripted-login profiles) if --wait-for wasn't passed explicitly.
@@ -91,6 +93,7 @@ async function main() {
 
     fs.mkdirSync(path.dirname(profile.storageStatePath), { recursive: true });
     await context.storageState({ path: profile.storageStatePath });
+    restrictToOwner(profile.storageStatePath);
   } finally {
     await browser.close();
   }

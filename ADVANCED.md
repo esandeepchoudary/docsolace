@@ -285,6 +285,14 @@ reach *every* feature, not just whatever's linked from the homepage:
    found, again under every profile, so a feature reachable only via
    in-app JS/button navigation (never a real `<a href>`) still gets probed.
 
+If the project has an OpenAPI/Swagger spec (`openapi.json|yaml`, `swagger.*`,
+at the root or under `docs/`, `api/`, `spec/`), `map` also reads its tags as
+**hints**: feature groups no tour mentions become questions for the code
+review ("is there a screen for this?"). A spec describes the backend, so an
+endpoint alone never produces a tour. `node plugin/scripts/api-hints.mjs`
+prints what it found. The spec is read as local data only; URLs inside it
+are never fetched.
+
 These reconcile into a proposed feature list and doc structure, each entry
 tagged with which role(s) actually reached it (or flagged if none did), then
 dispatches `tour-scout` for every discovered gap. **By default** it drafts,
