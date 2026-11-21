@@ -394,6 +394,15 @@ describe('scripts/crawl.mjs', () => {
 describe('agents/doc-scribe.md', () => {
   const markdown = fs.readFileSync(path.join(pluginRoot, 'agents/doc-scribe.md'), 'utf8');
 
+  it('runs on haiku (a locked decision — see CLAUDE.md) and keeps paragraphs short', () => {
+    // Haiku is only safe here because the prose is tightly grounded in an
+    // a11y snapshot, so the brevity/no-inference rules are load-bearing: they
+    // are what kept the tested output from drifting into filler and guesses.
+    expect(markdown).toMatch(/^model: haiku$/m);
+    expect(markdown).toContain('one to three sentences');
+    expect(markdown).toContain('no sentences about the tour itself');
+  });
+
   it('names capture files per viewport exactly as capture.mjs writes them (<capture>@<viewport>)', () => {
     // Regression: the agent once documented a bare `<capture>.a11y.json`,
     // which never exists (capture shoots every viewport), so a model that
