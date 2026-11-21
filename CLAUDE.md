@@ -167,6 +167,18 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - **Steps can assert where they are.** `expectUrl` / `expectVisible` /
   `waitFor` (`lib/page-expect.mjs`) — see CONFIGURATION.md.
 
+- **Auto-document is a local, opt-in Stop hook, not a scheduler.**
+  `autoDocument: true` in `docsolace.config.yaml` enables
+  `hooks/hooks.json`'s `Stop` hook (`scripts/auto-document.mjs`, logic in
+  `lib/auto-document.mjs`). It resyncs only *existing, confirmed* tours whose
+  `code_paths` hash differs from `state.json`, only when `baseUrl` answers,
+  at most once per change set (fingerprint in
+  `.docsolace/artifacts/auto-document.json`) and not more often than
+  `autoDocumentMinMinutes`. It never drafts a tour (the brief rejects
+  guessing "a feature just landed"), never asks questions, never chains off
+  `stop_hook_active`, and swallows every error. On a non-`feat/*`/`fix/*`
+  branch it passes `--review` so nothing is committed or switched. Default
+  off; installing the plugin never enables it.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.

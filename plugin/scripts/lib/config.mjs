@@ -105,6 +105,15 @@ export function loadConfig(configPath) {
       `docsolace config at "${configPath}": "pixelDiffThreshold" must be a number between 0 and 1`,
     );
   }
+  if (config.autoDocument !== undefined && typeof config.autoDocument !== 'boolean') {
+    throw new Error(`docsolace config at "${configPath}": "autoDocument" must be true or false`);
+  }
+  if (
+    config.autoDocumentMinMinutes !== undefined &&
+    (typeof config.autoDocumentMinMinutes !== 'number' || config.autoDocumentMinMinutes < 0)
+  ) {
+    throw new Error(`docsolace config at "${configPath}": "autoDocumentMinMinutes" must be a number of minutes (0 or more)`);
+  }
   if (config.defaultMask !== undefined && !Array.isArray(config.defaultMask)) {
     throw new Error(`docsolace config at "${configPath}": "defaultMask" must be a list of selectors`);
   }

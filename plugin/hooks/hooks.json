@@ -17,6 +17,16 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -f \"${CLAUDE_PLUGIN_DATA}/scripts/auto-document.mjs\" ] && node \"${CLAUDE_PLUGIN_DATA}/scripts/auto-document.mjs\" || true"
+          }
+        ]
+      }
     ]
   }
 }
