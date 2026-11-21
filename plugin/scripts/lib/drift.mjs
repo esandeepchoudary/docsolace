@@ -12,17 +12,19 @@ export function resolveCodePathFiles(codePaths, cwd = process.cwd()) {
   return [...files].sort();
 }
 
-// Hash of the git tree (at HEAD) for a tour's code_paths — changes only when
-// the *committed* source backing a tour changes, not on uncommitted edits.
+// Hash of the current on-disk content of a tour's code_paths. `git
+// hash-object` yields the same blob id as the committed file when it is
+// unchanged (so clean trees hash exactly as before), and also reflects
+// uncommitted and untracked edits, so triage and drift agree.
 export function computeCodePathsHash(codePaths, cwd = process.cwd()) {
   const files = resolveCodePathFiles(codePaths, cwd);
   const hash = createHash('sha256');
   for (const file of files) {
     let blobSha;
     try {
-      blobSha = execFileSync('git', ['rev-parse', `HEAD:${file}`], { cwd, encoding: 'utf8' }).trim();
+      blobSha = execFileSync('git', ['hash-object', '--', file], { cwd, encoding: 'utf8' }).trim();
     } catch {
-      blobSha = 'untracked';
+      blobSha = 'unhashable';
     }
     hash.update(`${file}:${blobSha}\n`);
   }
@@ -135,4 +137,14 @@ export function getDirtyReasons({ previousEntry, currentScreenshotHashes, curren
 // exists for it is still grounded and doesn't need doc-scribe to re-author.
 export function isRenderOnlyDirty(reasons) {
   return reasons.length > 0 && reasons.every((r) => r === 'render');
+}
+
+// True when the captures or code changed since the last generation but the
+// prose file is byte-identical to what that generation used — i.e. nobody
+// re-authored it for the new captures. Render-only changes are fine (prose is
+// still grounded), and entries from before proseHash existed can't be judged.
+export function isProseStale({ previousEntry, proseHash, reasons }) {
+  if (!previousEntry?.proseHash || !proseHash) return false;
+  if (!reasons.some((r) => r === 'screenshots' || r === 'code')) return false;
+  return previousEntry.proseHash === proseHash;
 }

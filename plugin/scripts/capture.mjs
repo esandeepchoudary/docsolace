@@ -18,7 +18,7 @@ import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { sha256Buffer, buildManifest, saveManifestEntry } from './lib/manifest.mjs';
-import { mergeMasks } from './lib/masking.mjs';
+import { collectMaskedStrings, mergeMasks, redactSnapshotText } from './lib/masking.mjs';
 import { resolveSeed } from './lib/seed.mjs';
 import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
 import { isSameOrigin } from './lib/crawl.mjs';
@@ -321,7 +321,11 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
                 await removeHighlight(page, step.highlight);
               }
 
-              const ariaSnapshot = await page.locator('body').ariaSnapshot();
+              // Masks only paint over pixels — strip the same elements' text,
+              // values and labels from the accessibility snapshot too, since
+              // that is what the writing agent actually reads.
+              const maskedStrings = await collectMaskedStrings(page, maskSelectors);
+              const ariaSnapshot = redactSnapshotText(await page.locator('body').ariaSnapshot(), maskedStrings);
               const a11yPath = path.join(snapshotsDir, `${step.capture}@${viewportName}.a11y.json`);
               writeFileAtomic(
                 a11yPath,

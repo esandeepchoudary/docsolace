@@ -135,3 +135,23 @@ describe('verifyDocs', () => {
     expect(levels).toEqual(['error', 'error', 'warn']);
   });
 });
+
+describe('code fence handling', () => {
+  it('still reports a broken image after an empty fenced block', () => {
+    const dir = mkTmpDir();
+    writeFile(dir, 'a.md', '```\n```\n![broken](definitely-missing.png)\n');
+    expect(findBrokenImageRefs(dir).length).toBe(1);
+  });
+
+  it('ignores image syntax inside ~~~ fences', () => {
+    const dir = mkTmpDir();
+    writeFile(dir, 'a.md', '~~~md\n![x](missing.png)\n~~~\n');
+    expect(findBrokenImageRefs(dir)).toEqual([]);
+  });
+
+  it('does not close a fence on a shorter delimiter', () => {
+    const dir = mkTmpDir();
+    writeFile(dir, 'a.md', '````\n```\n![x](missing.png)\n```\n````\n');
+    expect(findBrokenImageRefs(dir)).toEqual([]);
+  });
+});

@@ -21,7 +21,9 @@ const IMAGE_RE = /!\[([^\]]*)\]\(([^)]+)\)/g;
 // broken/valid link too.
 const LINK_RE = /(?<!!)\[([^\]]*)\]\(([^)]+)\)/g;
 const HEADING_RE = /^#{1,6}\s+(.+?)\s*#*$/gm;
-const CODE_FENCE_RE = /^```.*$/gm;
+// No `g` flag: this is used with .test() on one line at a time, and a global
+// regex carries lastIndex between calls, which flips adjacent fence lines.
+const CODE_FENCE_RE = /^\s{0,3}(`{3,}|~{3,})/;
 const EXTERNAL_TARGET_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 
 // Strips fenced code blocks before scanning for image/link syntax — a
@@ -30,13 +32,22 @@ const EXTERNAL_TARGET_RE = /^(?:[a-z][a-z0-9+.-]*:|\/\/)/i;
 function stripCodeFences(markdown) {
   const lines = markdown.split('\n');
   const out = [];
-  let inFence = false;
+  let fence = null; // the opening delimiter ("```" or "~~~~") while inside a block
   for (const line of lines) {
-    if (CODE_FENCE_RE.test(line)) {
-      inFence = !inFence;
-      continue;
+    const match = CODE_FENCE_RE.exec(line);
+    if (match) {
+      const delimiter = match[1];
+      if (!fence) {
+        fence = delimiter;
+        continue;
+      }
+      // A closing fence uses the same character and is at least as long.
+      if (delimiter[0] === fence[0] && delimiter.length >= fence.length && line.trim() === delimiter) {
+        fence = null;
+        continue;
+      }
     }
-    out.push(inFence ? '' : line);
+    out.push(fence ? '' : line);
   }
   return out.join('\n');
 }

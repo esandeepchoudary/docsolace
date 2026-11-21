@@ -10,7 +10,7 @@ import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPage } from './lib/docgen.mjs';
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
-import { computeCodePathsHash, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
+import { computeCodePathsHash, getDirtyReasons, isProseStale, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
 import {
   buildFrontmatter,
@@ -167,6 +167,59 @@ function main() {
     process.exit(0);
   }
 
+  // Refuse before touching anything: the image copies below happen as the
+  // steps are built, so a late refusal would leave new images with old prose.
+  const docPath = path.join('docs', `${tour.id}.md`);
+  const previousMarkdown = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : undefined;
+
+  // If a human edited the page outside its keep-region since the last
+  // generation, warn loudly instead of silently clobbering their edit — the
+  // keep-region only protects content inside it, not the rest of the page.
+  if (previousMarkdown !== undefined && previousEntry?.bodyHash) {
+    const currentBodyHash = sha256Buffer(Buffer.from(nonKeepContent(previousMarkdown)));
+    if (currentBodyHash !== previousEntry.bodyHash) {
+      if (!force) {
+        console.error(
+          `"${tour.id}": ${docPath} was edited outside its <!-- docsolace:keep --> region since the ` +
+            `last generation. Move the edit into the keep-region, or re-run with --force to overwrite it.`,
+        );
+        process.exit(1);
+      }
+      console.warn(`"${tour.id}": overwriting an edit made outside the keep-region (--force).`);
+    }
+  }
+
+
+  // Prose that survived unchanged from the last generation can't describe
+  // captures that have since changed (a failed or skipped doc-scribe run).
+  const proseHash = fs.existsSync(prosePath) ? sha256Buffer(fs.readFileSync(prosePath)) : undefined;
+  const newestCaptureMs = Math.max(
+    0,
+    ...tourManifest.captures.flatMap((c) =>
+      Object.values(c.viewports).map((v) => {
+        try {
+          return fs.statSync(path.join(config.outputDir, v.a11y ?? v.png)).mtimeMs;
+        } catch {
+          return 0;
+        }
+      }),
+    ),
+  );
+  const proseMs = fs.existsSync(prosePath) ? fs.statSync(prosePath).mtimeMs : Infinity;
+  if (proseMs >= newestCaptureMs) {
+    // Re-authored after the latest capture (even if the words came out the same).
+  } else if (isProseStale({ previousEntry, proseHash, reasons: getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash }) })) {
+    if (!force) {
+      console.error(
+        `"${tour.id}": its screenshots or code changed since the last generation, but the prose in ` +
+          `${prosePath} is unchanged — it was written for the old captures. Re-run doc-scribe for this tour ` +
+          `(or --force to publish the old prose anyway).`,
+      );
+      process.exit(1);
+    }
+    console.warn(`"${tour.id}": publishing prose that predates the latest captures (--force).`);
+  }
+
   const pixelDiffThreshold = config.pixelDiffThreshold ?? 0.005;
   const imagesDir = path.join('docs', 'images', tour.id);
   const diffsDir = path.join(config.outputDir, 'diffs', tour.id);
@@ -242,26 +295,6 @@ function main() {
     lastVerified,
   });
 
-  const docPath = path.join('docs', `${tour.id}.md`);
-  const previousMarkdown = fs.existsSync(docPath) ? fs.readFileSync(docPath, 'utf8') : undefined;
-
-  // If a human edited the page outside its keep-region since the last
-  // generation, warn loudly instead of silently clobbering their edit — the
-  // keep-region only protects content inside it, not the rest of the page.
-  if (previousMarkdown !== undefined && previousEntry?.bodyHash) {
-    const currentBodyHash = sha256Buffer(Buffer.from(nonKeepContent(previousMarkdown)));
-    if (currentBodyHash !== previousEntry.bodyHash) {
-      if (!force) {
-        console.error(
-          `"${tour.id}": ${docPath} was edited outside its <!-- docsolace:keep --> region since the ` +
-            `last generation. Move the edit into the keep-region, or re-run with --force to overwrite it.`,
-        );
-        process.exit(1);
-      }
-      console.warn(`"${tour.id}": overwriting an edit made outside the keep-region (--force).`);
-    }
-  }
-
   const finalMarkdown = applyKeepRegion(newMarkdown, previousMarkdown);
 
   fs.mkdirSync('docs', { recursive: true });
@@ -279,6 +312,7 @@ function main() {
     codePathsHash: currentCodePathsHash,
     bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
     renderHash: currentRenderHash,
+    proseHash,
     generatedAt,
     generatedAtCommit,
     lastCaptureError: previousEntry?.lastCaptureError ?? null,

@@ -423,3 +423,43 @@ describe('isRenderOnlyDirty', () => {
     expect(isRenderOnlyDirty(['never-generated'])).toBe(false);
   });
 });
+
+import { isProseStale } from '../drift.mjs';
+
+describe('isProseStale', () => {
+  const previousEntry = { proseHash: 'p1' };
+  it('flags unchanged prose when screenshots changed', () => {
+    expect(isProseStale({ previousEntry, proseHash: 'p1', reasons: ['screenshots'] })).toBe(true);
+    expect(isProseStale({ previousEntry, proseHash: 'p1', reasons: ['code'] })).toBe(true);
+  });
+  it('accepts re-authored prose', () => {
+    expect(isProseStale({ previousEntry, proseHash: 'p2', reasons: ['screenshots'] })).toBe(false);
+  });
+  it('ignores render-only changes and entries without a recorded hash', () => {
+    expect(isProseStale({ previousEntry, proseHash: 'p1', reasons: ['render'] })).toBe(false);
+    expect(isProseStale({ previousEntry: {}, proseHash: 'p1', reasons: ['screenshots'] })).toBe(false);
+    expect(isProseStale({ previousEntry, proseHash: undefined, reasons: ['screenshots'] })).toBe(false);
+  });
+});
+
+describe('computeCodePathsHash on uncommitted work', () => {
+  it('changes when a tracked file is edited without committing, and for untracked files', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-drift-wt-'));
+    const run = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+    run('init', '-q');
+    run('config', 'user.email', 't@t');
+    run('config', 'user.name', 't');
+    fs.writeFileSync(path.join(dir, 'a.js'), 'one');
+    run('add', '.');
+    run('commit', '-qm', 'x');
+    const clean = computeCodePathsHash(['*.js'], dir);
+    fs.writeFileSync(path.join(dir, 'a.js'), 'two');
+    const edited = computeCodePathsHash(['*.js'], dir);
+    expect(edited).not.toBe(clean);
+    fs.writeFileSync(path.join(dir, 'b.js'), 'x');
+    const withUntracked = computeCodePathsHash(['*.js'], dir);
+    fs.writeFileSync(path.join(dir, 'b.js'), 'y');
+    expect(computeCodePathsHash(['*.js'], dir)).not.toBe(withUntracked);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+});

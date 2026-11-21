@@ -309,6 +309,15 @@ many candidate features at once instead of one you were told about.
    `code_paths`. Write every route found this way, site-relative
    (`/foo/bar`, not absolute), to `.docsolace/artifacts/source-routes.json` as
    a plain JSON array — the input for the confirmation crawl next.
+   **API hints (optional).** If the project ships an OpenAPI/Swagger spec, run
+   `node "${CLAUDE_PLUGIN_DATA}/scripts/api-hints.mjs"` first. It lists the
+   spec's feature groups (by tag) and marks which no tour mentions
+   (`coveredByTour: false`). Treat each uncovered group only as a *question to
+   answer from the app*: is there a screen for this? Add its route to
+   `source-routes.json` if the routing code shows one, and let the gap pass
+   below propose a tour if the crawl reaches it. A group with no screen
+   (webhooks, internal or backend-only endpoints) is dropped silently — never
+   draft a tour from an endpoint alone. No spec means no output; skip this.
 4. **Confirmation crawl.** Run:
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/crawl.mjs" --all-auth --routes-file .docsolace/artifacts/source-routes.json --max-depth 0
@@ -316,8 +325,9 @@ many candidate features at once instead of one you were told about.
    Directly visits every route the code review just found, under every auth
    profile plus anonymous, instead of relying on the discovery crawl having
    linked to it — this is what actually gets "every feature", not just every
-   *linked* one. `crawl.mjs` merges this into the same `site-map.json` (it
-   reads/writes the same file the discovery crawl did, so run step 2 first).
+   *linked* one. `crawl.mjs` merges this into the same `site-map.json` (given
+   `--routes-file` it reads the existing map first and adds to it, so run step 2
+   first; a plain crawl without `--routes-file` starts a fresh map).
    A route that redirects to a login/error page for a given profile is
    recorded landing there — a real signal that it's gated for that role, not
    silently missing. Reconcile the merged site map against the source
