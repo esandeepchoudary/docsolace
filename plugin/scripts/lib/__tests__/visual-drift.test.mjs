@@ -56,6 +56,15 @@ describe('resolveEffectiveScreenshotHashes', () => {
     expect(result['home@desktop']).toBe('NEW');
   });
 
+  it('treats a corrupt image as a real change instead of throwing', () => {
+    const { out, docs, captures } = setup({ changedPixels: 5 });
+    fs.writeFileSync(path.join(out, 'screenshots/t/home@desktop.png'), 'not a png');
+    const result = resolveEffectiveScreenshotHashes({
+      tourId: 't', captures, previousEntry: { screenshotHashes: { 'home@desktop': 'OLD' } }, outputDir: out, docsDir: docs,
+    });
+    expect(result['home@desktop']).toBe('NEW');
+  });
+
   it('is unchanged when there is no previous entry or no published image', () => {
     const { out, docs, captures } = setup({ changedPixels: 5 });
     expect(resolveEffectiveScreenshotHashes({ tourId: 't', captures, previousEntry: undefined, outputDir: out, docsDir: docs })['home@desktop']).toBe('NEW');

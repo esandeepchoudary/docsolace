@@ -37,7 +37,15 @@ export function resolveEffectiveScreenshotHashes({
       const candidate = path.join(outputDir, shot.png);
       // pixelDiffRatio is 1 when either file is missing, so an absent
       // published image always counts as a real change.
-      if (pixelDiffRatio(published, candidate) < threshold) effective[key] = previous[key];
+      // An unreadable/corrupt PNG is a real change to look at, not a crash
+      // that takes the whole drift/status report down.
+      let ratio = 1;
+      try {
+        ratio = pixelDiffRatio(published, candidate);
+      } catch {
+        // keep ratio = 1
+      }
+      if (ratio < threshold) effective[key] = previous[key];
     }
   }
   return effective;

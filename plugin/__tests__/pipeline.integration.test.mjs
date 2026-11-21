@@ -144,3 +144,46 @@ describe('generate-docs safety', () => {
     expect(fs.existsSync(path.join(p.cwd, 'docs/t.md'))).toBe(false);
   });
 });
+
+describe('other scripts', () => {
+  it('generate-product-docs --sidebar-only lists current tours and on-disk product pages, no prose needed', () => {
+    const p = project();
+    fs.mkdirSync(path.join(p.cwd, 'docs'));
+    fs.writeFileSync(path.join(p.cwd, 'docs/overview.md'), '# Overview\n');
+    const r = p.run('generate-product-docs.mjs', '--sidebar-only');
+    expect(r.status, r.stderr).toBe(0);
+    const sidebar = JSON.parse(fs.readFileSync(path.join(p.cwd, 'docs/_sidebar.docsolace.json'), 'utf8'));
+    expect(sidebar.productPages).toEqual(['overview']);
+    expect(JSON.stringify(sidebar)).toContain('"t"');
+    // Archiving the tour drops it from navigation on the next sync.
+    fs.writeFileSync(path.join(p.cwd, 'tours/t.yaml'), fs.readFileSync(path.join(p.cwd, 'tours/t.yaml'), 'utf8') + 'status: archived\n');
+    p.run('generate-product-docs.mjs', '--sidebar-only');
+    expect(fs.readFileSync(path.join(p.cwd, 'docs/_sidebar.docsolace.json'), 'utf8')).not.toContain('"t"');
+  });
+
+  it('review-diffs --markdown prints a PR-ready table', () => {
+    const p = generated();
+    p.capture({ pixels: 3000, sha: 'sha-2', a11y: '- button "Other"' });
+    p.prose('Fresh prose.');
+    expect(p.run('generate-docs.mjs', '--tour', 't').status).toBe(0);
+    const r = p.run('review-diffs.mjs', '--markdown');
+    expect(r.status, r.stderr).toBe(0);
+    expect(r.stdout).toContain('| t | home | desktop |');
+    expect(r.stdout).toContain('docs/images/t/home@desktop.png');
+    // The first line is the local report path; the table (what goes in a PR) must not link artifacts.
+    expect(r.stdout.split('\n\n').slice(1).join('\n\n')).not.toContain('.docsolace/artifacts');
+  });
+
+  it('keeps the stored a11y hash when a later generation cannot read snapshots', () => {
+    const p = generated();
+    const state = () => JSON.parse(fs.readFileSync(path.join(p.art, 'state.json'), 'utf8')).t;
+    const hash = state().a11yHash;
+    expect(hash).toBeTruthy();
+    fs.rmSync(path.join(p.art, 'snapshots'), { recursive: true });
+    p.capture({ pixels: 3000, sha: 'sha-2' });
+    fs.rmSync(path.join(p.art, 'snapshots'), { recursive: true });
+    p.prose('Fresh prose for new captures.');
+    expect(p.run('generate-docs.mjs', '--tour', 't').status).toBe(0);
+    expect(state().a11yHash).toBe(hash);
+  });
+});

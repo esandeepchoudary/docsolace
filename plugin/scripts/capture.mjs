@@ -106,8 +106,8 @@ async function settle(page, step) {
   else await page.waitForLoadState('networkidle');
 }
 
-async function assertExpectations(page, step, baseOrigin) {
-  if (step.expectUrl && !matchesExpectedPath(page.url(), step.expectUrl, baseOrigin)) {
+async function assertExpectations(page, step, baseUrl) {
+  if (step.expectUrl && !matchesExpectedPath(page.url(), step.expectUrl, baseUrl)) {
     throw new Error(
       `AUTH_EXPIRED_OR_UNEXPECTED_PAGE: expected the page path to be "${step.expectUrl}" but it is "${page.url()}". ` +
         `If this tour needs a signed-in session, it has probably expired — re-run save-auth-state.mjs ` +
@@ -276,7 +276,6 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
           await withRetry(() =>
             page.goto(`${config.baseUrl}${step.path}`, { waitUntil: step.waitFor ? 'domcontentloaded' : 'networkidle' }),
           );
-          if (step.waitFor) await settle(page, step);
           if (!authSessionChecked) {
             authSessionChecked = true;
             if (!isSameOrigin(page.url(), baseOrigin)) {
@@ -291,11 +290,14 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
               );
             }
           }
-          await assertExpectations(page, step, baseOrigin);
+          // After the off-origin check above, so an expired SSO session reports
+          // that instead of timing out on a locator that will never appear.
+          if (step.waitFor) await settle(page, step);
+          await assertExpectations(page, step, config.baseUrl);
         } else if (step.action === 'click') {
           await page.locator(step.selector).click();
           await settle(page, step);
-          await assertExpectations(page, step, baseOrigin);
+          await assertExpectations(page, step, config.baseUrl);
         } else if (step.action === 'upload') {
           await page.locator(step.selector).setInputFiles(step.file);
           await settle(page, step);
@@ -324,7 +326,7 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
         } else if (step.action === 'wait') {
           await withRetry(() => page.locator(step.selector).waitFor({ state: step.state }));
         } else if (step.capture) {
-          await assertExpectations(page, step, baseOrigin);
+          await assertExpectations(page, step, config.baseUrl);
           const maskSelectors = mergeMasks(config.defaultMask, step.mask);
           const viewportShots = {};
 

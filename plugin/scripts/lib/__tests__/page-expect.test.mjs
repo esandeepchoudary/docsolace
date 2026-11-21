@@ -7,6 +7,16 @@ import path from 'node:path';
 
 const O = 'http://localhost:3000';
 
+describe('matchesExpectedPath with a base path', () => {
+  it('resolves expectUrl under baseUrl the way goto does', () => {
+    const base = 'http://host:3000/app';
+    expect(matchesExpectedPath('http://host:3000/app/billing', '/billing', base)).toBe(true);
+    expect(matchesExpectedPath('http://host:3000/app/login', '/billing', base)).toBe(false);
+    expect(matchesExpectedPath('http://host:3000/billing', '/billing', base)).toBe(false);
+    expect(matchesExpectedPath('http://host:3000/app/settings/x', '/settings/*', `${base}/`)).toBe(true);
+  });
+});
+
 describe('matchesExpectedPath', () => {
   it('matches exact paths ignoring query, hash and trailing slash', () => {
     expect(matchesExpectedPath(`${O}/billing?tab=1#x`, '/billing', O)).toBe(true);
@@ -42,6 +52,7 @@ describe('tour validation of step expectations', () => {
   it('rejects bad values and misplaced fields', () => {
     expect(() => load(`${head}  - action: goto\n    path: /a\n    expectUrl: https://x.example\n`)).toThrow(/expectUrl/);
     expect(() => load(`${head}  - action: goto\n    path: /a\n    expectVisible: ""\n`)).toThrow(/expectVisible/);
+    expect(() => load(`${head}  - action: goto\n    path: /a\n    expectUrl: /a?q=1\n`)).toThrow(/query\/hash/);
     expect(() => load(`${head}  - action: hover\n    selector: "role=button"\n    expectUrl: /a\n`)).toThrow(/expectUrl/);
     expect(() => load(`${head}  - capture: c\n    description: x\n    waitFor: "role=button"\n`)).toThrow(/waitFor/);
   });

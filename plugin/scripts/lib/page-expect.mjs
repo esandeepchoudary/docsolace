@@ -2,14 +2,28 @@
 // session expiry redirects /billing to /login and still "succeeds" at taking a
 // screenshot — `expectUrl` makes that a hard failure instead of a published
 // picture of the wrong page.
-export function matchesExpectedPath(actualUrl, expected, baseOrigin) {
+// `baseUrl` may carry a path prefix (http://host/app); goto appends its path to
+// it, so expectUrl is resolved the same way.
+export function matchesExpectedPath(actualUrl, expected, baseUrl) {
   let url;
   try {
     url = new URL(actualUrl);
   } catch {
     return false;
   }
-  if (baseOrigin && url.origin !== baseOrigin) return false;
+  let origin;
+  let prefix = '';
+  if (baseUrl) {
+    try {
+      const base = new URL(baseUrl);
+      origin = base.origin;
+      prefix = base.pathname.replace(/\/+$/, '');
+    } catch {
+      origin = baseUrl; // already a bare origin
+    }
+    if (url.origin !== origin) return false;
+  }
+  expected = `${prefix}${expected}`;
   if (expected.endsWith('*')) return url.pathname.startsWith(expected.slice(0, -1));
   // Query/hash are ignored; a trailing slash is not significant.
   const trim = (p) => (p.length > 1 ? p.replace(/\/+$/, '') : p);
@@ -24,6 +38,9 @@ export function validateExpectations(step, { tourId, index, isGoto, isClick, isC
     }
     if (typeof step.expectUrl !== 'string' || !/^\/(?!\/)/.test(step.expectUrl)) {
       throw new Error(`${where}: "expectUrl" must be a site-relative path starting with "/" (a trailing "*" matches a prefix).`);
+    }
+    if (/[?#]/.test(step.expectUrl)) {
+      throw new Error(`${where}: "expectUrl" matches the path only — drop the query/hash (use "expectVisible" to tell hash-routed pages apart).`);
     }
   }
   if (step.expectVisible !== undefined) {

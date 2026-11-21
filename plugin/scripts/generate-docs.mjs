@@ -108,7 +108,6 @@ function main() {
 
   const prosePath = path.join(config.outputDir, 'prose', `${tour.id}.json`);
   const subagentProse = fs.existsSync(prosePath) ? JSON.parse(fs.readFileSync(prosePath, 'utf8')) : {};
-  assertSafeTourProse(subagentProse, tour.id);
   const paragraphs = { ...(PARAGRAPHS[tourId] ?? {}), ...subagentProse };
 
   const statePath = path.join(config.outputDir, 'state.json');
@@ -224,6 +223,10 @@ function main() {
     console.warn(`"${tour.id}": publishing prose that predates the latest captures (--force).`);
   }
 
+  // Only prose that is about to be published is checked — a clean tour's old
+  // prose file isn't this run's business.
+  assertSafeTourProse(subagentProse, tour.id);
+
   const pixelDiffThreshold = config.pixelDiffThreshold ?? 0.005;
   const imagesDir = path.join('docs', 'images', tour.id);
   const diffsDir = path.join(config.outputDir, 'diffs', tour.id);
@@ -313,7 +316,7 @@ function main() {
   // fine from older, still-good data.
   saveTourState(statePath, tour.id, {
     screenshotHashes: currentScreenshotHashes,
-    a11yHash: currentA11yHash,
+    a11yHash: currentA11yHash ?? previousEntry?.a11yHash,
     codePathsHash: currentCodePathsHash,
     bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
     renderHash: currentRenderHash,
