@@ -183,7 +183,7 @@ describe('dark variants', () => {
   });
 
   it('colorModePlan follows the app', () => {
-    expect(colorModePlan(light)).toBeNull();
+    expect(colorModePlan(light)).toEqual({ reset: true });
     expect(colorModePlan(mergeSchemes(light, dark))).toEqual({ respectPrefersColorScheme: true });
     expect(colorModePlan(dark)).toEqual({ defaultMode: 'dark', respectPrefersColorScheme: false });
   });
@@ -198,6 +198,18 @@ describe('asset references in the theme file', () => {
     expect(validateTheme({ assets: { logo: { file: 'app-logo.png', alt: "Bob's Pizza" } } }).assets.logo.alt).toBe('Bobs Pizza');
     expect(validateTheme({ assets: { favicon: '../../etc/passwd', logo: { file: 'app-logo.png/../x', alt: 'x' } } }).assets).toBeUndefined();
     expect(validateTheme({ assets: { favicon: 'app-logo.png' } }).assets).toBeUndefined();
+  });
+});
+
+describe.skipIf(!browser)('logo heuristic (real browser)', () => {
+  const px = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+  it('prefers an image that says logo and skips avatars', async () => {
+    const page = await browser.newPage();
+    await page.setContent(`<header><img class="avatar" alt="Jane" src="${px}"><img alt="Acme logo" src="${px}#l"></header>`);
+    expect((await extractThemeFromPage(page)).assets.logo.alt).toBe('Acme logo');
+    await page.setContent(`<header><img alt="Jane's profile photo" src="${px}"></header>`);
+    expect((await extractThemeFromPage(page)).assets.logo).toBeNull();
+    await page.close();
   });
 });
 

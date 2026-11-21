@@ -45,4 +45,13 @@
   --ifm-heading-font-family: system-ui, "Segoe UI", Roboto, sans-serif;
   --ifm-global-radius: 6px;
 }
+[data-theme='dark'] {
+  --ifm-color-primary: #5585ef;
+  --ifm-color-primary-dark: #4c78d7;
+  --ifm-color-primary-darker: #466fc7;
+  --ifm-color-primary-darkest: #37579c;
+  --ifm-color-primary-light: #6691f1;
+  --ifm-color-primary-lighter: #729af2;
+  --ifm-color-primary-lightest: #88aaf4;
+}
 /* docsolace:theme:end */
