@@ -400,4 +400,8 @@ other brand. Do not apply any brand styling here even if a parent-directory
 - Locked decisions (from this project's approved plan): demo React/Vite app
   as first target, direct Playwright (not MCP) for capture, Docusaurus as
   publisher, merge-to-main as the doc-PR trigger, git-committed
-  pixel-diff-gated screenshots, Sonnet as the doc-scribe model.
+  pixel-diff-gated screenshots, Haiku as the doc-scribe model (switched from
+  Sonnet after a side-by-side test: factually grounded on every checked claim,
+  at a fraction of the per-token cost; `product-scribe` and `tour-scout` stay
+  on Sonnet — product pages need broader grounding, tour-scout drives a
+  browser).
