@@ -16,8 +16,10 @@ const EVENT_HANDLER = /[\s/"'`]on[a-z]+\s*=/i;
 // removed first because browsers ignore them inside a scheme.
 const DANGEROUS_TARGET = /(?:\]\(|\]:|href=|src=|action=|formaction=|xlink:href=|data=)["'`]?(?:javascript|data|vbscript):/i;
 const MARKER = /<!--\s*\/?\s*docsolace:/i;
-const KEEP_START = /<!--\s*docsolace:keep\s*-->/i;
-const KEEP_END = /<!--\s*\/docsolace:keep\s*-->/i;
+// The generator's keep-region regex (lib/docgen.mjs) only matches a marker alone
+// on its line, so that is the form that could hijack a region — even inside a
+// fenced example. A marker named inline in a sentence cannot match.
+const MARKER_ON_OWN_LINE = /^[ \t]*<!--\s*\/?\s*docsolace:[^>]*-->[ \t]*$/im;
 const MAX_TOUR_PARAGRAPH = 4000;
 
 const NAMED_ENTITIES = { colon: ':', tab: '\t', newline: '\n', lt: '<', gt: '>', quot: '"', apos: "'", amp: '&', sol: '/', lpar: '(', rpar: ')', equals: '=' };
@@ -56,11 +58,10 @@ export function findUnsafeProse(text, { tourParagraph = false } = {}) {
   // Decoded twice so `&amp;#106;` can't hide a character behind two layers.
   const decoded = decodeEntities(decodeEntities(text));
   const outsideCode = stripCode(decoded);
-  // A lone marker named inside code is just documentation of the feature. A
-  // marker outside code is a hidden comment, and a start+end pair anywhere
-  // could be matched by the generator as a keep region of its own.
-  if (MARKER.test(outsideCode)) problems.push('contains a docsolace marker comment');
-  else if (KEEP_START.test(decoded) && KEEP_END.test(decoded)) problems.push('contains a complete docsolace keep block');
+  // A marker outside code is a hidden comment; one alone on its line (even in
+  // a fence) could be matched by the generator as a keep region of its own.
+  // Naming a marker inline in a sentence, in code, is just documentation.
+  if (MARKER.test(outsideCode) || MARKER_ON_OWN_LINE.test(decoded)) problems.push('contains a docsolace marker comment');
   if (ACTIVE_TAG.test(outsideCode)) problems.push('contains an active HTML tag');
   if (EVENT_HANDLER.test(outsideCode)) problems.push('contains an HTML event-handler attribute');
   if (DANGEROUS_TARGET.test(outsideCode.replace(/[\u0000-\u0020\u00a0]/g, ''))) {

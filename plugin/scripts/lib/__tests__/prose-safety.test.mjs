@@ -59,9 +59,11 @@ describe('evasions and false positives', () => {
     expect(findUnsafeProse('Run /docsolace:document <tour-id> to update one.')).toEqual([]);
   });
 
-  it('allows naming a single marker in code, but not a hidden or complete one', () => {
+  it('allows naming markers inline in code, but not hidden ones or one alone on a line', () => {
     expect(findUnsafeProse('Text inside `<!-- docsolace:keep -->` blocks survives regeneration.')).toEqual([]);
+    expect(findUnsafeProse('Between `<!-- docsolace:keep -->` and `<!-- /docsolace:keep -->` markers.')).toEqual([]);
     expect(findUnsafeProse('hidden <!-- docsolace:keep --> comment')).not.toEqual([]);
-    expect(findUnsafeProse('Between `<!-- docsolace:keep -->` and `<!-- /docsolace:keep -->` markers.')).not.toEqual([]);
+    expect(findUnsafeProse('Example:\n\n```md\n<!-- docsolace:keep -->\nmine\n<!-- /docsolace:keep -->\n```')).not.toEqual([]);
+    expect(findUnsafeProse('before\n<!-- docsolace:keep -->\nafter')).not.toEqual([]);
   });
 });
