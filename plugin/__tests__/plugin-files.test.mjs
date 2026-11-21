@@ -393,6 +393,24 @@ describe('scripts/crawl.mjs', () => {
 
 describe('agents/doc-scribe.md', () => {
   const markdown = fs.readFileSync(path.join(pluginRoot, 'agents/doc-scribe.md'), 'utf8');
+
+  it('names capture files per viewport exactly as capture.mjs writes them (<capture>@<viewport>)', () => {
+    // Regression: the agent once documented a bare `<capture>.a11y.json`,
+    // which never exists (capture shoots every viewport), so a model that
+    // followed the instructions literally found no files and wrote nothing.
+    const capture = fs.readFileSync(path.join(pluginRoot, 'scripts/capture.mjs'), 'utf8');
+    expect(capture).toContain('${step.capture}@${viewportName}.a11y.json');
+    expect(markdown).toContain('<capture>@<viewport>.a11y.json');
+    expect(markdown).toContain('<capture>@<viewport>.png');
+    // The doc may *warn* about the bare name, but must never use it as a path.
+    expect(markdown).not.toMatch(/<id>\/<capture>\.(?:a11y\.json|png)/);
+  });
+
+  it('is told the viewport names by the skill, since it has no directory-listing tool', () => {
+    const skill = fs.readFileSync(path.join(pluginRoot, 'skills/document/SKILL.md'), 'utf8');
+    expect(markdown).toContain('viewport names');
+    expect(skill).toMatch(/doc-scribe[\s\S]{0,200}configured viewport names/);
+  });
   const { frontmatter, body } = parseFrontmatter(markdown);
 
   it('is named "doc-scribe" with a description and a model set', () => {

@@ -941,8 +941,12 @@ failure, report the exact fix (`gh auth login`) and stop.
 
 3. **Generate prose for dirty tours that need it.** For each tour the drift
    check reports dirty for `screenshots` and/or `code` (not the render-only
-   ones), invoke the `doc-scribe` subagent with that tour's file slug as its
-   task input. Wait for it to write
+   ones), invoke the `doc-scribe` subagent with that tour's file slug **and the
+   configured viewport names** (the keys of `docsolace.config.yaml`'s
+   `viewports`, e.g. `desktop, mobile`) as its task input — it has no
+   directory-listing tool and capture writes
+   `<capture>@<viewport>` files, so it can only find them if told which
+   viewports exist. Wait for it to write
    `.docsolace/artifacts/prose/<tour-id>.json` before continuing — do not
    write any prose yourself, that's the subagent's job, done in an isolated
    context so it doesn't pollute this session. A render-only dirty tour
