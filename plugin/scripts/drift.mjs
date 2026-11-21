@@ -1,5 +1,6 @@
 // Reports which tours are dirty (need regeneration) without mutating
-// anything. `generate-docs.mjs` performs the same check per tour and is what
+// anything (`--json` adds a final machine-readable line; exit 0 clean, 2 dirty,
+// 1 error). `generate-docs.mjs` performs the same check per tour and is what
 // actually advances the state after a successful regeneration.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -8,6 +9,7 @@ import { loadTour } from './lib/tours.mjs';
 import { flattenScreenshotHashes, loadManifest } from './lib/manifest.mjs';
 import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty, resolveChangedCodePaths } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import { computeCaptureInputs } from './lib/visual-drift.mjs';
 import { RENDER_TEMPLATE_VERSION } from './lib/docgen.mjs';
 import { loadState } from './lib/state.mjs';
 import {
@@ -78,6 +80,7 @@ function main() {
   });
 
   let anyDirty = false;
+  const dirtyIds = [];
 
   for (const [index, fileId] of tourIds.entries()) {
     const tour = allTours[index];
@@ -101,18 +104,22 @@ function main() {
       continue;
     }
 
-    const currentScreenshotHashes = flattenScreenshotHashes(tourManifest.captures);
-    const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
     const previousEntry = state[tour.id];
+    const { currentScreenshotHashes, currentA11yHash } = computeCaptureInputs({ tour, tourManifest, previousEntry, config });
+    const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
 
     const reasons = getDirtyReasons({
       previousEntry,
       currentScreenshotHashes,
       currentCodePathsHash,
       currentRenderHash: currentTourRenderHash,
+      currentA11yHash,
     });
     const dirty = reasons.length > 0;
-    if (dirty) anyDirty = true;
+    if (dirty) {
+      anyDirty = true;
+      dirtyIds.push(tour.id);
+    }
     // Flag render-only dirtiness explicitly — the /document skill's Step 3
     // skips dispatching the doc-scribe subagent for these (the existing
     // prose is still grounded; only the layout/style changed), and only
@@ -160,7 +167,10 @@ function main() {
       currentRenderHash: currentProductRenderHash,
     });
     const productDirty = productReasons.length > 0;
-    if (productDirty) anyDirty = true;
+    if (productDirty) {
+      anyDirty = true;
+      dirtyIds.push(PRODUCT_STATE_KEY);
+    }
 
     const prosePath = path.join(config.outputDir, 'prose', '_product.json');
     let productSuffix = '';
@@ -195,7 +205,12 @@ function main() {
     console.log(`  ${productDirty ? 'dirty  ' : 'clean  '} _product (overview/getting-started/concepts)${productSuffix}`);
   }
 
-  process.exit(anyDirty ? 1 : 0);
+  // Exit codes are a contract (CI branches on them, not on log text):
+  //   0 = nothing dirty, 2 = something is dirty, 1 = the check itself failed.
+  if (process.argv.includes('--json')) {
+    console.log(JSON.stringify({ status: anyDirty ? 'dirty' : 'clean', dirty: dirtyIds }));
+  }
+  process.exit(anyDirty ? 2 : 0);
 }
 
 try {

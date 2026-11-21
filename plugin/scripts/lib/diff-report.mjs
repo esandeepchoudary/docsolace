@@ -112,3 +112,23 @@ ${body}
 </html>
 `;
 }
+
+// A table a GitHub reviewer can read straight from the PR body. The images
+// themselves are in the PR's file diff (docs/images/** is committed); the
+// local HTML report under .docsolace/artifacts/ isn't reachable from a PR, so
+// this lists what changed, where, and by how much. Paths only — nothing from
+// .docsolace/artifacts (which may hold unredacted captures) is linked.
+export function renderDiffMarkdown(entries, { ratioFor } = {}) {
+  if (entries.length === 0) return '_No screenshot changes._\n';
+  const rows = entries.map((e) => {
+    const ratio = ratioFor ? ratioFor(e) : null;
+    const pct = ratio === null || ratio === undefined ? 'n/a' : `${(ratio * 100).toFixed(2)}%`;
+    return `| ${e.tourId} | ${e.capture} | ${e.viewport} | ${pct} | \`docs/images/${e.tourId}/${e.capture}@${e.viewport}.png\` |`;
+  });
+  return [
+    '| Tour | Capture | Viewport | Pixels changed | Image (see the file diff) |',
+    '|---|---|---|---|---|',
+    ...rows,
+    '',
+  ].join('\n');
+}

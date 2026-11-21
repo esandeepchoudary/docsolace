@@ -13,13 +13,14 @@ import path from 'node:path';
 import { computeCodePathsHash, getDirtyReasons, isRenderOnlyDirty } from './drift.mjs';
 import { flattenScreenshotHashes } from './manifest.mjs';
 import { isPublishedTour } from './product.mjs';
+import { computeCaptureInputs } from './visual-drift.mjs';
 
 // One tour's status: which gate (if any) skips it, whether it's dirty and
 // why, whether its page exists on disk yet, and when it was last generated
 // (from its state.json entry's generatedAt/generatedAtCommit — see
 // generate-docs.mjs). `tourManifest`/`previousEntry` are the same
 // manifest.json/state.json entries generate-docs.mjs itself reads.
-export function computeTourStatus({ tour, tourManifest, previousEntry, currentRenderHash, cwd = process.cwd(), docsDir = 'docs' }) {
+export function computeTourStatus({ tour, tourManifest, previousEntry, currentRenderHash, config, cwd = process.cwd(), docsDir = 'docs' }) {
   const base = {
     id: tour.id,
     status: tour.status ?? 'confirmed',
@@ -39,9 +40,11 @@ export function computeTourStatus({ tour, tourManifest, previousEntry, currentRe
     return { ...base, gate: 'uncaptured', dirty: true, reasons: ['never-captured'] };
   }
 
-  const currentScreenshotHashes = flattenScreenshotHashes(tourManifest.captures);
+  const { currentScreenshotHashes, currentA11yHash } = config
+    ? computeCaptureInputs({ tour, tourManifest, previousEntry, config, docsDir })
+    : { currentScreenshotHashes: flattenScreenshotHashes(tourManifest.captures), currentA11yHash: undefined };
   const currentCodePathsHash = computeCodePathsHash(tour.code_paths, cwd);
-  const reasons = getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash });
+  const reasons = getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash, currentA11yHash });
   const dirty = reasons.length > 0;
 
   return { ...base, gate: 'active', dirty, reasons, renderOnly: dirty && isRenderOnlyDirty(reasons) };

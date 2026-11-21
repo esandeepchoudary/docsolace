@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { load as parseYaml } from 'js-yaml';
+import { validateExpectations } from './page-expect.mjs';
 
 // Tour ids get interpolated into file paths (tours/<id>.yaml,
 // docs/<id>.md, <outputDir>/prose/<id>.json, <outputDir>/screenshots/<id>/,
@@ -151,6 +152,7 @@ export function loadTour(toursDir, tourId) {
         throw new Error(`Tour "${tourId}" step ${index}'s "highlight" field must be a non-empty string.`);
       }
     }
+    validateExpectations(step, { tourId, index, isGoto, isClick, isCapture });
     // goto targets are appended directly to config.baseUrl — must be
     // site-relative ("/foo"), never an absolute or protocol-relative URL
     // ("https://evil.example", "//evil.example"), or a tour step could

@@ -77,6 +77,27 @@ Two things to set up, both by example in this repo:
   edit — it goes through the normal pixel-diff gate, so check
   `npm run review-diffs` before shipping.
 
+  Steps can also carry optional page-identity and readiness fields:
+
+  ```yaml
+  steps:
+    - action: goto
+      path: /billing
+      expectUrl: /billing                       # path must match (trailing * = prefix)
+      waitFor: "role=heading[name='Billing']"   # replaces the network-idle wait
+    - capture: billing-overview
+      description: "The billing page"
+      expectUrl: /billing                       # checked right before the screenshot
+      expectVisible: "role=heading[name='Billing']"
+  ```
+
+  `expectUrl`/`expectVisible` (goto, click, capture steps) fail the tour with
+  `AUTH_EXPIRED_OR_UNEXPECTED_PAGE` instead of screenshotting the wrong page —
+  the usual cause is an expired session that redirected to a same-origin
+  `/login`. Worth adding to every tour that uses an `auth` profile.
+  `waitFor` (goto, click, upload steps) waits for that element instead of
+  network idle, which never settles on apps with polling or streaming.
+
   A tour also takes two optional top-level fields — `prerequisites` and
   `see_also`, both lists of other tour ids — that render as "Before you
   start"/"See also" link lists on the generated page:

@@ -447,3 +447,14 @@ describe('crawl', () => {
     expect(siteMap).toEqual([expect.objectContaining({ route: '/', title: 'Home' })]);
   });
 });
+
+describe('confirmation crawl merge (discovery routes survive)', () => {
+  it('keeps a discovery-only route when merged with a narrower confirmation pass', () => {
+    const page = (route, reachedBy) => ({ route, title: route, depth: 1, affordances: { forms: [], buttons: [], links: [] }, reachedBy });
+    const discovery = [page('/billing', ['anonymous']), page('/settings', ['anonymous'])];
+    const confirmation = [page('/billing', ['admin'])];
+    const merged = mergeSiteMaps([discovery, confirmation]);
+    expect(merged.map((p) => p.route).sort()).toEqual(['/billing', '/settings']);
+    expect(merged.find((p) => p.route === '/billing').reachedBy.sort()).toEqual(['admin', 'anonymous']);
+  });
+});

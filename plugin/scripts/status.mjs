@@ -97,6 +97,7 @@ function main() {
       tourManifest: manifest[tour.id],
       previousEntry: state[tour.id],
       currentRenderHash: currentTourRenderHash,
+      config,
     });
     printTourLine(status);
     if (status.gate !== 'active') totals[status.gate] += 1;

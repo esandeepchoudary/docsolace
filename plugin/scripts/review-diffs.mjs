@@ -5,7 +5,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadConfig } from './lib/config.mjs';
-import { collectDiffEntries, renderDiffReport } from './lib/diff-report.mjs';
+import { collectDiffEntries, renderDiffMarkdown, renderDiffReport } from './lib/diff-report.mjs';
+import { pixelDiffRatio } from './lib/pixel-diff.mjs';
 
 function main() {
   const config = loadConfig('docsolace.config.yaml');
@@ -16,6 +17,15 @@ function main() {
 
   fs.writeFileSync(reportPath, renderDiffReport(entries));
   console.log(`${entries.length} pending screenshot change(s). Report: ${reportPath}`);
+  // --markdown: also print a PR-body-ready table (see renderDiffMarkdown).
+  if (process.argv.includes('--markdown')) {
+    console.log('');
+    console.log(
+      renderDiffMarkdown(entries, {
+        ratioFor: (e) => pixelDiffRatio(path.join(config.outputDir, e.beforePath), path.join(config.outputDir, e.afterPath)),
+      }),
+    );
+  }
 }
 
 try {

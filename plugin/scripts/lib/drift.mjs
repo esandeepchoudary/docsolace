@@ -80,6 +80,13 @@ export function resolveChangedCodePaths({ codePaths, sinceCommit, cwd = process.
   }
 }
 
+// The accessibility snapshots changed even though pixels may not have (a
+// renamed button label). Only judged when both sides recorded a hash, so
+// state written before this existed doesn't regenerate everything once.
+function hasSemanticChange(previousEntry, currentA11yHash) {
+  return Boolean(previousEntry?.a11yHash && currentA11yHash && previousEntry.a11yHash !== currentA11yHash);
+}
+
 // A tour is dirty if it has never been generated, or if its screenshot
 // hashes, its code_paths hash, or its render hash (template/docs-layout/
 // design-style — see lib/design.mjs's computeRenderHash) changed since the
@@ -96,7 +103,7 @@ export function resolveChangedCodePaths({ codePaths, sinceCommit, cwd = process.
 // entry with no `renderHash` at all (every state.json written before this
 // feature existed) counts as changed too — those pages predate the current
 // template and need one more regeneration to catch up.
-export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash }) {
+export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash, currentA11yHash }) {
   if (tour.maturity === 'draft') return false;
   if (tour.status === 'proposed' || tour.status === 'archived') return false;
   if (!previousEntry) return true;
@@ -104,7 +111,8 @@ export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, curr
     JSON.stringify(previousEntry.screenshotHashes) !== JSON.stringify(currentScreenshotHashes);
   const codeChanged = previousEntry.codePathsHash !== currentCodePathsHash;
   const renderChanged = currentRenderHash !== undefined && previousEntry.renderHash !== currentRenderHash;
-  return hashesChanged || codeChanged || renderChanged;
+  const semanticsChanged = hasSemanticChange(previousEntry, currentA11yHash);
+  return hashesChanged || codeChanged || renderChanged || semanticsChanged;
 }
 
 // Same inputs as isTourDirty, but explains *why* — which lets a caller (the
@@ -117,11 +125,14 @@ export function isTourDirty({ tour, previousEntry, currentScreenshotHashes, curr
 // ['never-generated', 'screenshots', 'code', 'render']; empty when clean.
 // Doesn't special-case draft/proposed — those are gate-level skips the
 // caller already checks before asking why something is dirty.
-export function getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash }) {
+export function getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash, currentA11yHash }) {
   if (!previousEntry) return ['never-generated'];
   const reasons = [];
   if (JSON.stringify(previousEntry.screenshotHashes) !== JSON.stringify(currentScreenshotHashes)) {
     reasons.push('screenshots');
+  }
+  if (hasSemanticChange(previousEntry, currentA11yHash)) {
+    reasons.push('semantics');
   }
   if (previousEntry.codePathsHash !== currentCodePathsHash) {
     reasons.push('code');
@@ -145,6 +156,6 @@ export function isRenderOnlyDirty(reasons) {
 // still grounded), and entries from before proseHash existed can't be judged.
 export function isProseStale({ previousEntry, proseHash, reasons }) {
   if (!previousEntry?.proseHash || !proseHash) return false;
-  if (!reasons.some((r) => r === 'screenshots' || r === 'code')) return false;
+  if (!reasons.some((r) => r === 'screenshots' || r === 'code' || r === 'semantics')) return false;
   return previousEntry.proseHash === proseHash;
 }

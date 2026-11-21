@@ -28,6 +28,7 @@ import {
   renderProductPage,
   resolveChangelogGitTags,
 } from './lib/product.mjs';
+import { assertSafeProductProse } from './lib/prose-safety.mjs';
 import { sha256Buffer } from './lib/manifest.mjs';
 import { loadState, saveTourState } from './lib/state.mjs';
 import { writeFileAtomic } from './lib/fs-atomic.mjs';
@@ -36,6 +37,7 @@ function parseArgs(argv) {
   const args = { force: false, pages: [] };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--force') args.force = true;
+    if (argv[i] === '--sidebar-only') args.sidebarOnly = true;
     if (argv[i] === '--page') args.pages.push(argv[++i]);
   }
   return args;
@@ -51,7 +53,7 @@ function loadAllTours() {
 }
 
 function main() {
-  const { force, pages: requestedPages } = parseArgs(process.argv.slice(2));
+  const { force, pages: requestedPages, sidebarOnly } = parseArgs(process.argv.slice(2));
   const config = loadConfig('docsolace.config.yaml');
   const tours = loadAllTours();
 
@@ -65,6 +67,20 @@ function main() {
   // still on disk. Confirmed by reproducing it directly: running
   // `--page overview` shrank productPages to `["overview"]` alone.
   const enabledPages = PRODUCT_PAGES.filter((p) => enabledPageIds.includes(p.id));
+  // --sidebar-only: refresh just docs/_sidebar.docsolace.json from the current
+  // tour inventory and the product pages already on disk. No prose, no model
+  // call, no page rewrites — what `map`/`prune` run so a tour they added or
+  // archived shows up in (or drops out of) navigation without a full
+  // `product` pass.
+  if (sidebarOnly) {
+    const pagesOnDisk = enabledPages.filter((p) => fs.existsSync(path.join('docs', `${p.id}.md`)));
+    const structure = buildSidebarStructure({ pages: pagesOnDisk, sections: config.docs?.sections, tours });
+    fs.mkdirSync('docs', { recursive: true });
+    writeFileAtomic(path.join('docs', '_sidebar.docsolace.json'), `${JSON.stringify(structure, null, 2)}\n`);
+    console.log(`Wrote docs/_sidebar.docsolace.json (sidebar only: ${pagesOnDisk.length} product page(s), tours from the current inventory).`);
+    return;
+  }
+
   let pagesToGenerate = enabledPages;
 
   if (requestedPages.length > 0) {
@@ -115,6 +131,7 @@ function main() {
   } catch (err) {
     throw new Error(`"${prosePath}" is not valid JSON (${err.message})`);
   }
+  assertSafeProductProse(prose);
   if (!prose || typeof prose !== 'object' || Array.isArray(prose)) {
     throw new Error(`"${prosePath}" must be a JSON object keyed by page id`);
   }
