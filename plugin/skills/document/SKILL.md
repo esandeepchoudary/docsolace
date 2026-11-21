@@ -800,7 +800,8 @@ repo runs it):
    `/docs/<some-tour-id>`); if neither exists yet, remove the link/button
    entirely rather than pointing it anywhere.
 8. Unless `--no-style` was passed, run **"Apply the project's design
-   skill"** below now, before installing — it edits
+   skill"** below now (which falls back to **"Match the app's theme"**),
+   before installing — it edits
    `site/src/css/custom.css`/`site/docusaurus.config.js`'s `themeConfig`,
    which the build in the next step should already reflect.
 9. `cd site && npm install && npm run build` — confirm it actually succeeds,
@@ -837,8 +838,9 @@ it, e.g. after installing or changing a design skill).
    user-scoped ones. It deliberately never reads a parent directory's
    `CLAUDE.md`, so a project that opts out of an ambient parent brand (like
    this repo's own `CLAUDE.md` does) stays opted out.
-2. **No candidates:** report that no design skill was found and proceed
-   without styling — the common case, not an error.
+2. **No candidates:** fall back to the app's own look — **"Match the app's
+   theme"** below. A design skill, when one exists, is explicit brand guidance
+   and always wins over what's inferred from the running app.
 3. **One or more candidates:** invoke the top-ranked one with the `Skill`
    tool. Read what it returns: color palette, fonts, logo/favicon asset
    paths, and any layout guidance it states. If more than one candidate was
@@ -870,6 +872,41 @@ it, e.g. after installing or changing a design skill).
    `/document` runs against it — the render hash in
    `.docsolace/artifacts/state.json` makes that automatic, no `--force`
    needed (see "Check drift" under "Steps" below).
+
+## Match the app's theme
+
+When no design skill applies (and `--no-style` wasn't passed), the docs site
+takes its look from the running app itself, so a published tutorial resembles
+the product it documents. Presentation only, same guardrail as the design
+skill above: colors, fonts and corner radius for the Docusaurus theme — never
+anything a `doc-scribe` writes.
+
+1. If `.docsolace/app-theme.json` doesn't exist yet (re-running `init-site`
+   is the explicit way to refresh it, e.g. after a redesign), run
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/theme-scan.mjs"
+   ```
+   It loads one page of the running app (the first page a tour visits without
+   a login, else `/`; override with `--path /some/page`), reads the computed
+   background, text and heading colors, the dominant accent (what buttons and
+   links use), the body/heading fonts and the control corner radius, and saves
+   them to `.docsolace/app-theme.json`. Every value is re-parsed into a
+   closed set of shapes (a hex color, a plain font-family list, a small px
+   radius) before it is stored — it ends up in a CSS file, so nothing from the
+   page is passed through verbatim. If the app isn't running, say so and skip
+   this; don't guess a palette.
+2. If `site/` exists, run
+   ```
+   node "${CLAUDE_PLUGIN_DATA}/scripts/apply-theme.mjs"
+   ```
+   It writes one marked block into `site/src/css/custom.css` (Infima's primary
+   ramp — nudged until the accent is readable on the page background, WCAG AA —
+   plus background, text, heading, fonts and radius). Idempotent; every other
+   rule in the file is left alone. If it reports the app is dark, also set
+   `colorMode.defaultMode: 'dark'` in `site/docusaurus.config.js`. With no
+   `site/` yet it does nothing; `init-site` runs it as part of scaffolding.
+3. Report the accent color and fonts that were applied. `.docsolace/app-theme.json`
+   is committed (the site depends on it); edit it by hand to override a value.
 
 ## Steps
 
@@ -1030,8 +1067,8 @@ failure, report the exact fix (`gh auth login`) and stop.
       tours"/"Map the whole app" step 5), `docs/_sidebar.docsolace.json` (only
       if this run wrote or changed it — see "Document the product itself"),
       any `tours/*.yaml` this run wrote, confirmed, or archived, and — only
-      if this run applied or changed one — `.docsolace/doc-style.json`
-      (committed, not gitignored) plus any
+      if this run applied or changed one — `.docsolace/doc-style.json` or
+      `.docsolace/app-theme.json` (both committed, not gitignored) plus any
       `site/src/css/custom.css`/`site/docusaurus.config.js` theming edits.
       Never stage `.docsolace/artifacts/` (gitignored; it's local working
       state, not a deliverable) or anything else in the working tree

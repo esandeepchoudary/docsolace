@@ -298,6 +298,20 @@ What it deliberately does not do:
 It only sees changes made while Claude Code is running, which fits a laptop
 dev loop. Remove the line (or set it to `false`) to turn it off.
 
+## Matching your app's look
+
+The docs site takes its theme from the running app, so tutorials look like the
+product they describe. `/document` (and `init-site`) run
+`theme-scan.mjs`, which loads one page of the app and records its background,
+text and heading colors, dominant accent (what buttons and links use), fonts
+and corner radius in `.docsolace/app-theme.json` (committed — edit it to
+override a value). `apply-theme.mjs` then writes one marked block into
+`site/src/css/custom.css`; re-running replaces just that block. The accent is
+nudged until it's readable on the page background (WCAG AA), and everything
+read from the page is re-parsed into hex colors, plain font names and a small
+px radius before it reaches CSS. A project's own design skill, when it has
+one, takes precedence; `--no-style` skips both.
+
 ## Mapping a whole app automatically
 
 `/docsolace:document map` discovers what to document instead of you naming

@@ -187,3 +187,44 @@ describe('other scripts', () => {
     expect(state().a11yHash).toBe(hash);
   });
 });
+
+describe('apply-theme', () => {
+  const run = (cwd, ...a) => spawnSync('node', [path.join(scripts, 'apply-theme.mjs'), ...a], { cwd, encoding: 'utf8' });
+  const setup = (theme) => {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'docsolace-theme-'));
+    dirs.push(cwd);
+    fs.mkdirSync(path.join(cwd, '.docsolace'));
+    if (theme) fs.writeFileSync(path.join(cwd, '.docsolace/app-theme.json'), JSON.stringify(theme));
+    fs.mkdirSync(path.join(cwd, 'site/src/css'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 'site/src/css/custom.css'), ':root { --keep: 1; }\n');
+    return cwd;
+  };
+
+  it('writes the theme block once, idempotently, keeping existing rules', () => {
+    const cwd = setup({ colors: { primary: '#2563eb', background: '#f9fafb' }, fonts: { body: 'system-ui, sans-serif' }, radius: '6px' });
+    expect(run(cwd).stdout).toContain('Applied');
+    const css = fs.readFileSync(path.join(cwd, 'site/src/css/custom.css'), 'utf8');
+    expect(css).toContain('--keep: 1;');
+    expect(css).toContain('--ifm-color-primary: #2563eb;');
+    expect(run(cwd).stdout).toContain('already matches');
+    expect(fs.readFileSync(path.join(cwd, 'site/src/css/custom.css'), 'utf8')).toBe(css);
+  });
+
+  it('never emits a hand-edited hostile theme file', () => {
+    const cwd = setup({ colors: { primary: '#2563eb', text: 'red; } body { display: none' }, fonts: { body: 'x}{y' } });
+    run(cwd);
+    const css = fs.readFileSync(path.join(cwd, 'site/src/css/custom.css'), 'utf8');
+    expect(css).not.toMatch(/display|x\}\{y/);
+  });
+
+  it('is a quiet no-op without a theme file or without a site', () => {
+    const noTheme = setup(null);
+    expect(run(noTheme).status).toBe(0);
+    expect(run(noTheme).stdout).toContain('theme-scan.mjs');
+    const noSite = setup({ colors: { primary: '#2563eb' } });
+    fs.rmSync(path.join(noSite, 'site'), { recursive: true });
+    const r = run(noSite);
+    expect(r.status).toBe(0);
+    expect(r.stdout).toContain('init-site');
+  });
+});

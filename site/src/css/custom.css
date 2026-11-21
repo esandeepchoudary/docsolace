@@ -28,3 +28,21 @@
   --ifm-color-primary-lightest: #4fddbf;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
+
+/* docsolace:theme:start — generated from .docsolace/app-theme.json; edit that file, not this block */
+:root {
+  --ifm-color-primary: #2563eb;
+  --ifm-color-primary-dark: #2159d4;
+  --ifm-color-primary-darker: #1f52c3;
+  --ifm-color-primary-darkest: #184099;
+  --ifm-color-primary-light: #3b73ed;
+  --ifm-color-primary-lighter: #4a7eee;
+  --ifm-color-primary-lightest: #6692f1;
+  --ifm-background-color: #f9fafb;
+  --ifm-font-color-base: #374151;
+  --ifm-heading-color: #111827;
+  --ifm-font-family-base: system-ui, "Segoe UI", Roboto, sans-serif;
+  --ifm-heading-font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  --ifm-global-radius: 6px;
+}
+/* docsolace:theme:end */

@@ -59,7 +59,8 @@ Each run ends with an opened docs PR for you to review. It never merges.
 - **Keeps your edits** — text inside `<!-- docsolace:keep -->` blocks
   survives every regeneration.
 - **Publishes a docs site** — a bundled [Docusaurus](https://docusaurus.io/)
-  scaffold serves `docs/`, with search.
+  scaffold serves `docs/`, with search, themed with your app's own colors,
+  fonts and corner radius.
 
 ## Prerequisites
 
