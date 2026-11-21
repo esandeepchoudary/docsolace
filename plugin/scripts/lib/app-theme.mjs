@@ -246,7 +246,9 @@ export function colorModePlan(themeInput) {
   const theme = validateTheme(themeInput);
   if (theme.scheme === 'dark') return { defaultMode: 'dark', respectPrefersColorScheme: false };
   if (theme.dark) return { respectPrefersColorScheme: true };
-  return null;
+  // Light-only: undo a previous dark-only setup, but add nothing to a config
+  // that never had one.
+  return { reset: true };
 }
 
 // Replaces the generated block in place (or appends it), leaving every other
@@ -312,9 +314,16 @@ export async function extractThemeFromPage(page) {
     const control = document.querySelector('button, input, select');
 
     const iconLink = document.querySelector('link[rel~="icon"]');
-    const logoImg = [...document.querySelectorAll(
+    // Prefer an image that says it is a logo; only then any header/nav image,
+    // and never one that looks like a person (avatar, profile photo).
+    const hint = (img) => `${img.alt} ${img.className} ${img.id} ${img.currentSrc}`;
+    const scored = [...document.querySelectorAll(
       'header img, nav img, [class*="logo" i] img, img[class*="logo" i], [class*="brand" i] img, img[alt*="logo" i]',
-    )].find((img) => img.naturalWidth > 0 && img.currentSrc);
+    )]
+      .filter((img) => img.naturalWidth > 0 && img.currentSrc && !/avatar|profile|user|photo|gravatar/i.test(hint(img)))
+      .map((img) => ({ img, score: /logo|brand/i.test(hint(img)) ? 2 : 1 }))
+      .sort((a, b) => b.score - a.score);
+    const logoImg = scored[0]?.img;
     return {
       assets: {
         favicon: iconLink ? iconLink.href : /^https?:/.test(location.href) ? new URL('/favicon.ico', location.href).href : null,

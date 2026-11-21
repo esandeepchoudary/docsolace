@@ -238,6 +238,26 @@ describe('apply-theme', () => {
     expect(fs.readFileSync(configPath, 'utf8')).toBe(config);
   });
 
+  it('removes a stale asset of a replaced kind, reports a missing one, and resets a dark-only color mode', () => {
+    const cwd = setup({ colors: { primary: '#2563eb', background: '#ffffff' }, assets: { logo: { file: 'app-logo.svg', alt: 'A' }, favicon: 'app-favicon.png' } });
+    fs.mkdirSync(path.join(cwd, '.docsolace/app-assets'));
+    fs.writeFileSync(path.join(cwd, '.docsolace/app-assets/app-logo.svg'), '<svg xmlns="x"/>'); // favicon file deliberately missing
+    fs.mkdirSync(path.join(cwd, 'site/static/img'), { recursive: true });
+    fs.writeFileSync(path.join(cwd, 'site/static/img/app-logo.png'), 'old');
+    fs.writeFileSync(path.join(cwd, 'site/static/img/app-favicon.ico'), 'keep: no replacement was saved');
+    const configPath = path.join(cwd, 'site/docusaurus.config.js');
+    fs.writeFileSync(configPath, "export default {\n  favicon: 'img/app-favicon.ico',\n  themeConfig: {\n    colorMode: {\n      defaultMode: 'dark',\n      respectPrefersColorScheme: false,\n    },\n    navbar: { title: 'Docs' },\n  },\n};\n");
+    const out = run(cwd).stdout;
+    expect(out).toContain('removed stale app-logo.png');
+    expect(out).toContain('favicon file app-favicon.png is missing');
+    expect(fs.existsSync(path.join(cwd, 'site/static/img/app-logo.png'))).toBe(false);
+    expect(fs.existsSync(path.join(cwd, 'site/static/img/app-favicon.ico'))).toBe(true);
+    const config = fs.readFileSync(configPath, 'utf8');
+    expect(config).toContain("defaultMode: 'light'");
+    expect(config).toContain('respectPrefersColorScheme: true');
+    expect(config).toContain("favicon: 'img/app-favicon.ico'"); // untouched: nothing replaced it
+  });
+
   it('says what to set by hand when the config has no recognizable setting', () => {
     const cwd = setup({ colors: { primary: '#2563eb' }, assets: { favicon: 'app-favicon.png' } });
     fs.mkdirSync(path.join(cwd, '.docsolace/app-assets'));

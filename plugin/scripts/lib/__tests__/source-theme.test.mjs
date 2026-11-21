@@ -41,6 +41,16 @@ describe('extractThemeFromCss', () => {
     expect(t.colors.background).toBe('#ffffff');
     expect(t.colors.primary).toBe('#2563eb');
   });
+  it('ignores print and breakpoint overrides, but reads tokens inside @layer base', () => {
+    const t = validateTheme(extractThemeFromCss(`
+      @layer base { :root { --primary: #2563eb; --bg: #ffffff; } body { background: var(--bg); } }
+      @media print { :root { --primary: #000000; } body { background: #eeeeee; } }
+      @media (max-width: 600px) { :root { --primary: #ff0000; } }
+      @supports (display: grid) { :root { --primary: #00ff00; } }
+    `));
+    expect(t.colors.primary).toBe('#2563eb');
+    expect(t.colors.background).toBe('#ffffff');
+  });
   it('picks up an h1 color and falls back through variable names', () => {
     const t = validateTheme(extractThemeFromCss('h1 { color: #112233; font-family: Georgia, serif } :root { --brand: #abcdef }'));
     expect(t.colors.heading).toBe('#112233');

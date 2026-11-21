@@ -14,9 +14,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
-import { fetchBrandAsset } from './lib/brand-assets.mjs';
+import { carryForwardAssets, saveAssets, shouldKeepExistingTheme } from './lib/theme-assets.mjs';
 import { readJsonFile, writeFileAtomic } from './lib/fs-atomic.mjs';
-import { extractThemeFromPage, mergeSchemes, sanitizeAlt, validateTheme } from './lib/app-theme.mjs';
+import { extractThemeFromPage, mergeSchemes, validateTheme } from './lib/app-theme.mjs';
 import { scanSourceTheme } from './lib/source-theme.mjs';
 import { SLUG_RE, loadTour } from './lib/tours.mjs';
 
@@ -56,32 +56,6 @@ async function readScheme(browser, url, colorScheme) {
   }
 }
 
-async function saveAssets(raw, baseUrl, notes) {
-  // Fetch first; only replace what was successfully re-fetched, so a transient
-  // failure never deletes the previously committed asset.
-  const favicon = raw.assets?.favicon ? await fetchBrandAsset(raw.assets.favicon, baseUrl) : null;
-  const logo = raw.assets?.logo?.src ? await fetchBrandAsset(raw.assets.logo.src, baseUrl) : null;
-  if (favicon && !favicon.data) notes.push(`favicon skipped: ${favicon.skipped}`);
-  if (logo && !logo.data) notes.push(`logo skipped: ${logo.skipped}`);
-  fs.mkdirSync(ASSET_DIR, { recursive: true });
-  const clear = (prefix) => {
-    for (const f of fs.readdirSync(ASSET_DIR)) if (f.startsWith(`${prefix}.`)) fs.rmSync(path.join(ASSET_DIR, f));
-  };
-  const assets = {};
-  if (favicon?.data) {
-    clear('app-favicon');
-    assets.favicon = `app-favicon.${favicon.ext}`;
-    fs.writeFileSync(path.join(ASSET_DIR, assets.favicon), favicon.data);
-  }
-  if (logo?.data) {
-    clear('app-logo');
-    const file = `app-logo.${logo.ext}`;
-    fs.writeFileSync(path.join(ASSET_DIR, file), logo.data);
-    assets.logo = { file, alt: sanitizeAlt(raw.assets.logo.alt) ?? 'Logo' };
-  }
-  return assets;
-}
-
 async function main() {
   const config = loadConfig('docsolace.config.yaml');
   const pagePath = argValue('--path') ?? defaultPath();
@@ -99,8 +73,9 @@ async function main() {
     const darkRaw = await readScheme(browser, url, 'dark');
     const merged = mergeSchemes(lightRaw, darkRaw);
     theme = validateTheme(merged);
-    const assets = await saveAssets(lightRaw, config.baseUrl, notes);
-    if (Object.keys(assets).length > 0) theme.assets = assets;
+    const saved = await saveAssets(lightRaw, config.baseUrl, notes, { assetDir: ASSET_DIR });
+    const assets = carryForwardAssets(saved, readJsonFile(path.join('.docsolace', 'app-theme.json'), null), ASSET_DIR);
+    if (assets) theme.assets = assets;
   } catch (err) {
     notes.push(`couldn't load ${url} (${err.message.split('\n')[0]})`);
     fellBack = true;
@@ -117,13 +92,10 @@ async function main() {
   fs.mkdirSync('.docsolace', { recursive: true });
   // A lower-confidence CSS read must never replace a theme that came from the
   // live app (it would drop the dark variant, assets and radius).
-  if (fellBack) {
-    const existing = readJsonFile(path.join('.docsolace', 'app-theme.json'), null);
-    if (existing?.confidence === 'live app') {
-      console.log('The app is not running, so the existing theme from the live app was kept unchanged.');
-      for (const n of notes) console.log(`  note: ${n}`);
-      return;
-    }
+  if (shouldKeepExistingTheme({ fellBack, existing: readJsonFile(path.join('.docsolace', 'app-theme.json'), null) })) {
+    console.log('The app is not running, so the existing theme from the live app was kept unchanged.');
+    for (const n of notes) console.log(`  note: ${n}`);
+    return;
   }
   const outPath = path.join('.docsolace', 'app-theme.json');
   writeFileAtomic(outPath, `${JSON.stringify({ source: pagePath, confidence, ...theme }, null, 2)}\n`);

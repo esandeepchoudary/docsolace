@@ -19,10 +19,11 @@ function stripComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, '');
 }
 
-// Removes `@media (prefers-color-scheme: dark) { ... }` (brace-matched) so a
-// dark override isn't mistaken for the base theme.
+// Removes every `@media` / `@supports` block (brace-matched): a dark, print or
+// breakpoint override isn't the base theme. `@layer` is kept — Tailwind/shadcn
+// put their base tokens there.
 function stripDarkMedia(css) {
-  const re = /@media[^{]*prefers-color-scheme\s*:\s*dark[^{]*\{/gi;
+  const re = /@(?:media|supports)\b[^{]*\{/gi;
   let out = css;
   for (let m = re.exec(out); m; m = re.exec(out)) {
     let depth = 0;
