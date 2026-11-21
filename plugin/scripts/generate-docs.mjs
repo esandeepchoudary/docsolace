@@ -12,6 +12,8 @@ import { applyKeepRegion, nonKeepContent, RENDER_TEMPLATE_VERSION, renderTourPag
 import { findMissingViewports, flattenScreenshotHashes, loadManifest, sha256Buffer } from './lib/manifest.mjs';
 import { computeCodePathsHash, getDirtyReasons, isProseStale, isTourDirty, resolveShortHeadCommit } from './lib/drift.mjs';
 import { computeRenderHash, loadDocStyle } from './lib/design.mjs';
+import { assertSafeTourProse } from './lib/prose-safety.mjs';
+import { computeCaptureInputs } from './lib/visual-drift.mjs';
 import {
   buildFrontmatter,
   buildTourInventory,
@@ -109,9 +111,9 @@ function main() {
   const paragraphs = { ...(PARAGRAPHS[tourId] ?? {}), ...subagentProse };
 
   const statePath = path.join(config.outputDir, 'state.json');
-  const currentScreenshotHashes = flattenScreenshotHashes(tourManifest.captures);
-  const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
   const previousEntry = loadState(statePath)[tour.id];
+  const { currentScreenshotHashes, currentA11yHash } = computeCaptureInputs({ tour, tourManifest, previousEntry, config });
+  const currentCodePathsHash = computeCodePathsHash(tour.code_paths);
 
   // docsConfig (docsolace.config.yaml's `docs:` block) picks the primary
   // viewport / whether others collapse; doc-style.json's `page` section (if
@@ -160,6 +162,7 @@ function main() {
     currentScreenshotHashes,
     currentCodePathsHash,
     currentRenderHash,
+    currentA11yHash,
   });
 
   if (!dirty) {
@@ -208,7 +211,7 @@ function main() {
   const proseMs = fs.existsSync(prosePath) ? fs.statSync(prosePath).mtimeMs : Infinity;
   if (proseMs >= newestCaptureMs) {
     // Re-authored after the latest capture (even if the words came out the same).
-  } else if (isProseStale({ previousEntry, proseHash, reasons: getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash }) })) {
+  } else if (isProseStale({ previousEntry, proseHash, reasons: getDirtyReasons({ previousEntry, currentScreenshotHashes, currentCodePathsHash, currentRenderHash, currentA11yHash }) })) {
     if (!force) {
       console.error(
         `"${tour.id}": its screenshots or code changed since the last generation, but the prose in ` +
@@ -219,6 +222,10 @@ function main() {
     }
     console.warn(`"${tour.id}": publishing prose that predates the latest captures (--force).`);
   }
+
+  // Only prose that is about to be published is checked — a clean tour's old
+  // prose file isn't this run's business.
+  assertSafeTourProse(subagentProse, tour.id);
 
   const pixelDiffThreshold = config.pixelDiffThreshold ?? 0.005;
   const imagesDir = path.join('docs', 'images', tour.id);
@@ -309,6 +316,7 @@ function main() {
   // fine from older, still-good data.
   saveTourState(statePath, tour.id, {
     screenshotHashes: currentScreenshotHashes,
+    a11yHash: currentA11yHash ?? previousEntry?.a11yHash,
     codePathsHash: currentCodePathsHash,
     bodyHash: sha256Buffer(Buffer.from(nonKeepContent(finalMarkdown))),
     renderHash: currentRenderHash,

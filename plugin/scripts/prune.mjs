@@ -1,6 +1,6 @@
 // Reports which confirmed/stable tours look orphaned — their feature may
 // have been removed from the app — without mutating anything. Mirrors
-// drift.mjs's shape (a read-only report, non-zero exit when it finds
+// drift.mjs's shape (a read-only report, exits 1 when it finds
 // something) but checks the opposite direction: not "did this tour's content
 // change" but "does this tour's feature still exist at all". See
 // lib/prune.mjs for the two detection signals and archive-tour.mjs for the

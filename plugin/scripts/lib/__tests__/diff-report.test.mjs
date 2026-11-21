@@ -146,3 +146,16 @@ describe('collectDiffEntries', () => {
     }
   });
 });
+
+import { renderDiffMarkdown } from '../diff-report.mjs';
+
+describe('renderDiffMarkdown', () => {
+  it('renders a table with percentages and published paths only', () => {
+    const md = renderDiffMarkdown([{ tourId: 't', capture: 'home', viewport: 'desktop', beforePath: 'diffs/t/x.before.png' }], { ratioFor: () => 0.0123 });
+    expect(md).toContain('| t | home | desktop | 1.23% | `docs/images/t/home@desktop.png` |');
+    expect(md).not.toContain('diffs/');
+  });
+  it('says so when nothing changed', () => {
+    expect(renderDiffMarkdown([])).toContain('No screenshot changes');
+  });
+});

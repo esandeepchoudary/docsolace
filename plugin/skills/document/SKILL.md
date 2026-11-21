@@ -403,6 +403,10 @@ many candidate features at once instead of one you were told about.
    "Propose a new tour" step 6) rather than auto-confirming.
 8. **Ship.** Autonomous mode only, once every feature's dispatch this run has
    completed Steps 1–5 (and step 5's archiving, if any orphans were found):
+   first run `node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs" --sidebar-only`
+   (mechanical — no model call, no page rewrites; it only re-derives
+   `docs/_sidebar.docsolace.json` from the current tours so added tours show
+   up in navigation and archived ones drop out), then
    run **Step 6 (Ship)** under "Steps" below a single time, covering every
    tour confirmed/generated and every tour archived this run together — one
    commit, one PR, rather than one per tour.
@@ -416,23 +420,21 @@ many candidate features at once instead of one you were told about.
    review, flip `status: confirmed`, then `/document validate` and the normal
    pipeline.
 
-   **Also note the product pages weren't touched.** This whole mode is
-   tours-only — it never dispatches `product-scribe` or runs
-   `generate-product-docs.mjs`, even though every tour this run drafted or
+   **Also note the product page prose wasn't touched** (the sidebar was
+   refreshed mechanically in step 8). This whole mode is
+   tours-only — it never dispatches `product-scribe` or runs a full
+   `generate-product-docs.mjs` (only its `--sidebar-only` mode), even though every tour this run drafted or
    archived changed the tour inventory that `_product`'s dirty-check is
    partly hashed against (see "Document the product itself" and
    `lib/product.mjs`'s `computeProductInputsHash`). So the PR this step
-   shipped can leave `docs/overview.md`'s tour index stale, and — on a
-   project with no product pages generated yet — leaves
-   `docs/_sidebar.docsolace.json` missing entirely (only
-   `generate-product-docs.mjs` writes it), so the newly shipped tour pages
-   have no sidebar structure and the site has no front door. Surface this
+   shipped can leave `docs/overview.md`'s tour index prose stale (the sidebar
+   itself is already current). Surface this
    mechanically, not as a guess: run
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/drift.mjs"
    ```
-   (nonzero exit here is expected whenever anything is dirty — not a
-   failure) and quote its `_product` line verbatim, same as the per-tour
+   (exit code 2 here means something is dirty — expected, not a
+   failure; 1 means the check itself failed) and quote its `_product` line verbatim, same as the per-tour
    `[changed: ...]` file list Step 2 above already carries into a report.
    If it says `dirty`, tell the user to follow up with `/document product`
    (or a plain `/document`) to bring the product pages back in sync; if
@@ -478,8 +480,11 @@ yourself. No browser is launched unless a previous `/document map` run left
    back to `confirmed`, move the page back) if the detection was wrong. A
    `route-unreachable`-only candidate is never auto-archived, in either
    mode — surface it in step 4's report instead. Then, if anything was
-   archived, run **Step 6 (Ship)** under "Steps" below once, covering every
-   tour archived this run.
+   archived, first run
+   `node "${CLAUDE_PLUGIN_DATA}/scripts/generate-product-docs.mjs" --sidebar-only`
+   (no model call — it drops the archived tour from the navigation), then run
+   **Step 6 (Ship)** under "Steps" below once, covering every tour archived
+   this run.
 
    **`--review` mode:** list every orphan candidate (both confidence levels)
    and their reasons, and stop there — don't archive anything, don't ship.
@@ -1014,9 +1019,12 @@ failure, report the exact fix (`gh auth login`) and stop.
       create and switch to a new `docs/<slug>` branch first (or a name
       summarizing the run, for a no-slug or `map` run) — never commit
       generated docs directly to `main`/`master`.
-   3. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/review-diffs.mjs"` and keep
-      its report — it's the only place a screenshot change is visible
-      before it's pushed, and it becomes part of the commit/PR body.
+   3. Run `node "${CLAUDE_PLUGIN_DATA}/scripts/review-diffs.mjs" --markdown`
+      and keep its output — the local HTML report is for you, but the
+      Markdown table it prints (tour, capture, viewport, % of pixels
+      changed, published image path) goes into the commit/PR body so a
+      remote reviewer can see what changed without your filesystem. Never
+      attach or link anything under `.docsolace/artifacts/` (raw captures).
    4. Stage only this run's pipeline outputs — `docs/*.md`, `docs/images/**`,
       `docs/archive/**` (any tour this run archived — see "Prune orphaned
       tours"/"Map the whole app" step 5), `docs/_sidebar.docsolace.json` (only

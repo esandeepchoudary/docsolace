@@ -18,6 +18,7 @@ import { chromium } from 'playwright';
 import { loadConfig } from './lib/config.mjs';
 import { loadTour } from './lib/tours.mjs';
 import { sha256Buffer, buildManifest, saveManifestEntry } from './lib/manifest.mjs';
+import { matchesExpectedPath } from './lib/page-expect.mjs';
 import { collectMaskedStrings, mergeMasks, redactSnapshotText } from './lib/masking.mjs';
 import { resolveSeed } from './lib/seed.mjs';
 import { ensureAuthState, primaryViewport } from './lib/auth.mjs';
@@ -93,6 +94,35 @@ async function removeHighlight(page, selector) {
     .locator(selector)
     .first()
     .evaluate((el, attr) => el.removeAttribute(attr), HIGHLIGHT_ATTR);
+}
+
+// Step-level readiness and identity (see lib/page-expect.mjs). `waitFor`
+// replaces the default network-idle wait, which never settles on apps with
+// polling or streaming; `expectUrl`/`expectVisible` fail the step when the
+// page isn't the one the tour meant (e.g. an expired session redirected to
+// /login on the same origin).
+async function settle(page, step) {
+  if (step.waitFor) await page.locator(step.waitFor).first().waitFor({ state: 'visible' });
+  else await page.waitForLoadState('networkidle');
+}
+
+async function assertExpectations(page, step, baseUrl) {
+  if (step.expectUrl && !matchesExpectedPath(page.url(), step.expectUrl, baseUrl)) {
+    throw new Error(
+      `AUTH_EXPIRED_OR_UNEXPECTED_PAGE: expected the page path to be "${step.expectUrl}" but it is "${page.url()}". ` +
+        `If this tour needs a signed-in session, it has probably expired — re-run save-auth-state.mjs ` +
+        `(storageStatePath profiles) or delete the cached session under .auth/.`,
+    );
+  }
+  if (step.expectVisible) {
+    try {
+      await page.locator(step.expectVisible).first().waitFor({ state: 'visible', timeout: 10000 });
+    } catch {
+      throw new Error(
+        `UNEXPECTED_PAGE: expected "${step.expectVisible}" to be visible at "${page.url()}" but it was not.`,
+      );
+    }
+  }
 }
 
 function parseArgs(argv) {
@@ -243,7 +273,9 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
     for (const [index, step] of tour.steps.entries()) {
       try {
         if (step.action === 'goto') {
-          await withRetry(() => page.goto(`${config.baseUrl}${step.path}`, { waitUntil: 'networkidle' }));
+          await withRetry(() =>
+            page.goto(`${config.baseUrl}${step.path}`, { waitUntil: step.waitFor ? 'domcontentloaded' : 'networkidle' }),
+          );
           if (!authSessionChecked) {
             authSessionChecked = true;
             if (!isSameOrigin(page.url(), baseOrigin)) {
@@ -258,12 +290,17 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
               );
             }
           }
+          // After the off-origin check above, so an expired SSO session reports
+          // that instead of timing out on a locator that will never appear.
+          if (step.waitFor) await settle(page, step);
+          await assertExpectations(page, step, config.baseUrl);
         } else if (step.action === 'click') {
           await page.locator(step.selector).click();
-          await page.waitForLoadState('networkidle');
+          await settle(page, step);
+          await assertExpectations(page, step, config.baseUrl);
         } else if (step.action === 'upload') {
           await page.locator(step.selector).setInputFiles(step.file);
-          await page.waitForLoadState('networkidle');
+          await settle(page, step);
         } else if (step.action === 'fill') {
           // No post-action networkidle wait for fill/type/select/check/
           // hover/press (unlike goto/click/upload above): these are
@@ -289,6 +326,7 @@ async function runTour(browser, config, tour, { continueOnError = false } = {}) 
         } else if (step.action === 'wait') {
           await withRetry(() => page.locator(step.selector).waitFor({ state: step.state }));
         } else if (step.capture) {
+          await assertExpectations(page, step, config.baseUrl);
           const maskSelectors = mergeMasks(config.defaultMask, step.mask);
           const viewportShots = {};
 

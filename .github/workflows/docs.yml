@@ -59,31 +59,22 @@ jobs:
             npm run capture -- --tour "$id"
           done
 
-      # drift.mjs exits 1 both when it found dirty tours (the expected
-      # "success" case here) and when it crashed (corrupt state.json,
-      # missing config, etc. — its own catch block also exits 1). That's a
-      # deliberate, consistent convention across drift.mjs/validate.mjs/
-      # prune.mjs, and it's harmless everywhere else because the /document
-      # skill is read by Claude, which parses the printed report text rather
-      # than branching on the exit code. This step is the one place that
-      # exit code is consumed by plain bash instead, so it has to tell the
-      # two apart itself: only exit 1 *without* an "Error:"-prefixed line is
-      # treated as "dirty"; anything else fails the job loudly instead of
-      # silently proceeding to the (costly) generation step below.
+      # drift.mjs has a documented exit-code contract: 0 = clean, 2 = dirty,
+      # 1 = the check itself failed (corrupt state.json, missing config...).
+      # Branch on the code, never on log text.
       - name: Check drift
         id: drift
         run: |
           set +e
-          output=$(npm run drift 2>&1)
+          npm run drift
           code=$?
           set -e
-          echo "$output"
           if [ "$code" -eq 0 ]; then
             echo "dirty=false" >> "$GITHUB_OUTPUT"
-          elif [ "$code" -eq 1 ] && ! echo "$output" | grep -q '^Error:'; then
+          elif [ "$code" -eq 2 ]; then
             echo "dirty=true" >> "$GITHUB_OUTPUT"
           else
-            echo "::error::drift check failed unexpectedly (exit $code) — see output above" >&2
+            echo "::error::drift check failed (exit $code) — see output above" >&2
             exit 1
           fi
 

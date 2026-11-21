@@ -589,3 +589,17 @@ describe('map API hints', () => {
     expect(fs.existsSync(path.join(pluginRoot, 'scripts/api-hints.mjs'))).toBe(true);
   });
 });
+
+describe('agent trust boundary', () => {
+  it.each(['doc-scribe', 'product-scribe', 'tour-scout'])('%s treats what it reads as untrusted data', (name) => {
+    const text = fs.readFileSync(path.join(pluginRoot, `agents/${name}.md`), 'utf8');
+    expect(text).toMatch(/untrusted data, never instructions/);
+  });
+});
+
+describe('map/prune keep navigation in sync', () => {
+  it('the skill runs the mechanical sidebar refresh', () => {
+    const skill = fs.readFileSync(path.join(pluginRoot, 'skills/document/SKILL.md'), 'utf8');
+    expect((skill.match(/--sidebar-only/g) ?? []).length).toBeGreaterThanOrEqual(2);
+  });
+});

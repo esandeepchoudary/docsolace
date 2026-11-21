@@ -146,6 +146,27 @@ other brand. Do not apply any brand styling here even if a parent-directory
   `.docsolace/doc-style.json`'s `page.highlightColor` (a design skill's accent
   color) — presentation only, same guardrail as everything else that file
   touches.
+- **Drift is noise-aware and semantic.** `lib/visual-drift.mjs` is the one
+  place that decides what counts as a changed capture, shared by `drift.mjs`,
+  `generate-docs.mjs` and `status.mjs`: a pixel change below
+  `pixelDiffThreshold` keeps the previous hash (no dirty tour, no doc-scribe
+  call), while a change to the accessibility snapshots is its own `semantics`
+  reason even with identical pixels. `drift.mjs` exit codes are a contract:
+  `0` clean, `2` dirty, `1` the check failed (CI branches on these, never on
+  log text). Code-path hashes use on-disk content (`git hash-object`), so
+  uncommitted edits count.
+- **Masks cover text, not just pixels.** `capture.mjs` strips the masked
+  elements' text/values/labels from the `.a11y.json` the writing agent reads
+  (`lib/masking.mjs`'s `collectMaskedStrings` + `redactSnapshotText`).
+- **Prose is untrusted output.** `lib/prose-safety.mjs` rejects active HTML,
+  `javascript:` links and forged `docsolace:` markers in subagent prose
+  before anything is written to `docs/`; the three agents are also told that
+  what they read is data, never instructions. `generate-docs.mjs` also
+  refuses prose that is unchanged and older than newer captures (stale), and
+  checks for a hand-edited page *before* it copies any image.
+- **Steps can assert where they are.** `expectUrl` / `expectVisible` /
+  `waitFor` (`lib/page-expect.mjs`) — see CONFIGURATION.md.
+
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.

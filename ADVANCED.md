@@ -456,14 +456,15 @@ Everyday commands, once you've got your own `docsolace.config.yaml` and
 | `npm run capture -- --tour <id>` | Screenshot one tour, every configured viewport |
 | `npm run capture -- --tour <id> --tour <id2> ...` / `npm run capture -- --all` | Screenshot several tours in one run: one shared browser, batched with bounded concurrency (`--concurrency <n>`, default 3 — a tour with `preconditions.seed` always runs alone, never concurrently with another tour). Each tour's failure is isolated from its siblings; exits non-zero if any tour failed |
 | `npm run capture -- --tour <id> --continue-on-error` | Keep going after a step fails instead of aborting the whole tour — the resulting manifest is marked `partial` (only the captures that actually succeeded) and `generate-docs.mjs` refuses to render it until a clean re-capture succeeds. Still exits non-zero |
-| `npm run drift` | Show which tours changed, without generating anything |
+| `npm run drift` | Show which tours changed, without generating anything. Exit code: `0` clean, `2` something is dirty, `1` the check itself failed; `--json` adds a final machine-readable line. Pixel changes under `pixelDiffThreshold` don't count, an accessibility-snapshot change does |
 | `npm run status` | Report which tours/product pages are dirty, clean, or gated, and when each was last generated |
 | `npm run generate-docs -- --tour <id>` | Write/update that tour's tutorial page (add `--force` to override an edit-outside-keep-region warning) |
+| `npm run generate-product-docs -- --sidebar-only` | Refresh only `docs/_sidebar.docsolace.json` from the current tours (no model call) — what `map`/`prune` run |
 | `npm run generate-product-docs` | Write/update the enabled product-level pages (overview/getting-started/concepts/configuration/troubleshooting/changelog) from `.docsolace/artifacts/prose/_product.json` (written by the `product-scribe` subagent) |
 | `npm run prune` | Flag confirmed tours whose feature looks removed from the app (see "Archiving a removed feature") |
 | `npm run archive-tour -- --tour <id>` | Archive one tour: flip its status, move its page under `docs/archive/` |
 | `npm run verify-docs` | Check every image reference and internal link/anchor under `docs/` resolves (add `--build` to also build `site/`) — run before a docs PR opens |
-| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.docsolace/artifacts/diff-report.html` |
+| `npm run review-diffs` | Render a before/after/diff report for any screenshot about to be replaced — open `.docsolace/artifacts/diff-report.html`. `-- --markdown` also prints a table for a PR body |
 | `npm test` | Run the unit test suite (for anyone changing DocSolace itself, not required to just use it) |
 
 These are the exact same scripts `/docsolace:document` calls under the hood —

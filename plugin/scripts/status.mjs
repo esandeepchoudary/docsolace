@@ -2,7 +2,7 @@
 // gated (draft/proposed/archived/uncaptured), whether each has a generated
 // page yet, and when it was last generated. No browser, no subagent — just
 // tours/, docs/, and .docsolace/artifacts/{manifest,state}.json already on
-// disk. Unlike drift.mjs (a CI-style gate that exits 1 when anything's
+// disk. Unlike drift.mjs (a CI-style gate that exits 2 when anything's
 // dirty), this always exits 0 — it's a report, not a check.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -97,6 +97,7 @@ function main() {
       tourManifest: manifest[tour.id],
       previousEntry: state[tour.id],
       currentRenderHash: currentTourRenderHash,
+      config,
     });
     printTourLine(status);
     if (status.gate !== 'active') totals[status.gate] += 1;
