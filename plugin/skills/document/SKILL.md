@@ -887,14 +887,22 @@ anything a `doc-scribe` writes.
    node "${CLAUDE_PLUGIN_DATA}/scripts/theme-scan.mjs"
    ```
    It loads one page of the running app (the first page a tour visits without
-   a login, else `/`; override with `--path /some/page`), reads the computed
-   background, text and heading colors, the dominant accent (what buttons and
-   links use), the body/heading fonts and the control corner radius, and saves
-   them to `.docsolace/app-theme.json`. Every value is re-parsed into a
-   closed set of shapes (a hex color, a plain font-family list, a small px
-   radius) before it is stored — it ends up in a CSS file, so nothing from the
-   page is passed through verbatim. If the app isn't running, say so and skip
-   this; don't guess a palette.
+   a login, else `/`; override with `--path /some/page`) under a light and a
+   dark color scheme, reads the computed background, text and heading colors,
+   the dominant accent (what buttons and links use), the body/heading fonts and
+   the control corner radius, and saves them to `.docsolace/app-theme.json`.
+   If the two schemes genuinely differ, the app's own dark theme is kept too.
+   It also fetches the app's favicon and logo into `.docsolace/app-assets/` —
+   same origin only, no redirects, size-capped, checked by magic bytes, and an
+   SVG only if it has no script, event handlers, external references or
+   entities. Every value is re-parsed into a closed set of shapes (a hex color,
+   a plain font-family list, a small px radius) before it is stored — it ends
+   up in a CSS file, so nothing from the page is passed through verbatim. **If
+   the app isn't running**, it falls back to the project's own CSS (`:root`
+   custom properties, body/h1 color, background and font) and says the result
+   is lower confidence (per-control corner radius and assets can't be read that
+   way); if that finds nothing it stops and asks for the app to be started —
+   never invent a palette.
 2. If `site/` exists, run
    ```
    node "${CLAUDE_PLUGIN_DATA}/scripts/apply-theme.mjs"
@@ -902,8 +910,12 @@ anything a `doc-scribe` writes.
    It writes one marked block into `site/src/css/custom.css` (Infima's primary
    ramp — nudged until the accent is readable on the page background, WCAG AA —
    plus background, text, heading, fonts and radius). Idempotent; every other
-   rule in the file is left alone. If it reports the app is dark, also set
-   `colorMode.defaultMode: 'dark'` in `site/docusaurus.config.js`. With no
+   rule in the file is left alone. It also copies the favicon/logo into
+   `site/static/img/` and wires them into `site/docusaurus.config.js`
+   (`favicon`, `navbar.logo`), and sets `colorMode` so the docs open in the
+   app's mode (a dark-only app opens dark; one with its own dark theme follows
+   the visitor's setting). Each edit targets one recognizable setting; if the
+   config doesn't have it, the report says what to set by hand. With no
    `site/` yet it does nothing; `init-site` runs it as part of scaffolding.
 3. Report the accent color and fonts that were applied. `.docsolace/app-theme.json`
    is committed (the site depends on it); edit it by hand to override a value.
@@ -1068,7 +1080,9 @@ failure, report the exact fix (`gh auth login`) and stop.
       if this run wrote or changed it — see "Document the product itself"),
       any `tours/*.yaml` this run wrote, confirmed, or archived, and — only
       if this run applied or changed one — `.docsolace/doc-style.json` or
-      `.docsolace/app-theme.json` (both committed, not gitignored) plus any
+      `.docsolace/app-theme.json` plus `.docsolace/app-assets/**` (all committed, not
+      gitignored), and any `site/static/img/app-*` files and
+      `site/docusaurus.config.js` edits `apply-theme.mjs` made plus any
       `site/src/css/custom.css`/`site/docusaurus.config.js` theming edits.
       Never stage `.docsolace/artifacts/` (gitignored; it's local working
       state, not a deliverable) or anything else in the working tree

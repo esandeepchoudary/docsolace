@@ -60,7 +60,7 @@ Each run ends with an opened docs PR for you to review. It never merges.
   survives every regeneration.
 - **Publishes a docs site** — a bundled [Docusaurus](https://docusaurus.io/)
   scaffold serves `docs/`, with search, themed with your app's own colors,
-  fonts and corner radius.
+  fonts, corner radius, dark mode, favicon and logo.
 
 ## Prerequisites
 

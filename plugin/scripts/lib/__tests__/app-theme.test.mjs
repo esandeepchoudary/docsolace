@@ -74,7 +74,9 @@ describe('validateTheme / buildThemeCss', () => {
   it('targets dark mode for a dark app', () => {
     const css = buildThemeCss({ ...theme, colors: { ...theme.colors, background: '#0b1020', text: '#e5e7eb' } });
     expect(css).toContain("[data-theme='dark'] {");
-    expect(css).not.toContain(':root {');
+    // The dark app's colors are under dark mode; :root keeps only fonts, radius and a light-mode accent.
+    expect(css.split("[data-theme='dark']")[0]).not.toContain('--ifm-background-color');
+    expect(css.split("[data-theme='dark']")[1]).toContain('--ifm-background-color: #0b1020;');
   });
   it('drops hostile or invalid values instead of emitting them', () => {
     const css = buildThemeCss({
@@ -140,5 +142,87 @@ describe.skipIf(!browser)('extractThemeFromPage (real browser)', () => {
     expect(theme.radius).toBe('8px');
     expect(theme.scheme).toBe('light');
     await page.close();
+  });
+});
+
+import { colorModePlan, mergeSchemes } from '../app-theme.mjs';
+
+describe('hsl colors', () => {
+  it('parses comma and space syntax', () => {
+    expect(toHex(parseColor('hsl(221, 83%, 53%)'))).toBe('#2463eb');
+    expect(toHex(parseColor('hsl(0 0% 100%)'))).toBe('#ffffff');
+    expect(parseColor('hsl(0 0% 100%); x')).toBeNull();
+  });
+});
+
+describe('dark variants', () => {
+  const light = { colors: { background: '#ffffff', text: '#111111', primary: '#2563eb' } };
+  const dark = { colors: { background: '#0b1020', text: '#e5e7eb', primary: '#60a5fa' } };
+
+  it('mergeSchemes keeps a genuine dark theme and drops a fake one', () => {
+    expect(validateTheme(mergeSchemes(light, dark)).dark.colors.background).toBe('#0b1020');
+    expect(validateTheme(mergeSchemes(light, light)).dark).toBeUndefined();
+    expect(validateTheme(mergeSchemes(dark, dark)).dark).toBeUndefined(); // dark-only: single scheme
+  });
+
+  it('emits both schemes for an app with its own dark theme', () => {
+    const css = buildThemeCss(mergeSchemes(light, dark));
+    expect(css.split("[data-theme='dark']")[0]).toContain('--ifm-background-color: #ffffff;');
+    const darkPart = css.split("[data-theme='dark']")[1];
+    expect(darkPart).toContain('--ifm-background-color: #0b1020;');
+    expect(darkPart).toContain('--ifm-font-color-base: #e5e7eb;');
+  });
+
+  it('a light-only app still gets a readable accent in Docusaurus dark mode', () => {
+    const css = buildThemeCss({ colors: { background: '#ffffff', primary: '#1e3a8a' } });
+    const darkPart = css.split("[data-theme='dark']")[1];
+    expect(darkPart).toContain('--ifm-color-primary:');
+    expect(darkPart).not.toContain('--ifm-background-color');
+    const accent = /--ifm-color-primary: (#[0-9a-f]{6})/.exec(darkPart)[1];
+    expect(contrastRatio(parseColor(accent), parseColor('#1b1b1d'))).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('colorModePlan follows the app', () => {
+    expect(colorModePlan(light)).toBeNull();
+    expect(colorModePlan(mergeSchemes(light, dark))).toEqual({ respectPrefersColorScheme: true });
+    expect(colorModePlan(dark)).toEqual({ defaultMode: 'dark', respectPrefersColorScheme: false });
+  });
+});
+
+describe('asset references in the theme file', () => {
+  it('keeps only expected filenames and a plain alt', () => {
+    const t = validateTheme({ assets: { favicon: 'app-favicon.png', logo: { file: 'app-logo.svg', alt: 'Acme <b>Co</b>' } } });
+    expect(t.assets.favicon).toBe('app-favicon.png');
+    expect(t.assets.logo).toEqual({ file: 'app-logo.svg', alt: 'Acme bCob' });
+    // An apostrophe would break the single-quoted string it is written into.
+    expect(validateTheme({ assets: { logo: { file: 'app-logo.png', alt: "Bob's Pizza" } } }).assets.logo.alt).toBe('Bobs Pizza');
+    expect(validateTheme({ assets: { favicon: '../../etc/passwd', logo: { file: 'app-logo.png/../x', alt: 'x' } } }).assets).toBeUndefined();
+    expect(validateTheme({ assets: { favicon: 'app-logo.png' } }).assets).toBeUndefined();
+  });
+});
+
+describe.skipIf(!browser)('light + dark color schemes (real browser)', () => {
+  const html = `<style>
+      body { background: #ffffff; color: #111111; margin: 0 }
+      button { background: #2563eb; color: white }
+      @media (prefers-color-scheme: dark) { body { background: #0b1020; color: #e5e7eb } button { background: #60a5fa } }
+    </style><header><img alt="Acme logo" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="></header><button>Go</button>`;
+
+  it('detects the app\'s own dark theme and reads the logo', async () => {
+    const read = async (colorScheme) => {
+      const ctx = await browser.newContext({ colorScheme });
+      const page = await ctx.newPage();
+      await page.setContent(html);
+      const raw = await extractThemeFromPage(page);
+      await ctx.close();
+      return raw;
+    };
+    const light = await read('light');
+    const dark = await read('dark');
+    const merged = validateTheme(mergeSchemes(light, dark));
+    expect(merged.colors.background).toBe('#ffffff');
+    expect(merged.dark.colors.background).toBe('#0b1020');
+    expect(merged.dark.colors.primary).toBe('#60a5fa');
+    expect(light.assets.logo.alt).toBe('Acme logo');
   });
 });
