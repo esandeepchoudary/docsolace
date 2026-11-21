@@ -1,0 +1,15 @@
+{
+  "source": "/login",
+  "colors": {
+    "background": "#f9fafb",
+    "text": "#374151",
+    "heading": "#111827",
+    "primary": "#2563eb"
+  },
+  "fonts": {
+    "body": "system-ui, \"Segoe UI\", Roboto, sans-serif",
+    "heading": "system-ui, \"Segoe UI\", Roboto, sans-serif"
+  },
+  "radius": "6px",
+  "scheme": "light"
+}

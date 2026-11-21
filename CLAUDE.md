@@ -179,6 +179,15 @@ other brand. Do not apply any brand styling here even if a parent-directory
   `stop_hook_active`, and swallows every error. On a non-`feat/*`/`fix/*`
   branch it passes `--review` so nothing is committed or switched. Default
   off; installing the plugin never enables it.
+- **The docs site matches the app's look** (presentation only). With no
+  design skill, `theme-scan.mjs` reads the running app's computed colors,
+  fonts and corner radius into the committed `.docsolace/app-theme.json`, and
+  `apply-theme.mjs` writes one marked block into `site/src/css/custom.css`
+  (`lib/app-theme.mjs`). Everything read from the page is untrusted CSS input:
+  it is re-parsed into hex colors / plain font lists / a small px radius
+  before it is stored or emitted, and the accent is nudged to WCAG AA contrast
+  on the page background. A design skill still wins when present;
+  `--no-style` skips both.
 - **Never invent UI**: prose generation grounds strictly in the a11y snapshot
   captured alongside each screenshot. An element not in that snapshot doesn't
   get described, no matter how plausible it would be for this kind of page.

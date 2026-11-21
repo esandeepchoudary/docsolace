@@ -614,3 +614,15 @@ describe('Stop hook (auto-document)', () => {
     expect(fs.existsSync(path.join(pluginRoot, 'scripts/auto-document.mjs'))).toBe(true);
   });
 });
+
+describe('app theme wiring', () => {
+  it('the skill falls back to the app theme and names both scripts; they exist', () => {
+    const skill = fs.readFileSync(path.join(pluginRoot, 'skills/document/SKILL.md'), 'utf8');
+    expect(skill).toContain('theme-scan.mjs');
+    expect(skill).toContain('apply-theme.mjs');
+    expect(skill).toContain('.docsolace/app-theme.json');
+    for (const f of ['theme-scan.mjs', 'apply-theme.mjs', 'lib/app-theme.mjs']) {
+      expect(fs.existsSync(path.join(pluginRoot, 'scripts', f))).toBe(true);
+    }
+  });
+});
