@@ -312,6 +312,22 @@ read from the page is re-parsed into hex colors, plain font names and a small
 px radius before it reaches CSS. A project's own design skill, when it has
 one, takes precedence; `--no-style` skips both.
 
+It also handles the cases a single read would miss:
+
+- **Dark themes.** The page is read under light and dark color schemes. An app
+  with its own dark theme gets it in the docs' dark mode and the docs follow
+  the visitor's setting; a dark-only app opens the docs dark; a light-only app
+  still gets its accent re-contrasted for the docs' dark mode.
+- **Favicon and logo.** Fetched into `.docsolace/app-assets/` (same origin as
+  your app, no redirects, 512 KB cap, image type checked by content, SVG only if
+  it has no script, event handlers or external references) and wired into the
+  site config. Anything refused is listed with the reason.
+- **App not running.** `theme-scan.mjs` falls back to the colors and fonts in
+  your project's own CSS and says the result is lower confidence (it can't see
+  per-control corner radius or fetch assets that way).
+- **A setting it can't find** in `site/docusaurus.config.js` (`favicon`,
+  `navbar`, `colorMode`) is reported with what to set by hand, never guessed.
+
 ## Mapping a whole app automatically
 
 `/docsolace:document map` discovers what to document instead of you naming

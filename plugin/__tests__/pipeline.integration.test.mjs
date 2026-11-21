@@ -206,8 +206,44 @@ describe('apply-theme', () => {
     const css = fs.readFileSync(path.join(cwd, 'site/src/css/custom.css'), 'utf8');
     expect(css).toContain('--keep: 1;');
     expect(css).toContain('--ifm-color-primary: #2563eb;');
-    expect(run(cwd).stdout).toContain('already matches');
+    expect(run(cwd).stdout).toContain('already up to date');
     expect(fs.readFileSync(path.join(cwd, 'site/src/css/custom.css'), 'utf8')).toBe(css);
+  });
+
+  it('copies the favicon and logo, wires them into the site config, and follows a dark app', () => {
+    const cwd = setup({
+      colors: { primary: '#60a5fa', background: '#0b1020', text: '#e5e7eb' },
+      assets: { favicon: 'app-favicon.png', logo: { file: 'app-logo.svg', alt: 'Acme' } },
+    });
+    fs.mkdirSync(path.join(cwd, '.docsolace/app-assets'));
+    fs.writeFileSync(path.join(cwd, '.docsolace/app-assets/app-favicon.png'), 'png-bytes');
+    fs.writeFileSync(path.join(cwd, '.docsolace/app-assets/app-logo.svg'), '<svg xmlns="x"/>');
+    const configPath = path.join(cwd, 'site/docusaurus.config.js');
+    fs.writeFileSync(
+      configPath,
+      "export default {\n  favicon: 'img/favicon.ico',\n  themeConfig: {\n    colorMode: {\n      respectPrefersColorScheme: true,\n    },\n    navbar: {\n      title: 'Docs',\n    },\n  },\n};\n",
+    );
+    const out = run(cwd).stdout;
+    expect(out).toContain('favicon set');
+    expect(out).toContain('navbar logo set');
+    expect(out).toContain('color mode set');
+    const config = fs.readFileSync(configPath, 'utf8');
+    expect(config).toContain("favicon: 'img/app-favicon.png'");
+    expect(config).toContain("logo: { alt: 'Acme', src: 'img/app-logo.svg' }");
+    expect(config).toContain("defaultMode: 'dark'");
+    expect(config).toContain('respectPrefersColorScheme: false');
+    expect(fs.readFileSync(path.join(cwd, 'site/static/img/app-favicon.png'), 'utf8')).toBe('png-bytes');
+    // second run changes nothing
+    run(cwd);
+    expect(fs.readFileSync(configPath, 'utf8')).toBe(config);
+  });
+
+  it('says what to set by hand when the config has no recognizable setting', () => {
+    const cwd = setup({ colors: { primary: '#2563eb' }, assets: { favicon: 'app-favicon.png' } });
+    fs.mkdirSync(path.join(cwd, '.docsolace/app-assets'));
+    fs.writeFileSync(path.join(cwd, '.docsolace/app-assets/app-favicon.png'), 'x');
+    fs.writeFileSync(path.join(cwd, 'site/docusaurus.config.js'), 'module.exports = {};\n');
+    expect(run(cwd).stdout).toContain('NOT set automatically');
   });
 
   it('never emits a hand-edited hostile theme file', () => {
