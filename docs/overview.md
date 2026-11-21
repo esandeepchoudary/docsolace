@@ -3,32 +3,42 @@ sidebar_position: 1
 sidebar_label: "Overview"
 title: "Overview"
 description: "DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown…"
-last_verified: "2026-11-21 (339898a)"
+last_verified: "2026-11-21 (0cc9a45)"
 ---
 
 # Overview
 
 ## What it is
 
-DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown documentation from what it actually saw. Each screenshot is paired with an accessibility snapshot, and the prose is written only from that snapshot, so nothing that is absent from it gets described.
+DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown from what it captured. Each screenshot is paired with an accessibility snapshot, and the prose describes only what appears in that snapshot.
 
-The pipeline only regenerates what changed. A drift check compares screenshots and the source files a tour lists in `code_paths` against the last run, and skips tours that are unchanged.
+The generated Markdown lands in `docs/`, where it can be read as-is or published through a bundled Docusaurus site scaffold, which includes search. The plugin repository is also a Claude Code plugin marketplace containing this one plugin.
 
 ## Who it's for
 
-Solo developers documenting their own projects. The README describes it as screenshot-driven and docs-as-code, built for solo developers.
+The README describes it as built for solo developers who document their own projects. The normal workflow is one person running `/docsolace:document` when a feature is worth documenting. CI exists but is parked on manual dispatch.
 
 ## What it does
 
-Playwright follows a YAML "tour" against the real running app, with no fixtures or mockups. Captures are taken at every configured viewport (desktop and mobile by default). Text inside `<!-- docsolace:keep -->` blocks survives every regeneration. The Markdown lands in `docs/`, and a bundled Docusaurus scaffold can serve it as a site with search.
+A tour is a YAML file describing pages to visit, what to click, and where to take screenshots. DocSolace runs it against the real app at every configured viewport (desktop and mobile by default). No fixtures or mockups are involved.
 
-A run ends with an opened docs pull request for review. DocSolace never merges it.
+A drift check compares screenshots, accessibility snapshots, and the current contents of each tour's source `code_paths` against the last run, so unchanged tours are skipped. Pixel changes under `pixelDiffThreshold` are treated as rendering noise. Text inside `<!-- docsolace:keep -->` blocks survives every regeneration.
 
-Besides tutorial pages for individual features, it can write up to seven product-level pages (overview, getting started, concepts, configuration, troubleshooting, changelog, decisions) grounded only in repository files, never in the running app.
+Each run ends with a docs pull request for review. It never merges. Only `docs/` and `tours/*.yaml` are staged, and the commit goes onto the current `feat/*` or `fix/*` branch, otherwise onto a new `docs/<slug>` branch, never straight to `main`.
 
-Three subagents do the language-model work: `doc-scribe` (one short paragraph per screenshot, Haiku), `product-scribe` (product pages, Sonnet) and `tour-scout` (explores the running app and drafts a tour, Sonnet). Capture, drift checking, assembly and verification are plain Node scripts.
+Besides tour pages, it can write product-level pages (overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) grounded only in repository files and the tour inventory, never the running app.
 
-This project currently documents three tours: Dashboard overview (what the main dashboard displays and how to read it), Export dashboard activity (exporting the current activity table as a CSV), and Login page (what a signed-out user sees before authenticating).
+## Models used
+
+Three subagents do the language-model work: `doc-scribe` (one short paragraph per screenshot, Haiku), `product-scribe` (product pages from repo files, Sonnet), and `tour-scout` (explores the running app and drafts a tour, Sonnet). Capture, drift checking, assembly, and verification are plain Node scripts and use no tokens.
+
+## Tutorials in this project
+
+The project's own confirmed tours are: Login page (what a signed-out user sees before authenticating), Dashboard overview (what the main dashboard displays and how to read it), and Export dashboard activity (how to export the current activity table as a CSV).
+
+## License
+
+The README and `package.json` state the license as ISC.
 
 ## Tutorials
 

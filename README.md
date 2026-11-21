@@ -50,9 +50,12 @@ Each run ends with an opened docs PR for you to review. It never merges.
 - **Drives your real app** — Playwright follows a YAML "tour" against the
   running app. No fixtures or mockups.
 - **Grounds prose in what's on screen** — each screenshot is paired with an
-  accessibility snapshot; nothing absent from it gets described.
-- **Skips what hasn't changed** — a drift check compares screenshots and
-  source `code_paths` against the last run.
+  accessibility snapshot; nothing absent from it gets described. Anything
+  you mask in a screenshot is redacted from the snapshot text too.
+- **Skips what hasn't changed** — a drift check compares screenshots,
+  accessibility snapshots and the current contents of source `code_paths`
+  against the last run. Pixel changes under `pixelDiffThreshold` (rendering
+  noise) don't count.
 - **Keeps your edits** — text inside `<!-- docsolace:keep -->` blocks
   survives every regeneration.
 - **Publishes a docs site** — a bundled [Docusaurus](https://docusaurus.io/)
@@ -119,7 +122,11 @@ The maintenance modes (`map`, `prune`, `product`, `validate`, `status`,
 `init-site`, and explicit `propose <slug> "<description>"`) are in
 ["All commands"](./ADVANCED.md#all-document-commands). Add `--review` to any
 mode to stop and ask at each step instead of running autonomously, or
-`--no-style` to skip design-skill detection.
+`--no-style` to skip design-skill detection. `map` also reads an
+OpenAPI/Swagger spec, if the project has one, as hints for features to look
+for. A tour step can assert where it is (`expectUrl`), so an expired login
+fails the run instead of screenshotting a login page — see
+[CONFIGURATION.md](./CONFIGURATION.md).
 
 A run stops and asks only at a few hard stops: the feature couldn't be
 grounded in the app, a voice flow (always reported unverified), a `validate`
@@ -163,8 +170,8 @@ surfaces reasoning a human wrote in an ADR. Details: [CONFIGURATION.md](./CONFIG
    where to screenshot. DocSolace drives a headless browser through it at
    every configured viewport (desktop and mobile by default), saving an
    accessibility snapshot with each screenshot.
-2. **Drift check** — if a tour's screenshots and source code are unchanged,
-   skip it. This keeps the expensive step cheap.
+2. **Drift check** — if a tour's screenshots, accessibility snapshots and
+   source code are unchanged, skip it. This keeps the expensive step cheap.
 3. **Generate** — for changed tours, a subagent writes prose from the
    accessibility snapshot only. Your `<!-- docsolace:keep -->` regions are
    preserved.

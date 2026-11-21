@@ -2,43 +2,47 @@
 sidebar_position: 3
 sidebar_label: "Concepts"
 title: "Concepts"
-description: "A tour is a YAML file under tours/ that describes one feature walk: the pages to visit, what to click, and where to take screenshots. It has an id, a title, an…"
-last_verified: "2026-11-21 (339898a)"
+description: "A tour is a YAML file under tours/ describing one feature walk: an id, title, intent, a list of steps, and optional code_paths. A step is either an action…"
+last_verified: "2026-11-21 (0cc9a45)"
 ---
 
 # Concepts
 
 ## Tour
 
-A tour is a YAML file under `tours/` that describes one feature walk: the pages to visit, what to click, and where to take screenshots. It has an `id`, a `title`, an `intent`, `steps`, and `code_paths` (source files that, if they change, mark the tour as dirty). Each step is an action (`goto`, `click`, `fill`, `type`, `select`, `check`, `press`, `hover`, `upload`, `wait`) or a capture, which takes a screenshot and an accessibility snapshot at that point.
+A tour is a YAML file under `tours/` describing one feature walk: an `id`, `title`, `intent`, a list of `steps`, and optional `code_paths`. A step is either an action (`goto`, `click`, `fill`, `type`, `select`, `check`, `press`, `hover`, `upload`, `wait`) or a `capture` that takes a screenshot plus an accessibility snapshot. Role-based selectors such as `role=button[name='...']` are preferred over CSS.
 
-Two optional top-level fields, `prerequisites` and `see_also`, list other tour ids and render as "Before you start" and "See also" link lists on the generated page. A capture step can also take a `highlight` locator that outlines an element in the screenshot.
+## Maturity and status
 
-This project's tours are `login`, `dashboard-overview` and `dashboard-export`.
+`maturity: draft` marks a tour that is still changing and is skipped until flipped. `status` is `confirmed` (ready to use), `proposed` (drafted but not yet reviewed), or `archived` (the feature looks removed). Archived tours are skipped by capture, drift, generate, and validate, and their pages move under `docs/archive/` rather than being deleted.
 
-## Tour status and maturity
+## Capture and viewports
 
-A tour's `maturity` can be `stable` or `draft` (still churning, skipped until flipped). Its `status` can be `confirmed` (ready to use), `proposed` (drafted but not yet reviewed), or `archived` (the feature looks removed).
-
-## Capture, viewports and masking
-
-Every capture is shot once at each entry in the `viewports` map of `docsolace.config.yaml`. Volatile regions such as timestamps and avatars are masked, either through `defaultMask` in the config (applies to every tour) or a tour's own `mask` list, so they do not cause false "changed" results. Selectors should prefer role-based locators such as `role=button[name='...']` over CSS.
+Every capture is taken once per entry in the `viewports` map of `docsolace.config.yaml`, in the same page and session. Volatile regions such as timestamps and avatars are masked, through `defaultMask` or a capture's own `mask` list, so they do not cause false changes. An optional `highlight` on a capture outlines an element in the screenshot.
 
 ## Drift check
 
-The drift check compares a tour's screenshots and `code_paths` source against the last run. If nothing changed, the tour is skipped. A recaptured screenshot only replaces the committed one when the fraction of changed pixels exceeds `pixelDiffThreshold`.
+The drift check decides whether a tour needs regenerating by comparing screenshots, accessibility snapshots, and the contents of its `code_paths` against the last run. Pixel changes below `pixelDiffThreshold` do not count; an accessibility-snapshot change does.
 
-## Keep regions
+## Keep region
 
-Text placed between `<!-- docsolace:keep -->` markers in a generated page is human-owned and survives every regeneration.
+Content between `<!-- docsolace:keep -->` and `<!-- /docsolace:keep -->` in a generated page is human-owned and survives regeneration. If a page is edited outside that region, generation refuses to overwrite it silently.
 
-## Auth profiles and seeds
+## Auth profile
 
-An auth profile in `docsolace.config.yaml` tells the capture how to sign in, and tours reference it through `preconditions.auth`. A seed is a named fixture referenced through `preconditions.seed`. A seed may declare a `command`, but it only runs when `allowSeedCommands` is true.
+An auth profile, defined under `auth` in `docsolace.config.yaml` and referenced by a tour's `preconditions.auth`, lets captures run signed in. A scripted profile uses a login URL, selectors, and environment variables for credentials. A profile with `storageStatePath` instead reuses a pre-recorded session, which supports OAuth, SSO, magic links, and 2FA.
+
+## Seed
+
+A seed is a named fixture under the `seeds` map, referenced by a tour's `preconditions.seed`, so a data-dependent flow captures against the same data each run. A seed may declare a `command`, but it only runs when `allowSeedCommands` is true.
+
+## Cross-links
+
+A tour may list other tour ids under `prerequisites` and `see_also`. These render as "Before you start" and "See also" link lists on the generated page, using the target tour's title.
 
 ## Product pages
 
-Product pages are the repository-level pages (`overview`, `getting-started`, `concepts`, `configuration`, `troubleshooting`, `changelog`, `decisions`) written by `product-scribe`. They are grounded in `README.md`, `package.json`, `.env.example`, `docsolace.config.yaml`, `CHANGELOG.md`, any `docs/adr/*.md`, extra `product.sources` globs and the tour inventory. A page with nothing to ground it is skipped and reported. The `decisions` page only surfaces reasoning a human wrote down in an ADR.
+Product pages describe the product rather than one UI flow. They are written by the `product-scribe` subagent from repository files and the tour inventory, and a page with nothing to ground it is skipped.
 
 <!-- docsolace:keep -->
 <!-- Notes added here are preserved across regeneration. -->
