@@ -3,42 +3,34 @@ sidebar_position: 1
 sidebar_label: "Overview"
 title: "Overview"
 description: "DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown…"
-last_verified: "2026-11-21 (0cc9a45)"
+last_verified: "2026-11-21 (799ed0b)"
 ---
 
 # Overview
 
 ## What it is
 
-DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown from what it captured. Each screenshot is paired with an accessibility snapshot, and the prose describes only what appears in that snapshot.
+DocSolace is a Claude Code plugin that drives a running web app in a headless browser with Playwright, takes screenshots, and writes tutorial-style Markdown documentation from what it captured. Each screenshot is paired with an accessibility snapshot, and the prose describes only what appears in that snapshot.
 
-The generated Markdown lands in `docs/`, where it can be read as-is or published through a bundled Docusaurus site scaffold, which includes search. The plugin repository is also a Claude Code plugin marketplace containing this one plugin.
+The generated Markdown lands in `docs/`. It can be read as-is or served through a bundled Docusaurus site scaffold.
 
 ## Who it's for
 
-The README describes it as built for solo developers who document their own projects. The normal workflow is one person running `/docsolace:document` when a feature is worth documenting. CI exists but is parked on manual dispatch.
+The README describes it as built for solo developers who document their own projects. The main workflow is one person running `/docsolace:document` when a feature is worth documenting. The README says each run ends with an opened docs PR for review, and that DocSolace never merges it.
 
 ## What it does
 
-A tour is a YAML file describing pages to visit, what to click, and where to take screenshots. DocSolace runs it against the real app at every configured viewport (desktop and mobile by default). No fixtures or mockups are involved.
+A tour is a YAML file describing the pages to visit, what to click, and where to take screenshots. DocSolace follows it against the running app at every configured viewport (desktop and mobile by default).
 
-A drift check compares screenshots, accessibility snapshots, and the current contents of each tour's source `code_paths` against the last run, so unchanged tours are skipped. Pixel changes under `pixelDiffThreshold` are treated as rendering noise. Text inside `<!-- docsolace:keep -->` blocks survives every regeneration.
+A drift check compares screenshots, accessibility snapshots and the contents of a tour's source `code_paths` against the last run. Unchanged tours are skipped, and pixel changes under `pixelDiffThreshold` are ignored. Text inside `<!-- docsolace:keep -->` blocks survives every regeneration.
 
-Each run ends with a docs pull request for review. It never merges. Only `docs/` and `tours/*.yaml` are staged, and the commit goes onto the current `feat/*` or `fix/*` branch, otherwise onto a new `docs/<slug>` branch, never straight to `main`.
+Beyond tour pages, DocSolace can write product-level pages (overview, getting started, concepts, configuration, troubleshooting, changelog, decisions). These are grounded in repository files rather than the running app, and a page with nothing to ground it is skipped.
 
-Besides tour pages, it can write product-level pages (overview, getting-started, concepts, configuration, troubleshooting, changelog, decisions) grounded only in repository files and the tour inventory, never the running app.
+The confirmed tutorials in this project are "Dashboard overview" (what the main dashboard displays and how to read it), "Export dashboard activity" (exporting the current activity table as a CSV), and "Login page" (what a signed-out user sees before authenticating).
 
-## Models used
+## Which models it uses
 
-Three subagents do the language-model work: `doc-scribe` (one short paragraph per screenshot, Haiku), `product-scribe` (product pages from repo files, Sonnet), and `tour-scout` (explores the running app and drafts a tour, Sonnet). Capture, drift checking, assembly, and verification are plain Node scripts and use no tokens.
-
-## Tutorials in this project
-
-The project's own confirmed tours are: Login page (what a signed-out user sees before authenticating), Dashboard overview (what the main dashboard displays and how to read it), and Export dashboard activity (how to export the current activity table as a CSV).
-
-## License
-
-The README and `package.json` state the license as ISC.
+Three subagents do the LLM work, and the rest (capture, drift check, assembly, verification) is plain Node. `doc-scribe` writes one short paragraph per screenshot and uses Haiku. `product-scribe` writes the product pages and uses Sonnet. `tour-scout` explores the running app to draft a tour and uses Sonnet. Each model is set by the `model:` line in that agent's file under `plugin/agents/`.
 
 ## Tutorials
 
